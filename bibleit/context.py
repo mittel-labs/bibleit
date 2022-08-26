@@ -6,6 +6,7 @@ from bibleit import config
 class Context:
   def __init__(self, context=config.context_ps1) -> None:
      self._context = context
+     self.bible = config.default_bible
   
   def __repr__(self):
     return f"{self._context} "

@@ -2,6 +2,7 @@ import sys
 
 from bibleit import config as _config
 from bibleit import command as _command
+from bibleit import read as _read
 
 def hello(ctx, *args):
     """Hello command."""
@@ -40,6 +41,26 @@ def help(ctx, *args):
 def set(ctx, *args):
     """Configure a sub-command with a new value."""
     return _command.eval(ctx, *args, module="set")
+
+def search(ctx, *args):
+    """Search chapters and verses."""
+    match args:
+        case [book]:
+            return _read.book(ctx, book)
+        case [book, value]:
+            chapter, *verse = value.split(":")
+
+            match verse:
+                case []:
+                    return _read.chapter(ctx, book, chapter)
+                case [value]:
+                    return _read.verse(ctx, book, chapter, value)
+                case _:
+                    print("Error: verse should be single value")
+        case [book, chapter, verse]:
+            return _read.verse(ctx, book, chapter, verse)
+        case _:
+            print("Error: you should use search <chapter> [<verse>]")
 
 def exit(ctx, *args):
     """Exits application."""

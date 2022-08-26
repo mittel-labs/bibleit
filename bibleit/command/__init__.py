@@ -7,8 +7,8 @@ from importlib import import_module
 _prefix = "bibleit.command"
 _default_module = "core"
 
-def _list_methods(module):
-    return {name for name in dir(module) if not name.startswith("_")}
+def eval_methods(module):
+    return {name for name in dir(module) if not name.startswith("_") if name not in sys.builtin_module_names}
 
 def eval_module(name):
     target = f"{_prefix}.{name}"
@@ -29,7 +29,7 @@ def eval(ctx, *line, module=None):
         module = _default_module
     try:
         ctx.module = eval_module(module)
-        ctx.methods = sorted(_list_methods(ctx.module) - _list_methods(sys.builtin_module_names))
+        ctx.methods = eval_methods(ctx.module)
 
         name, *args = line
         target = f"{'{} '.format(module) if module != _default_module else ''}{name}{' {}'.format(' '.join(args)) if args else ''}"

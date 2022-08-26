@@ -29,16 +29,13 @@ def help(ctx, *args):
             case _:
                 print("Error: You must use help for command and one sub-command only.\n\nhelp <command> [<sub-command>]\n")
     else:
-        methods = [getattr(ctx.module, name) for name in ctx.methods]
+        methods = sorted(
+            f"{method.__name__:<20} {method.__doc__}" 
+            for method in [getattr(ctx.module, name) for name in ctx.methods]
+        )
 
-        print()
-        print(f"{_config.application} v{_config.version}")
-        print()
-
-        for method in methods:
-            print(f"{method.__name__:<20} {method.__doc__}")
-        
-        print()
+        print(f"\n{_config.application} v{_config.version}", end="\n\n")
+        print("\n".join(methods), end="\n\n")
 
 def set(ctx, *args):
     """Configure a sub-command with a new value."""

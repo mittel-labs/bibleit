@@ -1,4 +1,5 @@
 import readline
+import sys
 
 from bibleit import command
 from bibleit.context import Context
@@ -11,6 +12,9 @@ _ctx = Context()
 print(config.welcome)
 
 while True:
-  if line := input(_ctx).strip():
-    if result := command.eval(_ctx, *line.split()):
-      print(result)
+  try:
+    if line := input(_ctx).strip():
+      if result := command.eval(_ctx, *line.split()):
+        print(result)
+  except EOFError:
+    sys.exit(0)

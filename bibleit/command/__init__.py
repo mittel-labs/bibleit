@@ -7,6 +7,9 @@ from importlib import import_module
 _prefix = "bibleit.command"
 _default_module = "core"
 
+def _list_methods(module):
+    return {name for name in dir(module) if not name.startswith("_")}
+
 def eval_module(name):
     target = f"{_prefix}.{name}"
     
@@ -26,7 +29,7 @@ def eval(ctx, *line, module=None):
         module = _default_module
     try:
         ctx.module = eval_module(module)
-        ctx.methods = sorted({name for name in dir(ctx.module) if not name.startswith("_")} - set(sys.builtin_module_names))
+        ctx.methods = sorted(_list_methods(ctx.module) - _list_methods(sys.builtin_module_names))
 
         name, *args = line
         target = f"{'{} '.format(module) if module != _default_module else ''}{name}{' {}'.format(' '.join(args)) if args else ''}"
@@ -35,10 +38,7 @@ def eval(ctx, *line, module=None):
             return fn(ctx, *args)        
     except AssertionError as e:
         print(f"Error: {e}")
-    except AttributeError as e:
-        print(f"Error: command '{target}' not found")
     except Exception as e:
-        print(f"Error: one or more arguments are missing for {target} {'(cause: {})'.format(e) if config.debug else ''}\n")
         core.help(ctx, name)
     else:
         print(f"Error: command '{target}' not found")

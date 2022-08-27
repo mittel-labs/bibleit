@@ -39,6 +39,9 @@ def eval(ctx, *line, module=None):
     except AssertionError as e:
         print(f"Error: {e}")
     except Exception as e:
-        core.help(ctx, name)
+        if module != _default_module:
+            core.help(ctx, *[module, *line])
+        else:
+            core.help(ctx, name)
     else:
         print(f"Error: command '{target}' not found")

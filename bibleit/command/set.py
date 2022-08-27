@@ -1,8 +1,3 @@
-"""Set a context value for a sub-command
-
- set <sub-command> <value> (e.g set debug true)
-"""
-
 from bibleit import config as _config
 from os.path import exists as _file_exists
 

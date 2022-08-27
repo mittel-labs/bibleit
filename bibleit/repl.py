@@ -14,7 +14,7 @@ print(config.welcome)
 while True:
   try:
     if line := input(_ctx).strip():
-      if result := command.eval(_ctx, *line.split()):
+      if (result := command.eval(_ctx, *line.split())) is not None:
         print(result)
   except EOFError:
     sys.exit(0)

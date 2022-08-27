@@ -4,13 +4,6 @@ from bibleit import config as _config
 from bibleit import command as _command
 from bibleit import read as _read
 
-def hello(ctx, *args):
-    """Hello command."""
-    return f"hello from command: {args}"
-
-def version(ctx, *args):
-    """Prints application version."""
-    return _config.version
 
 def help(ctx, *args):
     """Prints this help."""
@@ -19,31 +12,45 @@ def help(ctx, *args):
             case ["help", *sub_command]:
                 print(_config.help)
             case [name]:
-                module = _command.eval_module(name)
-                if target := module.__doc__:
+                assert name not in sys.builtin_module_names and hasattr(sys.modules[__name__], name), f"command '{name}' not found"
+                if target := getattr(sys.modules[__name__], name).__doc__:
                     print(target)
-                elif target := getattr(module, name):
-                    print(target.__doc__)
             case [name, sub_command]:
                 module = _command.eval_module(name)
                 print(getattr(module, sub_command).__doc__)
             case _:
-                print("Error: You must use help for command and one sub-command only.\n\nhelp <command> [<sub-command>]\n")
+                print("Error: You must use help for command and one sub-command only.\n\nhelp <command> [<sub-command>]")
     else:
         methods = sorted(
-            f"{method.__name__:<20} {method.__doc__}" 
+            f"{method.__name__:<20} {method.__doc__.splitlines()[0]}" 
             for method in [getattr(ctx.module, name) for name in ctx.methods]
         )
 
         print(f"\n{_config.application} v{_config.version}", end="\n\n")
         print("\n".join(methods), end="\n\n")
 
+
 def set(ctx, *args):
-    """Configure a sub-command with a new value."""
+    """Configure a sub-command with a new value.
+
+    set <config> <value>
+
+    Examples:
+        set bible kjv 
+"""
     return _command.eval(ctx, *args, module="set")
 
-def search(ctx, *args):
-    """Search chapters and verses."""
+
+def ref(ctx, *args):
+    """Search a reference by chapters and verses.
+
+    ref <chapter> <verse>
+
+    Examples:
+        ref john 8:32
+        ref Gen 1
+        ref PSalm 23
+"""
     match args:
         case [book]:
             return _read.book(ctx, book)
@@ -61,6 +68,37 @@ def search(ctx, *args):
             return _read.verse(ctx, book, chapter, verse)
         case _:
             print("Error: you should use search <chapter> [<verse>]")
+
+
+def search(ctx, *args):
+    """Search one or more words.
+
+    search <word [word2 [...]]>
+
+    Examples:
+        search Jesus
+        search Lord
+        search bread of life
+"""
+    target = " ".join(args)
+    assert target, "You should use search <word>"
+    return _read.search(ctx, target)
+
+
+def count(ctx, *args):
+    """Count how much words.
+
+    count <word [word2 [...]]>
+
+    Examples:
+        count Jesus
+        count Lord
+        count bread of life
+"""
+    target = " ".join(args)
+    assert target, "you should use count <word>"
+    return _read.count(ctx, target)
+
 
 def exit(ctx, *args):
     """Exits application."""

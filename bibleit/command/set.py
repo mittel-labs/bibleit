@@ -1,6 +1,7 @@
 from bibleit import config as _config
 from os.path import exists as _file_exists
 
+
 def debug(ctx, value):
     """Configure debug config
 
@@ -9,6 +10,7 @@ def debug(ctx, value):
     if target := value.lower():
         assert target in ["true", "false"], "value must be a boolean value (set debug <true|false>)"
         _config.debug = target == "true"
+
 
 def bible(ctx, value):
     """Configure bible translation

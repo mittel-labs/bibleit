@@ -5,6 +5,7 @@ from bibleit import command
 from bibleit.context import Context
 from bibleit import config
 
+
 readline.set_history_length(config.history_length)
 
 _ctx = Context()

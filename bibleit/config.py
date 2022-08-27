@@ -17,7 +17,6 @@ translation_dir = "translations"
 available_bible = [f"{parent.replace('{}'.format(translation_dir), '')}/{f[0]}"[1:] for parent, _, f in _walk(translation_dir)]
 default_bible = "nvi/pt"
 
-
 # Repl
 history_length = 1000
 context_ps1=">"

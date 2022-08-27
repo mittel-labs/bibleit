@@ -2,6 +2,7 @@ import re
 
 from bibleit import config as _config
 
+
 def book(ctx, name):
     with open(f"{_config.translation_dir}/{ctx.bible}") as bible:
         return "\n".join(line for line in bible if re.search(f"^{name}", line, re.IGNORECASE)).rstrip()

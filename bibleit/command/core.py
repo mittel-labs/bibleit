@@ -44,30 +44,28 @@ def set(ctx, *args):
 def ref(ctx, *args):
     """Search a reference by chapters and verses.
 
-    ref <chapter> <verse>
+    ref <book> [<chapter> [<verse>]]
 
     Examples:
         ref john 8:32
         ref Gen 1
         ref PSalm 23
 """
+    assert args, "you should use ref <chapter> [<verse>]"
+    result = None
     match args:
         case [book]:
-            return _read.book(ctx, book)
+            result = _read.book(ctx, book)
         case [book, value]:
-            chapter, *verse = value.split(":")
-
-            match verse:
-                case []:
-                    return _read.chapter(ctx, book, chapter)
-                case [value]:
-                    return _read.verse(ctx, book, chapter, value)
-                case _:
-                    print("Error: verse should be single value")
+            match value.split(":"):
+                case [chapter]:
+                    result = _read.chapter(ctx, book, int(chapter))
+                case [chapter, verse]:
+                    result = _read.verse(ctx, book, int(chapter), int(verse))
         case [book, chapter, verse]:
-            return _read.verse(ctx, book, chapter, verse)
-        case _:
-            print("Error: you should use search <chapter> [<verse>]")
+            result = _read.verse(ctx, book, chapter, verse)
+    
+    return result if result else f"Reference '{' '.join(args)}' not found"
 
 
 def search(ctx, *args):
@@ -98,6 +96,11 @@ def count(ctx, *args):
     target = " ".join(args)
     assert target, "you should use count <word>"
     return _read.count(ctx, target)
+
+
+def versions(ctx, *args):
+    """List available Bible versions"""
+    return "\n{}\n".format("\n".join(_config.available_bible).replace(ctx.bible, f"{ctx.bible} *"))
 
 
 def exit(ctx, *args):

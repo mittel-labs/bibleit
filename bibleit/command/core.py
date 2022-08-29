@@ -44,14 +44,14 @@ def set(ctx, *args):
 def ref(ctx, *args):
     """Search a reference by chapters and verses.
 
-    ref <book> [<chapter> [<verse>]]
+    ref <book> [<chapter>[:<verse>]]
 
     Examples:
         ref john 8:32
         ref Gen 1
         ref PSalm 23
 """
-    assert args, "you should use ref <chapter> [<verse>]"
+    assert args, "you should use ref <book> [<chapter>[:<verse>]]"
     result = None
     match args:
         case [book]:

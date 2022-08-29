@@ -1,2 +1,2 @@
 run:
-	@python -m bibleit.repl
+	@python -m bibleit

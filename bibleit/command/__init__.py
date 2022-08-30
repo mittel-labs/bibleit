@@ -7,12 +7,19 @@ from importlib import import_module
 _prefix = "bibleit.command"
 _default_module = "core"
 
+
 def eval_methods(module):
-    return {name for name in dir(module) if not name.startswith("_") if name not in sys.builtin_module_names}
+    return {
+        name
+        for name in dir(module)
+        if not name.startswith("_")
+        if name not in sys.builtin_module_names
+    }
+
 
 def eval_module(name):
     target = f"{_prefix}.{name}"
-    
+
     try:
         if target not in sys.modules:
             return import_module(target)
@@ -35,7 +42,7 @@ def eval(ctx, *line, module=None):
         target = f"{'{} '.format(module) if module != _default_module else ''}{name}{' {}'.format(' '.join(args)) if args else ''}"
         if name in ctx.methods:
             fn = getattr(ctx.module, name)
-            return fn(ctx, *args)        
+            return fn(ctx, *args)
     except AssertionError as e:
         print(f"Error: {e}")
     except Exception as e:

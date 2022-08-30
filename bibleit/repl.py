@@ -16,14 +16,14 @@ print(config.welcome)
 
 
 def run():
-  while True:
-    try:
-      if line := input(_ctx).strip():
-        if (result := command.eval(_ctx, *line.split())) is not None:
-          print(result)
-    except EOFError:
-      sys.exit(0)
+    while True:
+        try:
+            if line := input(_ctx).strip():
+                if (result := command.eval(_ctx, *line.split())) is not None:
+                    print(result)
+        except EOFError:
+            sys.exit(0)
 
 
 if __name__ == "__main__":
-  run()
+    run()

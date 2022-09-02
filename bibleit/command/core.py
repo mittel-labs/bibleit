@@ -47,10 +47,10 @@ def set(ctx, *args):
 def ref(ctx, *args):
     """Search a reference by chapters and verses.
 
-    ref <book> [<chapter>[:<verse>]]
+    ref <book> [<chapter>[:<verse[-verse]>]]
 
     Examples:
-        ref john 8:32
+        ref john 8:31-32
         ref Gen 1
         ref PSalm 23"""
     assert args, "you should use ref <book> [<chapter>[:<verse>]]"
@@ -63,7 +63,11 @@ def ref(ctx, *args):
                 case [chapter]:
                     result = _read.chapter(ctx, book, int(chapter))
                 case [chapter, verse]:
-                    result = _read.verse(ctx, book, int(chapter), int(verse))
+                    match verse.split("-"):
+                        case [start]:
+                            result = _read.verse(ctx, book, int(chapter), int(start))
+                        case [start, end]:
+                            result = _read.verseSlice(ctx, book, int(chapter), int(start), int(end))
         case [book, chapter, verse]:
             result = _read.verse(ctx, book, chapter, verse)
 

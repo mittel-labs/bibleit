@@ -28,6 +28,17 @@ def verse(ctx, book, chapter, verse):
         ).rstrip()
 
 
+def verseSlice(ctx, book, chapter, start, end):
+    assert start < end, "Invalid verse slicing"
+    with open(f"{_config.translation_dir}/{ctx.bible}") as bible:
+        verses = "|".join(map(str, range(start, end + 1)))
+        return "\n".join(
+            line
+            for line in bible
+            if re.findall(rf"^{book}.* {chapter}:(?=({verses}))", line, re.IGNORECASE)
+        ).rstrip()
+
+
 def _filter(ctx, value):
     with open(f"{_config.translation_dir}/{ctx.bible}") as bible:
         return [line for line in bible if re.search(rf"\b{value}\b", line, re.IGNORECASE)]

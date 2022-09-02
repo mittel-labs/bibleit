@@ -6,7 +6,7 @@ from bibleit import config as _config
 def book(ctx, name):
     with open(f"{_config.translation_dir}/{ctx.bible}") as bible:
         return "\n".join(
-            line for line in bible if re.search(f"^{name}", line, re.IGNORECASE)
+            line for line in bible if re.search(rf"^{name}", line, re.IGNORECASE)
         ).rstrip()
 
 
@@ -15,7 +15,7 @@ def chapter(ctx, book, name):
         return "\n".join(
             line
             for line in bible
-            if re.search(f"^{book}.* {name}:", line, re.IGNORECASE)
+            if re.search(rf"^{book}.* {name}:", line, re.IGNORECASE)
         ).rstrip()
 
 
@@ -24,13 +24,13 @@ def verse(ctx, book, chapter, verse):
         return "\n".join(
             line
             for line in bible
-            if re.search(f"^{book}.* {chapter}:{verse} (.*)", line, re.IGNORECASE)
+            if re.search(rf"^{book}.* {chapter}:{verse} (.*)", line, re.IGNORECASE)
         ).rstrip()
 
 
 def _filter(ctx, value):
     with open(f"{_config.translation_dir}/{ctx.bible}") as bible:
-        return [line for line in bible if re.search(f"{value}", line, re.IGNORECASE)]
+        return [line for line in bible if re.search(rf"\b{value}\b", line, re.IGNORECASE)]
 
 
 def search(ctx, value):

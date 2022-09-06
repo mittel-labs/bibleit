@@ -39,8 +39,8 @@ def run():
 
     readline.set_completer(ac.complete)
     readline.set_history_length(config.history_length)
-    readline.set_completer_delims(' \t\n;')
-    readline.parse_and_bind('tab: complete')
+    readline.set_completer_delims(" \t\n;")
+    readline.parse_and_bind("tab: complete")
 
     while True:
         try:

@@ -88,7 +88,9 @@ def count(ctx, *args):
 def versions(ctx, *args):
     """List available Bible versions"""
     return "\n{}\n".format(
-        "\n".join(_config.available_bible).replace(ctx.bible.version, f"{ctx.bible.version} *")
+        "\n".join(_config.available_bible).replace(
+            ctx.bible.version, f"{ctx.bible.version} *"
+        )
     )
 
 

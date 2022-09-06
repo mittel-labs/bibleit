@@ -1,5 +1,5 @@
 from bibleit import config as _config
-from os.path import exists as _file_exists
+from bibleit.bible import Bible as _Bible
 
 
 def debug(ctx, value):
@@ -19,7 +19,4 @@ def bible(ctx, value):
 
     set bible <translation>"""
     if target := value.lower():
-        assert _file_exists(
-            f"{_config.translation_dir}/{target}"
-        ), f"bible translation '{target}' not found. (available: {_config.available_bible})"
-        ctx.bible = target
+        ctx.bible = _Bible(target)

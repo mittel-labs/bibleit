@@ -46,6 +46,8 @@ def eval(ctx, *line, module=None):
     except AssertionError as e:
         print(f"Error: {e}")
     except Exception as e:
+        if config.debug:
+            print("Debug:", e)
         if module != _default_module:
             core.help(ctx, *[module, *line])
         else:

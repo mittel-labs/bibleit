@@ -2,7 +2,6 @@ import sys
 
 from bibleit import config as _config
 from bibleit import command as _command
-from bibleit import read as _read
 
 
 def help(ctx, *args):
@@ -54,23 +53,7 @@ def ref(ctx, *args):
         ref Gen 1
         ref PSalm 23"""
     assert args, "you should use ref <book> [<chapter>[:<verse>]]"
-    result = None
-    match args:
-        case [book]:
-            result = _read.book(ctx, book)
-        case [book, value]:
-            match value.split(":"):
-                case [chapter]:
-                    result = _read.chapter(ctx, book, int(chapter))
-                case [chapter, verse]:
-                    match verse.split("-"):
-                        case [start]:
-                            result = _read.verse(ctx, book, int(chapter), int(start))
-                        case [start, end]:
-                            result = _read.verseSlice(ctx, book, int(chapter), int(start), int(end))
-        case [book, chapter, verse]:
-            result = _read.verse(ctx, book, chapter, verse)
-
+    result = ctx.bible.parse(args)
     return result if result else f"Reference '{' '.join(args)}' not found"
 
 
@@ -85,7 +68,7 @@ def search(ctx, *args):
         search bread of life"""
     target = " ".join(args)
     assert target, "You should use search <word>"
-    return _read.search(ctx, target)
+    return ctx.bible.search(target)
 
 
 def count(ctx, *args):
@@ -99,13 +82,13 @@ def count(ctx, *args):
         count bread of life"""
     target = " ".join(args)
     assert target, "you should use count <word>"
-    return _read.count(ctx, target)
+    return ctx.bible.count(target)
 
 
 def versions(ctx, *args):
     """List available Bible versions"""
     return "\n{}\n".format(
-        "\n".join(_config.available_bible).replace(ctx.bible, f"{ctx.bible} *")
+        "\n".join(_config.available_bible).replace(ctx.bible.version, f"{ctx.bible.version} *")
     )
 
 

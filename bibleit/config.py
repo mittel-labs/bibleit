@@ -14,8 +14,9 @@ welcome = f"""
 # Bible
 translation_dir = "translations"
 available_bible = [
-    f"{parent.replace('{}'.format(translation_dir), '')}/{f[0]}"[1:]
+    f"{parent.replace('{}'.format(translation_dir), '')}/{version}"[1:]
     for parent, _, f in _walk(translation_dir)
+    for version in f
 ]
 default_bible = "nvi/pt"
 

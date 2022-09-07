@@ -3,14 +3,15 @@ import signal
 
 from bibleit import config
 from bibleit.bible import Bible
+from operator import attrgetter
 
 
 class Context:
     def __init__(self):
-        self.bible = Bible(config.default_bible)
+        self.bible = [Bible(config.default_bible)]
 
     def __repr__(self):
-        return f"{self.bible}{config.context_ps1} "
+        return f"{','.join(map(str,self.bible))}{config.context_ps1} "
 
 
 def exit(signum, frame):

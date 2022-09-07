@@ -2,7 +2,7 @@ from locale import normalize
 import re
 
 from bibleit import config as _config
-from os.path import exists as _file_exists
+from pathlib import Path
 from operator import itemgetter as _item
 
 
@@ -68,49 +68,57 @@ _NORMALIZE = str.maketrans(_ACCENTS)
 class Bible:
     def __init__(self, version):
         self.version = version.lower()
-        target = f"{_config.translation_dir}/{self.version}"
-        assert _file_exists(
-            target,
+        target = Path(_config.translation_dir) / self.version
+        assert (
+            target.is_file()
         ), f"bible translation '{self.version}' not found. (available: {_config.available_bible})"
-        with open(f"{_config.translation_dir}/{self.version}") as f:
-            self.content = [(line, line.translate(_NORMALIZE)) for line in f]
+        with target.open() as f:
+            self.content = [
+                (line.strip(), line.translate(_NORMALIZE).strip()) for line in f
+            ]
 
     def __repr__(self):
         return self.version
 
+    def __hash__(self):
+        return hash(self.version)
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.version == other.version
+
     def book(self, name):
-        return "\n".join(
+        return [
             line
             for line, normalized in self.content
             if re.search(rf"^{name}", normalized, re.IGNORECASE)
-        ).rstrip()
+        ]
 
     def chapter(self, book, name):
-        return "\n".join(
+        return [
             line
             for line, normalized in self.content
             if re.search(rf"^{book}.* {name}:", normalized, re.IGNORECASE)
-        ).rstrip()
+        ]
 
     def verse(self, book, chapter, verse):
-        return "\n".join(
+        return [
             line
             for line, normalized in self.content
             if re.search(
                 rf"^{book}.* {chapter}:{verse} (.*)", normalized, re.IGNORECASE
             )
-        ).rstrip()
+        ]
 
     def verseSlice(self, book, chapter, start, end):
         assert start < end, "Invalid verse slicing"
         verses = "|".join(map(str, range(start, end + 1)))
-        return "\n".join(
+        return [
             line
             for line, normalized in self.content
             if re.findall(
                 rf"^{book}.* {chapter}:(?=({verses}))", normalized, re.IGNORECASE
             )
-        ).rstrip()
+        ]
 
     def _filter(self, value):
         return [
@@ -120,7 +128,7 @@ class Bible:
         ]
 
     def search(self, value):
-        return "\n".join(map(_item(0), self._filter(value))).rstrip()
+        return [line.strip() for line, _ in self._filter(value)]
 
     def count(self, value):
         if target := value.lower():

@@ -53,7 +53,9 @@ def ref(ctx, *args):
         ref Gen 1
         ref PSalm 23"""
     assert args, "you should use ref <book> [<chapter>[:<verse>]]"
-    result = ctx.bible.parse(args)
+
+    refs = [bible.parse(args) for bible in ctx.bible]
+    result = "\n\n".join("\n".join(verses) for verses in zip(*refs))
     return result if result else f"Reference '{' '.join(args)}' not found"
 
 
@@ -68,7 +70,9 @@ def search(ctx, *args):
         search bread of life"""
     target = " ".join(args)
     assert target, "You should use search <word>"
-    return ctx.bible.search(target)
+    refs = [bible.search(target) for bible in ctx.bible]
+    result = "\n\n".join("\n".join(verses) for verses in refs)
+    return result
 
 
 def count(ctx, *args):
@@ -82,16 +86,17 @@ def count(ctx, *args):
         count bread of life"""
     target = " ".join(args)
     assert target, "you should use count <word>"
-    return ctx.bible.count(target)
+    if refs := [(bible.version, str(bible.count(target))) for bible in ctx.bible]:
+        if len(refs) > 1:
+            return "\n".join("\t".join(ref) for ref in refs)
+        else:
+            return refs[0][1]
+    return None
 
 
 def versions(ctx, *args):
     """List available Bible versions"""
-    return "\n{}\n".format(
-        "\n".join(_config.available_bible).replace(
-            ctx.bible.version, f"{ctx.bible.version} *"
-        )
-    )
+    return "\n{}\n".format("\n".join(_config.available_bible))
 
 
 def exit(ctx, *args):

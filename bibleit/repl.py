@@ -1,17 +1,29 @@
 import readline
 import sys
+import atexit
 
 from bibleit import command
 from bibleit.context import Context
 from bibleit import config
 
+from pathlib import Path
+
 
 _ctx = Context()
+_histfile = Path.home() / ".bibleit_history"
 
 
 class AutoCompleter:
     def __init__(self):
         self.options = list(command.eval_methods(command.eval_module("core")))
+        _histfile.touch(exist_ok=True)
+        readline.read_history_file(_histfile)
+        atexit.register(self.save, readline.get_current_history_length())
+
+    def save(self, prev):
+        new = readline.get_current_history_length()
+        readline.set_history_length(1000)
+        readline.append_history_file(new - prev, str(_histfile))
 
     def complete(self, text, state):
         try:

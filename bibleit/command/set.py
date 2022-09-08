@@ -7,6 +7,7 @@ _FLAGS_ON = ["true", "on"]
 _FLAGS_OFF = ["false", "off"]
 _FLAGS = _FLAGS_ON + _FLAGS_OFF
 
+
 def _flag(value):
     if value := value.lower():
         assert value in _FLAGS, f"value must be a boolean value ({', '.join(_FLAGS)})"

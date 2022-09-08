@@ -2,6 +2,7 @@ from os import walk as _walk
 
 # General
 debug = False
+color = False
 application = "bibleit"
 version = "0.0.1"
 help = 'Type "help" for more information.'

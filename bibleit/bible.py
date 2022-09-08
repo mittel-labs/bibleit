@@ -3,7 +3,7 @@ import re
 
 from bibleit import config as _config
 from pathlib import Path
-from operator import itemgetter as _item
+from itertools import count as _count
 
 
 _ACCENTS = {
@@ -63,11 +63,23 @@ _ACCENTS = {
     "¹": "1",
 }
 _NORMALIZE = str.maketrans(_ACCENTS)
+_COLOR_END = "\x1b[0m"
+_COLOR_LEN = 255 // len(_config.available_bible)
 
 
-class Bible:
+class BibleMeta(type):
+    def __init__(cls, name, bases, attrs):
+        super().__init__(name, bases, attrs)
+        cls._ids = _count(1)
+
+
+class Bible(metaclass=BibleMeta):
     def __init__(self, version):
+        self.id = next(self.__class__._ids)
         self.version = version.lower()
+        self.color = "\x1b[48;2;{};{};{}m".format(
+            self.id + _COLOR_LEN, (self.id + 2) * _COLOR_LEN, (self.id + 3) * _COLOR_LEN
+        )
         target = Path(_config.translation_dir) / self.version
         assert (
             target.is_file()
@@ -78,7 +90,7 @@ class Bible:
             ]
 
     def __repr__(self):
-        return self.version
+        return self.colored(self.version)
 
     def __hash__(self):
         return hash(self.version)
@@ -86,23 +98,28 @@ class Bible:
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.version == other.version
 
+    def colored(self, value):
+        return (
+            "{}{}{}".format(self.color, value, _COLOR_END) if _config.color else value
+        )
+
     def book(self, name):
         return [
-            line
+            self.colored(line)
             for line, normalized in self.content
             if re.search(rf"^{name}", normalized, re.IGNORECASE)
         ]
 
     def chapter(self, book, name):
         return [
-            line
+            self.colored(line)
             for line, normalized in self.content
             if re.search(rf"^{book}.* {name}:", normalized, re.IGNORECASE)
         ]
 
     def verse(self, book, chapter, verse):
         return [
-            line
+            self.colored(line)
             for line, normalized in self.content
             if re.search(
                 rf"^{book}.* {chapter}:{verse} (.*)", normalized, re.IGNORECASE
@@ -113,7 +130,7 @@ class Bible:
         assert start < end, "Invalid verse slicing"
         verses = "|".join(map(str, range(start, end + 1)))
         return [
-            line
+            self.colored(line)
             for line, normalized in self.content
             if re.findall(
                 rf"^{book}.* {chapter}:(?=({verses}))", normalized, re.IGNORECASE
@@ -128,7 +145,7 @@ class Bible:
         ]
 
     def search(self, value):
-        return [line.strip() for line, _ in self._filter(value)]
+        return [self.colored(line.strip()) for line, _ in self._filter(value)]
 
     def count(self, value):
         if target := value.lower():

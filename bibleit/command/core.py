@@ -3,6 +3,8 @@ import sys
 from bibleit import config as _config
 from bibleit import command as _command
 
+from itertools import zip_longest as _zip
+
 
 def help(ctx, *args):
     """Prints this help."""
@@ -55,7 +57,9 @@ def ref(ctx, *args):
     assert args, "you should use ref <book> [<chapter>[:<verse>]]"
 
     refs = [bible.parse(args) for bible in ctx.bible]
-    result = "\n\n".join("\n".join(verses) for verses in zip(*refs))
+    result = "\n\n".join(
+        "\n".join(verses) for verses in _zip(*refs, fillvalue="Reference not found")
+    )
     return result if result else f"Reference '{' '.join(args)}' not found"
 
 

@@ -107,4 +107,5 @@ def versions(ctx, *args):
 
 def exit(ctx, *args):
     """Exits application."""
+    print("\nGoodbye.")
     sys.exit(0)

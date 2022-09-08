@@ -56,6 +56,8 @@ def run():
             if line := input(_ctx).strip():
                 if (result := command.eval(_ctx, *line.split())) is not None:
                     print(result)
+        except KeyboardInterrupt:
+            print("\n")
         except EOFError:
             sys.exit(0)
 

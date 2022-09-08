@@ -1,8 +1,5 @@
-from ast import main
-from asyncore import read
 import readline
 import sys
-from tkinter import mainloop
 
 from bibleit import command
 from bibleit.context import Context

@@ -126,17 +126,6 @@ class Bible(metaclass=BibleMeta):
             )
         ]
 
-    def verseSlice(self, book, chapter, start, end):
-        assert start < end, "Invalid verse slicing"
-        verses = "|".join(map(str, range(start, end + 1)))
-        return [
-            self.colored(line)
-            for line, normalized in self.content
-            if re.findall(
-                rf"^{book}.* {chapter}:(?=({verses}))", normalized, re.IGNORECASE
-            )
-        ]
-
     def _filter(self, value):
         return [
             (line, normalized)
@@ -165,15 +154,15 @@ class Bible(metaclass=BibleMeta):
                         return self.chapter(book, int(chapter))
                     case [chapter, verse]:
                         if verse.endswith("+"):
-                            verse = int(verse[:verse.index("+")]) - 1
+                            verse = int(verse[: verse.index("+")]) - 1
                             return self.chapter(book, int(chapter))[verse:]
                         match verse.split("-"):
                             case [start]:
                                 return self.verse(book, int(chapter), int(start))
                             case [start, end]:
-                                return self.verseSlice(
-                                    book, int(chapter), int(start), int(end)
-                                )
+                                return self.chapter(book, int(chapter))[
+                                    int(start) - 1 : int(end)
+                                ]
             case [book, chapter, verse]:
                 return self.verse(book, chapter, verse)
         return None

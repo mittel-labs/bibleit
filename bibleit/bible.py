@@ -65,7 +65,10 @@ _ACCENTS = {
 _NORMALIZE = str.maketrans(_ACCENTS)
 _COLOR_END = "\x1b[0m"
 _COLOR_LEN = 255 // len(_config.available_bible)
-_VERSE_POINTER = "^"
+_VERSE_SLICE_DELIMITER = ":"
+_VERSE_RANGE_DELIMITER = "-"
+_VERSE_CONTINUATION_DELIMITER = "+"
+_VERSE_POINTER_DELIMITER = "^"
 
 
 class BibleMeta(type):
@@ -135,8 +138,8 @@ class Bible(metaclass=BibleMeta):
         ]
 
     def _versePointer(self, value):
-        if _VERSE_POINTER in value:
-            return map(int, value.split(_VERSE_POINTER))
+        if _VERSE_POINTER_DELIMITER in value:
+            return map(int, value.split(_VERSE_POINTER_DELIMITER))
         return int(value), 0
 
     def search(self, value):
@@ -155,14 +158,17 @@ class Bible(metaclass=BibleMeta):
             case [book]:
                 return self.book(book)
             case [book, value]:
-                match value.split(":"):
+                match value.split(_VERSE_SLICE_DELIMITER):
                     case [chapter]:
                         return self.chapter(book, int(chapter))
                     case [chapter, verse]:
-                        if verse.endswith("+"):
-                            verse = int(verse[: verse.index("+")]) - 1
+                        if verse.endswith(_VERSE_CONTINUATION_DELIMITER):
+                            verse = (
+                                int(verse[: verse.index(_VERSE_CONTINUATION_DELIMITER)])
+                                - 1
+                            )
                             return self.chapter(book, int(chapter))[verse:]
-                        match verse.split("-"):
+                        match verse.split(_VERSE_RANGE_DELIMITER):
                             case [start]:
                                 start, before = self._versePointer(start)
                                 return self.chapter(book, int(chapter))[

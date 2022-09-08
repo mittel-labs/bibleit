@@ -10,15 +10,15 @@ _FLAGS = _FLAGS_ON + _FLAGS_OFF
 
 def _flag(value):
     if value := value.lower():
-        assert value in _FLAGS, f"value must be a boolean value ({', '.join(_FLAGS)})"
+        assert value in _FLAGS, f"value must be a boolean value: <{'|'.join(_FLAGS)}>"
         return value in _FLAGS_ON
     return False
 
 
 def debug(ctx, value):
-    """Configure debug config
+    f"""Configure debug config
 
-    set debug <true|false>"""
+    set debug <{'|'.join(_FLAGS)}>"""
     _config.debug = _flag(value)
 
 
@@ -40,7 +40,7 @@ def bible(ctx, *args):
 
 
 def color(ctx, value):
-    """Configure color mode
+    f"""Configure color mode
 
-    set color <true|false>"""
+    set color <{'|'.join(_FLAGS)}>"""
     _config.color = _flag(value)

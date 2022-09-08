@@ -56,7 +56,7 @@ def ref(ctx, *args):
         ref john 1:2+          (gets chapter and verse with starting)
         ref john 8:31-32       (gets verse range)
         ref john 8:31^2-32^2   (gets verse plus start end plus end)"""
-    assert args, "you should use ref <book> [<chapter>[:<verse>]]"
+    assert args, "you should use ref <book> [<chapter>[:<verse[-verse]>]]"
 
     refs = [bible.parse(args) for bible in ctx.bible]
     result = "\n\n".join(

@@ -1,10 +1,9 @@
 import sys
 import traceback
+from importlib import import_module
 
 from bibleit import config
 from bibleit.command import core
-from importlib import import_module
-
 
 _prefix = "bibleit.command"
 _default_module = "core"

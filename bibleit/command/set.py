@@ -1,7 +1,7 @@
-from bibleit import config as _config
-from bibleit.bible import Bible as _Bible
 from operator import attrgetter as _attrgetter
 
+from bibleit import config as _config
+from bibleit.bible import Bible as _Bible
 
 _FLAGS_ON = ["true", "on"]
 _FLAGS_OFF = ["false", "off"]

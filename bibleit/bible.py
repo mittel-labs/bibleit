@@ -1,10 +1,9 @@
-from locale import normalize
 import re
+from itertools import count as _count
+from locale import normalize
+from pathlib import Path
 
 from bibleit import config as _config
-from pathlib import Path
-from itertools import count as _count
-
 
 _ACCENTS = {
     "À": "A",

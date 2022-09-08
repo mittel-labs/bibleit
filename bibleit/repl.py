@@ -1,13 +1,10 @@
+import atexit
 import readline
 import sys
-import atexit
-
-from bibleit import command
-from bibleit.context import Context
-from bibleit import config
-
 from pathlib import Path
 
+from bibleit import command, config
+from bibleit.context import Context
 
 _ctx = Context()
 _histfile = Path.home() / ".bibleit_history"

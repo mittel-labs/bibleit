@@ -1,9 +1,8 @@
 import sys
-
-from bibleit import config as _config
-from bibleit import command as _command
-
 from itertools import zip_longest as _zip
+
+from bibleit import command as _command
+from bibleit import config as _config
 
 
 def help(ctx, *args):

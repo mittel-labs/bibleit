@@ -52,7 +52,8 @@ def ref(ctx, *args):
 
     Examples:
         ref john 8:31-32
-        ref Gen 1
+        ref Gen 1:2
+        ref john 1:2+
         ref PSalm 23"""
     assert args, "you should use ref <book> [<chapter>[:<verse>]]"
 

@@ -164,6 +164,9 @@ class Bible(metaclass=BibleMeta):
                     case [chapter]:
                         return self.chapter(book, int(chapter))
                     case [chapter, verse]:
+                        if verse.endswith("+"):
+                            verse = int(verse[:verse.index("+")]) - 1
+                            return self.chapter(book, int(chapter))[verse:]
                         match verse.split("-"):
                             case [start]:
                                 return self.verse(book, int(chapter), int(start))

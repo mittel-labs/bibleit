@@ -4,6 +4,6 @@ Interactive bible reading
 
 ## How to run
 
-```python
+```sh
 python -m bibleit
 ```

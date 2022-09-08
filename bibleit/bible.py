@@ -65,6 +65,7 @@ _ACCENTS = {
 _NORMALIZE = str.maketrans(_ACCENTS)
 _COLOR_END = "\x1b[0m"
 _COLOR_LEN = 255 // len(_config.available_bible)
+_VERSE_POINTER = "^"
 
 
 class BibleMeta(type):
@@ -133,6 +134,11 @@ class Bible(metaclass=BibleMeta):
             if re.search(rf"\b{value}\b", normalized, re.IGNORECASE)
         ]
 
+    def _versePointer(self, value):
+        if _VERSE_POINTER in value:
+            return map(int, value.split(_VERSE_POINTER))
+        return int(value), 0
+
     def search(self, value):
         return [self.colored(line.strip()) for line, _ in self._filter(value)]
 
@@ -158,10 +164,15 @@ class Bible(metaclass=BibleMeta):
                             return self.chapter(book, int(chapter))[verse:]
                         match verse.split("-"):
                             case [start]:
-                                return self.verse(book, int(chapter), int(start))
-                            case [start, end]:
+                                start, before = self._versePointer(start)
                                 return self.chapter(book, int(chapter))[
-                                    int(start) - 1 : int(end)
+                                    int(start) - (before + 1) : int(start)
+                                ]
+                            case [start, end]:
+                                start, before = self._versePointer(start)
+                                end, after = self._versePointer(end)
+                                return self.chapter(book, int(chapter))[
+                                    int(start) - (before + 1) : end + after
                                 ]
             case [book, chapter, verse]:
                 return self.verse(book, chapter, verse)

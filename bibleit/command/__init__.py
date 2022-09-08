@@ -1,8 +1,10 @@
 import sys
+import traceback
 
 from bibleit import config
 from bibleit.command import core
 from importlib import import_module
+
 
 _prefix = "bibleit.command"
 _default_module = "core"
@@ -48,6 +50,7 @@ def eval(ctx, *line, module=None):
     except Exception as e:
         if config.debug:
             print("Debug:", e)
+            print(traceback.format_exc())
         if module != _default_module:
             core.help(ctx, *[module, *line])
         else:

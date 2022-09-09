@@ -6,21 +6,20 @@ from pathlib import Path
 from bibleit import command, config
 from bibleit.context import Context
 
-_ctx = Context()
-_histfile = Path.home() / ".bibleit_history"
+_HISTORY_FILE = Path.home() / ".bibleit_history"
 
 
 class AutoCompleter:
     def __init__(self):
         self.options = list(command.eval_methods(command.eval_module("core")))
-        _histfile.touch(exist_ok=True)
-        readline.read_history_file(_histfile)
+        _HISTORY_FILE.touch(exist_ok=True)
+        readline.read_history_file(_HISTORY_FILE)
         atexit.register(self.save, readline.get_current_history_length())
 
     def save(self, prev):
         new = readline.get_current_history_length()
         readline.set_history_length(1000)
-        readline.append_history_file(new - prev, str(_histfile))
+        readline.append_history_file(new - prev, str(_HISTORY_FILE))
 
     def complete(self, text, state):
         try:
@@ -48,10 +47,12 @@ def run():
     readline.set_completer_delims(" \t\n;")
     readline.parse_and_bind("tab: complete")
 
+    ctx = Context()
+
     while True:
         try:
-            if line := input(_ctx).strip():
-                if (result := command.eval(_ctx, *line.split())) is not None:
+            if line := input(ctx).strip():
+                if (result := command.eval(ctx, *line.split())) is not None:
                     print(result)
         except KeyboardInterrupt:
             print("\n")

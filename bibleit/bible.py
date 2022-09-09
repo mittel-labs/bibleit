@@ -1,4 +1,6 @@
 import re
+import itertools
+
 from itertools import count as _count
 from locale import normalize
 from pathlib import Path
@@ -152,7 +154,7 @@ class Bible(metaclass=BibleMeta):
             )
         return 0
 
-    def parse(self, args):
+    def _parseArgs(self, args):
         match args:
             case [book]:
                 return self.book(book)
@@ -182,3 +184,8 @@ class Bible(metaclass=BibleMeta):
             case [book, chapter, verse]:
                 return self.verse(book, chapter, verse)
         return None
+
+    def parse(self, args):
+        ref_args = [args[n : n + 2] for n in range(0, len(args), 2)]
+        result = [self._parseArgs(arg) for arg in ref_args]
+        return itertools.chain.from_iterable(result)

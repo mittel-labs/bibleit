@@ -45,7 +45,7 @@ def set(ctx, *args):
 
 
 def ref(ctx, *args):
-    """Search a reference by chapters and verses.
+    """Search a reference(s) by chapters and verses.
 
     ref <book> [<chapter>[:<verse[-verse]>]]
 
@@ -54,7 +54,8 @@ def ref(ctx, *args):
         ref john 1:2           (gets chapter and verse)
         ref john 1:2+          (gets chapter and verse with starting)
         ref john 8:31-32       (gets verse range)
-        ref john 8:31^2-32^2   (gets verse plus start end plus end)"""
+        ref john 8:31^2-32^2   (gets verse plus start end plus end)
+        ref john 1:1 john 2:1  (gets multiple chapters and verses)"""
     assert args, "you should use ref <book> [<chapter>[:<verse[-verse]>]]"
 
     refs = [bible.parse(args) for bible in ctx.bible]

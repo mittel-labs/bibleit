@@ -10,7 +10,9 @@ _FLAGS = _FLAGS_ON + _FLAGS_OFF
 
 def _flag(value):
     if value := value.lower():
-        assert value in _FLAGS, f"value must be a boolean value: <{'|'.join(_FLAGS)}>"
+        assert (
+            value in _FLAGS
+        ), f"value must be a boolean value: <{'|'.join(_FLAGS)}>"
         return value in _FLAGS_ON
     return False
 

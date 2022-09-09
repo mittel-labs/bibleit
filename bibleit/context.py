@@ -1,5 +1,3 @@
-import sys
-
 from bibleit import config
 from bibleit.bible import Bible
 

@@ -1,8 +1,6 @@
-import re
 import itertools
-
+import re
 from itertools import count as _count
-from locale import normalize
 from pathlib import Path
 
 from bibleit import config as _config
@@ -83,15 +81,19 @@ class Bible(metaclass=BibleMeta):
         self.id = next(self.__class__._ids)
         self.version = version.lower()
         self.color = "\x1b[48;2;{};{};{}m".format(
-            self.id + _COLOR_LEN, (self.id + 2) * _COLOR_LEN, (self.id + 3) * _COLOR_LEN
+            self.id + _COLOR_LEN,
+            (self.id + 2) * _COLOR_LEN,
+            (self.id + 3) * _COLOR_LEN,
         )
         target = Path(_config.translation_dir) / self.version
         assert (
             target.is_file()
-        ), f"bible translation '{self.version}' not found. (available: {_config.available_bible})"
+        ), f"bible translation '{self.version}' not found."
+        " (available: {_config.available_bible})"
         with target.open() as f:
             self.content = [
-                (line.strip(), line.translate(_NORMALIZE).strip()) for line in f
+                (line.strip(), line.translate(_NORMALIZE).strip())
+                for line in f
             ]
 
     def __repr__(self):
@@ -101,11 +103,15 @@ class Bible(metaclass=BibleMeta):
         return hash(self.version)
 
     def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.version == other.version
+        return (
+            self.__class__ == other.__class__ and self.version == other.version
+        )
 
     def colored(self, value):
         return (
-            "{}{}{}".format(self.color, value, _COLOR_END) if _config.color else value
+            "{}{}{}".format(self.color, value, _COLOR_END)
+            if _config.color
+            else value
         )
 
     def book(self, name):
@@ -165,7 +171,13 @@ class Bible(metaclass=BibleMeta):
                     case [chapter, verse]:
                         if verse.endswith(_VERSE_CONTINUATION_DELIMITER):
                             verse = (
-                                int(verse[: verse.index(_VERSE_CONTINUATION_DELIMITER)])
+                                int(
+                                    verse[
+                                        : verse.index(
+                                            _VERSE_CONTINUATION_DELIMITER
+                                        )
+                                    ]
+                                )
                                 - 1
                             )
                             return self.chapter(book, int(chapter))[verse:]

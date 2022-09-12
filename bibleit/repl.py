@@ -29,9 +29,7 @@ class AutoCompleter:
                     self.options = list(command.eval_methods(module))
 
             if text:
-                self.matches = [
-                    s for s in self.options if s and s.startswith(text)
-                ]
+                self.matches = [s for s in self.options if s and s.startswith(text)]
                 return self.matches[state]
 
             return self.options[state]

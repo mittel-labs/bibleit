@@ -1,6 +1,6 @@
 import itertools
+import functools
 import re
-from itertools import count as _count
 from pathlib import Path
 
 from bibleit import config as _config
@@ -73,7 +73,7 @@ _VERSE_POINTER_DELIMITER = "^"
 class BibleMeta(type):
     def __init__(cls, name, bases, attrs):
         super().__init__(name, bases, attrs)
-        cls._ids = _count(1)
+        cls._ids = itertools.count(1)
 
 
 class Bible(metaclass=BibleMeta):
@@ -86,15 +86,15 @@ class Bible(metaclass=BibleMeta):
             (self.id + 3) * _COLOR_LEN,
         )
         target = Path(_config.translation_dir) / self.version
-        assert (
-            target.is_file()
-        ), f"bible translation '{self.version}' not found."
+        assert target.is_file(), f"bible translation '{self.version}' not found."
         " (available: {_config.available_bible})"
         with target.open() as f:
             self.content = [
-                (line.strip(), line.translate(_NORMALIZE).strip())
-                for line in f
+                (line.strip(), line.translate(_NORMALIZE).strip()) for line in f
             ]
+        self.display = functools.reduce(
+            lambda f, g: lambda x: f(g(x)), [self.labeled, self.colored], lambda x: x
+        )
 
     def __repr__(self):
         return self.colored(self.version)
@@ -103,34 +103,33 @@ class Bible(metaclass=BibleMeta):
         return hash(self.version)
 
     def __eq__(self, other):
-        return (
-            self.__class__ == other.__class__ and self.version == other.version
-        )
+        return self.__class__ == other.__class__ and self.version == other.version
+
+    def labeled(self, value):
+        return f"{self.version:>10} {value}" if _config.label else value
 
     def colored(self, value):
         return (
-            "{}{}{}".format(self.color, value, _COLOR_END)
-            if _config.color
-            else value
+            "{}{}{}".format(self.color, value, _COLOR_END) if _config.color else value
         )
 
     def book(self, name):
         return [
-            self.colored(line)
+            self.display(line)
             for line, normalized in self.content
             if re.search(rf"^{name}", normalized, re.IGNORECASE)
         ]
 
     def chapter(self, book, name):
         return [
-            self.colored(line)
+            self.display(line)
             for line, normalized in self.content
             if re.search(rf"^{book}.* {name}:", normalized, re.IGNORECASE)
         ]
 
     def verse(self, book, chapter, verse):
         return [
-            self.colored(line)
+            self.display(line)
             for line, normalized in self.content
             if re.search(
                 rf"^{book}.* {chapter}:{verse} (.*)", normalized, re.IGNORECASE
@@ -150,7 +149,7 @@ class Bible(metaclass=BibleMeta):
         return int(value), 0
 
     def search(self, value):
-        return [self.colored(line.strip()) for line, _ in self._filter(value)]
+        return [self.display(line.strip()) for line, _ in self._filter(value)]
 
     def count(self, value):
         if target := value.lower():
@@ -171,13 +170,7 @@ class Bible(metaclass=BibleMeta):
                     case [chapter, verse]:
                         if verse.endswith(_VERSE_CONTINUATION_DELIMITER):
                             verse = (
-                                int(
-                                    verse[
-                                        : verse.index(
-                                            _VERSE_CONTINUATION_DELIMITER
-                                        )
-                                    ]
-                                )
+                                int(verse[: verse.index(_VERSE_CONTINUATION_DELIMITER)])
                                 - 1
                             )
                             return self.chapter(book, int(chapter))[verse:]

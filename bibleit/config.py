@@ -3,6 +3,7 @@ from os import walk as _walk
 # General
 debug = False
 color = False
+label = False
 application = "bibleit"
 version = "0.0.1"
 help = 'Type "help" for more information.'

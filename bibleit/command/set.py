@@ -10,9 +10,7 @@ _FLAGS = _FLAGS_ON + _FLAGS_OFF
 
 def _flag(value):
     if value := value.lower():
-        assert (
-            value in _FLAGS
-        ), f"value must be a boolean value: <{'|'.join(_FLAGS)}>"
+        assert value in _FLAGS, f"value must be a boolean value: <{'|'.join(_FLAGS)}>"
         return value in _FLAGS_ON
     return False
 
@@ -46,3 +44,10 @@ def color(ctx, value):
 
     set color <{'|'.join(_FLAGS)}>"""
     _config.color = _flag(value)
+
+
+def label(ctx, value):
+    f"""Configure label mode
+
+    set label <{'|'.join(_FLAGS)}>"""
+    _config.label = _flag(value)

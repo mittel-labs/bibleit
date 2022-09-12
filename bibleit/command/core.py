@@ -60,8 +60,7 @@ def ref(ctx, *args):
 
     refs = [bible.parse(args) for bible in ctx.bible]
     result = "\n\n".join(
-        "\n".join(verses)
-        for verses in _zip(*refs, fillvalue="Reference not found")
+        "\n".join(verses) for verses in _zip(*refs, fillvalue="Reference not found")
     )
     return result if result else f"Reference '{' '.join(args)}' not found"
 
@@ -93,9 +92,7 @@ def count(ctx, *args):
         count bread of life"""
     target = " ".join(args)
     assert target, "you should use count <word>"
-    if refs := [
-        (bible.version, str(bible.count(target))) for bible in ctx.bible
-    ]:
+    if refs := [(bible.version, str(bible.count(target))) for bible in ctx.bible]:
         if len(refs) > 1:
             return "\n".join("\t".join(ref) for ref in refs)
         else:

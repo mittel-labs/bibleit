@@ -1,7 +1,7 @@
 from os import walk as _walk
 
 # General
-debug = False
+debug = True
 color = False
 label = False
 application = "bibleit"

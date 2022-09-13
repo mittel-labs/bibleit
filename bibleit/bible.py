@@ -128,13 +128,13 @@ class Bible(metaclass=BibleMeta):
         ]
 
     def verse(self, book, chapter, verse):
-        return [
+        return {
             self.display(line)
             for line, normalized in self.content
             if re.search(
                 rf"^{book}.* {chapter}:{verse} (.*)", normalized, re.IGNORECASE
             )
-        ]
+        }
 
     def _filter(self, value):
         return [
@@ -191,6 +191,6 @@ class Bible(metaclass=BibleMeta):
         return None
 
     def parse(self, args):
-        ref_args = [args[n : n + 2] for n in range(0, len(args), 2)]
+        ref_args = {args[n : n + 2] for n in range(0, len(args), 2)}
         result = [self._parseArgs(arg) for arg in ref_args]
         return itertools.chain.from_iterable(result)

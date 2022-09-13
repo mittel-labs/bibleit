@@ -40,9 +40,9 @@ def bible(ctx, *args):
         set bible kjv
         set bible acf, nvi/pt"""
     translations = [value for arg in args for value in arg.split(",") if value]
-    if len(translations) > 1:
-        _config.color = True
     ctx.bible = sorted(
         {_Bible(translation.lower()) for translation in translations},
         key=_attrgetter("version"),
     )
+    if len(translations) > 1:
+        _config.color = True

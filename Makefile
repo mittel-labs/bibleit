@@ -1,2 +1,2 @@
 run:
-	@python -m bibleit
+	@(cd src; python -m bibleit)

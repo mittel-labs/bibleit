@@ -1,7 +1,8 @@
-from os import walk as _walk
+import importlib.resources
+import bibleit.translations as _translations
 
 # General
-debug = True
+debug = False
 color = False
 label = False
 application = "bibleit"
@@ -15,12 +16,8 @@ welcome = f"""
 
 # Bible
 translation_dir = "translations"
-available_bible = [
-    f"{parent.replace('{}'.format(translation_dir), '')}/{version}"[1:]
-    for parent, _, f in _walk(translation_dir)
-    for version in f
-]
-default_bible = "nvi/pt"
+available_bible = importlib.resources.contents(_translations)
+default_bible = "nvi"
 
 # Repl
 history_length = 1000

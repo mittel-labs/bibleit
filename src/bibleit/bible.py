@@ -1,9 +1,12 @@
 import itertools
 import functools
 import re
+import importlib.resources
+
 from pathlib import Path
 
 from bibleit import config as _config
+from bibleit import translations as _translations
 
 _ACCENTS = {
     "À": "A",
@@ -70,6 +73,12 @@ _VERSE_CONTINUATION_DELIMITER = "+"
 _VERSE_POINTER_DELIMITER = "^"
 
 
+class BibleNotFound(Exception):
+    def __init__(self, version) -> None:
+        super().__init__(f"Bible translation not found: {version}")
+        self.version = version
+
+
 class BibleMeta(type):
     def __init__(cls, name, bases, attrs):
         super().__init__(name, bases, attrs)
@@ -85,16 +94,19 @@ class Bible(metaclass=BibleMeta):
             (self.id + 2) * _COLOR_LEN,
             (self.id + 3) * _COLOR_LEN,
         )
-        target = Path(_config.translation_dir) / self.version
-        assert target.is_file(), f"bible translation '{self.version}' not found."
-        " (available: {_config.available_bible})"
-        with target.open() as f:
-            self.content = [
-                (line.strip(), line.translate(_NORMALIZE).strip()) for line in f
-            ]
-        self.display = functools.reduce(
-            lambda f, g: lambda x: f(g(x)), [self.labeled, self.colored], lambda x: x
-        )
+        try:
+            target = importlib.resources.path(_translations, self.version)
+            if not target.is_file():
+                 raise BibleNotFound(self.version)
+            with target.open() as f:
+                self.content = [
+                    (line.strip(), line.translate(_NORMALIZE).strip()) for line in f
+                ]
+            self.display = functools.reduce(
+                lambda f, g: lambda x: f(g(x)), [self.labeled, self.colored], lambda x: x
+            )
+        except ValueError as e:
+            raise BibleNotFound(self.version) from e
 
     def __repr__(self):
         return self.colored(self.version)

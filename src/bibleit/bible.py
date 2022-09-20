@@ -71,6 +71,7 @@ _VERSE_SLICE_DELIMITER = ":"
 _VERSE_RANGE_DELIMITER = "-"
 _VERSE_CONTINUATION_DELIMITER = "+"
 _VERSE_POINTER_DELIMITER = "^"
+_SEARCH_MORE_WORDS_DELIMITER = "|"
 
 
 class BibleNotFound(Exception):
@@ -161,7 +162,9 @@ class Bible(metaclass=BibleMeta):
         return int(value), 0
 
     def search(self, value):
-        return [self.display(line.strip()) for line, _ in self._filter(value)]
+        values = value.split(_SEARCH_MORE_WORDS_DELIMITER)
+        found = map(lambda value : [self.display(line.strip()) for line, _ in self._filter(value)], values)
+        return itertools.chain.from_iterable(found)
 
     def count(self, value):
         if target := value.lower():

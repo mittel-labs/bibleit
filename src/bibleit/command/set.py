@@ -44,5 +44,4 @@ def bible(ctx, *args):
         {_Bible(translation.lower()) for translation in translations},
         key=_attrgetter("version"),
     )
-    if len(translations) > 1:
-        _config.color = True
+    _config.color = len(translations) > 1

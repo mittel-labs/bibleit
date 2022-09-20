@@ -152,7 +152,7 @@ class Bible(metaclass=BibleMeta):
         return [
             (line, normalized)
             for line, normalized in self.content
-            if re.search(rf"\b{value}\b", normalized, re.IGNORECASE)
+            if re.search(rf"\b{value}s??\b", normalized, re.IGNORECASE)
         ]
 
     def _versePointer(self, value):

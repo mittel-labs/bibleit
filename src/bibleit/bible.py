@@ -70,6 +70,7 @@ _COLOR_LEN = 255 // len(_config.available_bible)
 _VERSE_SLICE_DELIMITER = ":"
 _VERSE_RANGE_DELIMITER = "-"
 _VERSE_CONTINUATION_DELIMITER = "+"
+_VERSE_CONTINUATION_DEFAULT = f"1{_VERSE_CONTINUATION_DELIMITER}"
 _VERSE_POINTER_DELIMITER = "^"
 _SEARCH_MORE_WORDS_DELIMITER = "|"
 
@@ -98,13 +99,15 @@ class Bible(metaclass=BibleMeta):
         try:
             target = importlib.resources.path(_translations, self.version)
             if not target.is_file():
-                 raise BibleNotFound(self.version)
+                raise BibleNotFound(self.version)
             with target.open() as f:
                 self.content = [
                     (line.strip(), line.translate(_NORMALIZE).strip()) for line in f
                 ]
             self.display = functools.reduce(
-                lambda f, g: lambda x: f(g(x)), [self.labeled, self.colored], lambda x: x
+                lambda f, g: lambda x: f(g(x)),
+                [self.labeled, self.colored],
+                lambda x: x,
             )
         except ValueError as e:
             raise BibleNotFound(self.version) from e
@@ -140,14 +143,31 @@ class Bible(metaclass=BibleMeta):
             if re.search(rf"^{book}.* {name}:", normalized, re.IGNORECASE)
         ]
 
-    def verse(self, book, chapter, verse):
-        return {
-            self.display(line)
-            for line, normalized in self.content
-            if re.search(
-                rf"^{book}.* {chapter}:{verse} (.*)", normalized, re.IGNORECASE
-            )
-        }
+    def _parse_ref(self, value):
+        return value.split(_VERSE_SLICE_DELIMITER)
+
+    def ref(self, book, ref):
+        target_ref = list(itertools.chain.from_iterable(map(self._parse_ref, ref)))
+        match target_ref:
+            case [chapter, *verses]:
+                verse = "".join(verses) or _VERSE_CONTINUATION_DEFAULT
+                if verse.endswith(_VERSE_CONTINUATION_DELIMITER):
+                    verse = int(verse[: verse.index(_VERSE_CONTINUATION_DELIMITER)]) - 1
+                    return self.chapter(book, int(chapter))[verse:]
+                match verse.split(_VERSE_RANGE_DELIMITER):
+                    case [start]:
+                        start, before = self._versePointer(start)
+                        return self.chapter(book, int(chapter))[
+                            int(start) - (before + 1) : int(start)
+                        ]
+                    case [start, end]:
+                        start, before = self._versePointer(start)
+                        end, after = self._versePointer(end)
+                        return self.chapter(book, int(chapter))[
+                            int(start) - (before + 1) : end + after
+                        ]
+            case []:
+                return self.book(book)
 
     def _filter(self, value):
         return [
@@ -158,12 +178,19 @@ class Bible(metaclass=BibleMeta):
 
     def _versePointer(self, value):
         if _VERSE_POINTER_DELIMITER in value:
-            return map(int, value.split(_VERSE_POINTER_DELIMITER))
+            return map(
+                int, map(lambda p: p or "0", value.split(_VERSE_POINTER_DELIMITER))
+            )
         return int(value), 0
 
     def search(self, value):
         values = value.split(_SEARCH_MORE_WORDS_DELIMITER)
-        found = map(lambda value : [self.display(line.strip()) for line, _ in self._filter(value)], values)
+        found = map(
+            lambda value: [
+                self.display(line.strip()) for line, _ in self._filter(value)
+            ],
+            values,
+        )
         return itertools.chain.from_iterable(found)
 
     def count(self, value):
@@ -174,38 +201,10 @@ class Bible(metaclass=BibleMeta):
             )
         return 0
 
-    def _parseArgs(self, args):
-        match args:
-            case [book]:
-                return self.book(book)
-            case [book, value]:
-                match value.split(_VERSE_SLICE_DELIMITER):
-                    case [chapter]:
-                        return self.chapter(book, int(chapter))
-                    case [chapter, verse]:
-                        if verse.endswith(_VERSE_CONTINUATION_DELIMITER):
-                            verse = (
-                                int(verse[: verse.index(_VERSE_CONTINUATION_DELIMITER)])
-                                - 1
-                            )
-                            return self.chapter(book, int(chapter))[verse:]
-                        match verse.split(_VERSE_RANGE_DELIMITER):
-                            case [start]:
-                                start, before = self._versePointer(start)
-                                return self.chapter(book, int(chapter))[
-                                    int(start) - (before + 1) : int(start)
-                                ]
-                            case [start, end]:
-                                start, before = self._versePointer(start)
-                                end, after = self._versePointer(end)
-                                return self.chapter(book, int(chapter))[
-                                    int(start) - (before + 1) : end + after
-                                ]
-            case [book, chapter, verse]:
-                return self.verse(book, chapter, verse)
-        return None
-
     def parse(self, args):
-        ref_args = {args[n : n + 2] for n in range(0, len(args), 2)}
-        result = [self._parseArgs(arg) for arg in ref_args]
-        return itertools.chain.from_iterable(result)
+        match args:
+            case [number, book, *ref] if number.isdigit():
+                return self.ref(f"{number} {book}", ref)
+            case [book, ref]:
+                return self.ref(book, ref)
+        return None

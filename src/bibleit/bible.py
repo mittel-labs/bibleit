@@ -2,8 +2,6 @@ import itertools
 import functools
 import re
 import importlib.resources
-import operator
-import collections
 
 from bibleit import config as _config
 from bibleit import translations as _translations
@@ -72,7 +70,7 @@ _VERSE_RANGE_DELIMITER = "-"
 _VERSE_CONTINUATION_DELIMITER = "+"
 _VERSE_CONTINUATION_DEFAULT = f"1{_VERSE_CONTINUATION_DELIMITER}"
 _VERSE_POINTER_DELIMITER = "^"
-_SEARCH_MORE_WORDS_DELIMITER = "|"
+_SEARCH_MULTIPLE_WORDS_DELIMITER = "+"
 
 
 class BibleNotFound(Exception):
@@ -176,11 +174,16 @@ class Bible(metaclass=BibleMeta):
             case []:
                 return self.book(book)
 
-    def _filter(self, value):
+    def _filter(self, *values, content=None):
+        if content is not None:
+            content = self.content
         return [
             (line, normalized)
             for line, normalized in self.content
-            if re.search(rf"\b{value}s??\b", normalized, re.IGNORECASE)
+            if all(
+                re.search(rf"\b{value}s??\b", normalized, re.IGNORECASE)
+                for value in values
+            )
         ]
 
     def _versePointer(self, value):
@@ -191,14 +194,10 @@ class Bible(metaclass=BibleMeta):
         return int(value), 0
 
     def search(self, value):
-        values = value.split(_SEARCH_MORE_WORDS_DELIMITER)
-        found = map(
-            lambda value: [
-                self.display(line.strip()) for line, _ in self._filter(value)
-            ],
-            values,
-        )
-        return itertools.chain.from_iterable(found)
+        return [
+            self.display(line)
+            for line, _ in self._filter(*value.split(_SEARCH_MULTIPLE_WORDS_DELIMITER))
+        ]
 
     def count(self, value):
         if target := value.lower():

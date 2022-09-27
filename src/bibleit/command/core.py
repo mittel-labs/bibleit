@@ -71,8 +71,8 @@ def search(ctx, *args):
 
     Examples:
         search Jesus            (search for all verses with Jesus)
-        search bread of life    (search for all verses with "bread of life")
-        search bread|Jesus      (search for all verses with bread or Jesus)"""
+        search bread of life    (search exact for all verses with "bread of life")
+        search bread+Jesus      (search multiple words for all verses with bread and Jesus)"""
     target = " ".join(args)
     assert target, "You should use search <word>"
     refs = [bible.search(target) for bible in ctx.bible]

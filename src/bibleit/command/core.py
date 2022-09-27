@@ -99,6 +99,13 @@ def count(ctx, *args):
     return None
 
 
+def chapters(ctx, *args):
+    """Show the chapters.
+
+    chapters"""
+    return "\n\n".join("\n".join(bible.chapters()) for bible in ctx.bible)
+
+
 def versions(ctx, *args):
     """List available Bible versions"""
     return "\n{}\n".format("\n".join(_config.available_bible))

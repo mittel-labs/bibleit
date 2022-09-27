@@ -2,8 +2,8 @@ import itertools
 import functools
 import re
 import importlib.resources
-
-from pathlib import Path
+import operator
+import collections
 
 from bibleit import config as _config
 from bibleit import translations as _translations
@@ -142,6 +142,13 @@ class Bible(metaclass=BibleMeta):
             for line, normalized in self.content
             if re.search(rf"^{book}.* {name}:", normalized, re.IGNORECASE)
         ]
+
+    def chapters(self):
+        names = {
+            self.display(line[: re.search(r"\d+:\d+", line).start() - 1]): None
+            for line, _ in self.content
+        }
+        return names.keys()
 
     def _parse_ref(self, value):
         return value.split(_VERSE_SLICE_DELIMITER)

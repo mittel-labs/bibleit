@@ -148,11 +148,8 @@ class Bible(metaclass=BibleMeta):
         }
         return names.keys()
 
-    def _parse_ref(self, value):
-        return value.split(_VERSE_SLICE_DELIMITER)
-
     def ref(self, book, ref):
-        target_ref = list(itertools.chain.from_iterable(map(self._parse_ref, ref)))
+        target_ref = ref.split(_VERSE_SLICE_DELIMITER)
         match target_ref:
             case [chapter, *verses]:
                 verse = "".join(verses) or _VERSE_CONTINUATION_DEFAULT

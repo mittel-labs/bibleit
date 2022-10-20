@@ -212,4 +212,6 @@ class Bible(metaclass=BibleMeta):
                 if book and book.isdigit():
                     return self.book(f"{book} {ref}")
                 return self.ref(book, ref)
+            case [book]:
+                return self.book(book)
         return None

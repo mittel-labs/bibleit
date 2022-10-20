@@ -206,8 +206,10 @@ class Bible(metaclass=BibleMeta):
 
     def parse(self, args):
         match args:
-            case [number, book, *ref] if number.isdigit():
+            case [number, book, ref] if number.isdigit():
                 return self.ref(f"{number} {book}", ref)
             case [book, ref]:
+                if book and book.isdigit():
+                    return self.book(f"{book} {ref}")
                 return self.ref(book, ref)
         return None

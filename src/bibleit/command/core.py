@@ -1,4 +1,5 @@
 import sys
+import webbrowser as _wb
 from itertools import zip_longest as _zip
 
 from bibleit import command as _command
@@ -115,3 +116,24 @@ def exit(ctx, *args):
     """Exits application."""
     print("\nGoodbye.")
     sys.exit(0)
+
+
+def blb(ctx, *args):
+    """Blue Letter Bible search.
+
+     blb <term [term2 [...]]>
+
+     Examples:
+         blb John 10:2
+         blb bread of life
+         blb sincer*
+         blb (Jesus AND faith) NOT (love OR truth)
+
+ How to Use the Bible Search:
+     https://www.blueletterbible.org/help/bible_search.cfm
+
+https://www.blueletterbible.org | ©2022 Blue Letter Bible"""
+    target = " ".join(args)
+    assert target, "you should use blb <terms>"
+    _wb.open(f"https://www.blueletterbible.org/search/preSearch.cfm?Criteria={target}")
+    return None

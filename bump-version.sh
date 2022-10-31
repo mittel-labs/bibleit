@@ -23,4 +23,4 @@ bump pyproject.toml
 git add src/bibleit/config.py pyproject.toml
 git commit -m "version $(get-version)"
 git tag v$(get-version)
-git push && git push --tags
+git push --tags

@@ -20,6 +20,7 @@ function bump() {
 
 bump src/bibleit/config.py
 bump pyproject.toml
-echo git commit -am "version $(get-version)" src/bibleit/config.py pyproject.toml
+git add src/bibleit/config.py pyproject.toml
+git commit -m "version $(get-version)"
 git tag v$(get-version)
-git push
+git push && git push --tags

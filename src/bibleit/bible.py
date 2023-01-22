@@ -71,6 +71,8 @@ _VERSE_CONTINUATION_DELIMITER = "+"
 _VERSE_CONTINUATION_DEFAULT = f"1{_VERSE_CONTINUATION_DELIMITER}"
 _VERSE_POINTER_DELIMITER = "^"
 _SEARCH_MULTIPLE_WORDS_DELIMITER = "+"
+_TRANSLATIONS_DIR = importlib.resources.files(_translations)
+
 
 
 class BibleNotFound(Exception):
@@ -95,7 +97,7 @@ class Bible(metaclass=BibleMeta):
             (self.id + 3) * _COLOR_LEN,
         )
         try:
-            target = importlib.resources.path(_translations, self.version)
+            target = _TRANSLATIONS_DIR / self.version
             if not target.is_file():
                 raise BibleNotFound(self.version)
             with target.open() as f:

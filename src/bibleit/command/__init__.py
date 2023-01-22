@@ -2,7 +2,7 @@ import sys
 import traceback
 from importlib import import_module
 
-from bibleit import config
+from bibleit import config, normalize
 from bibleit.command import core
 
 _prefix = "bibleit.command"
@@ -43,7 +43,8 @@ def eval(ctx, *line, module=None):
         target = f"{'{} '.format(module) if module != _default_module else ''}{name}{' {}'.format(' '.join(args)) if args else ''}"
         if name in ctx.methods:
             fn = getattr(ctx.module, name)
-            return fn(ctx, *args)
+            nargs = [normalize.normalize(arg) for arg in args]
+            return fn(ctx, *nargs)
     except AssertionError as e:
         print(f"Error: {e}")
     except Exception as e:

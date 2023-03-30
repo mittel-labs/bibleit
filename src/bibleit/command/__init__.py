@@ -48,8 +48,8 @@ def eval(ctx, *line, module=None):
     except AssertionError as e:
         print(f"Error: {e}")
     except Exception as e:
+        print(f"*** {e}\n")
         if config.debug:
-            print("Debug:", e)
             print(traceback.format_exc())
         if module != _default_module:
             core.help(ctx, *[module, *line])

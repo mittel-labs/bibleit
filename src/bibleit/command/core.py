@@ -137,3 +137,19 @@ https://www.blueletterbible.org | ©2022 Blue Letter Bible"""
     assert target, "you should use blb <terms>"
     _wb.open(f"https://www.blueletterbible.org/search/preSearch.cfm?Criteria={target}")
     return None
+
+
+def notes(ctx, *args):
+    """List all notes."""
+    return "\n".join(ctx.notes) if ctx.notes else None
+
+
+def note(ctx, *args):
+    """Adds a new note.
+    
+     notes <string>"""
+    target = " ".join(args)
+
+    assert target, "you should use notes <string>"
+    ctx.add_note(target)
+    return None

@@ -6,7 +6,7 @@ except ImportError:
 import sys
 from pathlib import Path
 
-from bibleit import command, config
+from bibleit import command, config, screen
 from bibleit.context import Context
 
 _HISTORY_FILE = Path.home() / ".bibleit_history"
@@ -40,6 +40,7 @@ class AutoCompleter:
             return None
 
 
+
 def run():
     print(config.welcome)
 
@@ -54,9 +55,14 @@ def run():
 
     while True:
         try:
-            if line := input(ctx).strip():
+            if config.screen and ctx.screen:
+                screen.display(ctx)
+            elif line := input(ctx).strip():
                 if (result := command.eval(ctx, *line.split())) is not None:
-                    print(result)
+                    if config.screen:
+                        screen.init(ctx, result)
+                    else:
+                        print(result)
         except KeyboardInterrupt:
             print("\n")
         except EOFError:

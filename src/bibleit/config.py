@@ -5,6 +5,7 @@ import bibleit.translations as _translations
 debug = False
 color = False
 label = False
+screen = False
 application = "bibleit"
 version = "0.0.9"
 help = 'Type "help" for more information.'

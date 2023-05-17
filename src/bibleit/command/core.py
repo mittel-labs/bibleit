@@ -52,11 +52,11 @@ def ref(ctx, *args):
 
     Examples:
         ref john 1             (gets full chapter)
-        ref john 1:2           (gets chapter and verse)
-        ref john 1:2+          (gets chapter and verse with starting)
-        ref john 8:31-32       (gets verse range)
-        ref john 8:31^2-32^2   (gets verse plus start end plus end)"""
-    assert args, "you should use ref <book> [<chapter>[:<verse[-verse]>]]"
+        ref john 1:2           (get chapter and verse)
+        ref john 1:2+          (get chapter and verses with starting)
+        ref john 8:31-32       (get verses range)
+        ref john 8:31^2-32^2   (get verses before start end after end)"""
+    assert args, "you should use <book> [<chapter>[:<verse[-verse]>]]"
 
     refs = [bible.parse(args) for bible in ctx.bible]
     result = "\n\n".join(

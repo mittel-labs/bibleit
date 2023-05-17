@@ -5,6 +5,7 @@ from bibleit.bible import Bible, BibleNotFound
 class Context:
     def __init__(self):
         self._notes = set()
+        self.screen = None
         try:
             self.bible = [Bible(config.default_bible)]
         except BibleNotFound as e:

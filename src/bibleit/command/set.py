@@ -4,12 +4,13 @@ from operator import attrgetter as _attrgetter
 
 from bibleit import config as _config
 from bibleit.bible import Bible as _Bible
+from bibleit import screen as _screen
 
 _FLAGS_ON = ["true", "on"]
 _FLAGS_OFF = ["false", "off"]
 _FLAGS_TOGGLE = _FLAGS_ON + _FLAGS_OFF
 
-_FLAGS = {"debug", "color", "label"}
+_FLAGS = {"debug", "color", "label", "screen"}
 
 
 def _flag(value):
@@ -44,4 +45,3 @@ def bible(ctx, *args):
         {_Bible(translation.lower()) for translation in translations},
         key=_attrgetter("version"),
     )
-    _config.color = len(translations) > 1

@@ -36,10 +36,17 @@ def eval(ctx, *line, module=None):
     if module is None:
         module = _default_module
     try:
+        name, *args = line
+
+        if name.startswith("!"):
+            args.insert(0, name[1:])
+            name = "set"
+
         ctx.module = eval_module(module)
         ctx.methods = eval_methods(ctx.module)
 
-        name, *args = line
+        args = list(filter(None, args))
+        
         target = f"{'{} '.format(module) if module != _default_module else ''}{name}{' {}'.format(' '.join(args)) if args else ''}"
         if name in ctx.methods:
             fn = getattr(ctx.module, name)
@@ -48,8 +55,8 @@ def eval(ctx, *line, module=None):
     except AssertionError as e:
         print(f"Error: {e}")
     except Exception as e:
-        print(f"*** {e}\n")
         if config.debug:
+            print(f"*** {e}\n")
             print(traceback.format_exc())
         if module != _default_module:
             core.help(ctx, *[module, *line])

@@ -19,7 +19,7 @@ _SEARCH_MULTIPLE_WORDS_DELIMITER = "+"
 _TRANSLATIONS_DIR = importlib.resources.files(_translations)
 
 
-class BibleNotFound(Exception):
+class BibleNotFound(AssertionError):
     def __init__(self, version) -> None:
         super().__init__(f"Bible translation not found: {version}")
         self.version = version

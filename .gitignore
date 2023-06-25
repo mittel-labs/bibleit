@@ -204,3 +204,5 @@ pip-selfcheck.json
 
 versions
 .idea/
+
+diff.*

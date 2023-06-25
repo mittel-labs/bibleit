@@ -19,7 +19,6 @@ _SEARCH_MULTIPLE_WORDS_DELIMITER = "+"
 _TRANSLATIONS_DIR = importlib.resources.files(_translations)
 
 
-
 class BibleNotFound(Exception):
     def __init__(self, version) -> None:
         super().__init__(f"Bible translation not found: {version}")
@@ -46,9 +45,11 @@ class Bible(metaclass=BibleMeta):
             if not target.is_file():
                 raise BibleNotFound(self.version)
             with target.open() as f:
-                self.content = [
-                    (line.strip(), normalize.normalize(line)) for line in f
-                ]
+                self.content = list(
+                    enumerate(
+                        (line.strip(), normalize.normalize(line)) for line in f
+                    )
+                )
             self.display = functools.reduce(
                 lambda f, g: lambda x: f(g(x)),
                 [self.labeled, self.colored],
@@ -67,7 +68,7 @@ class Bible(metaclass=BibleMeta):
         return self.__class__ == other.__class__ and self.version == other.version
 
     def labeled(self, value):
-        return f"{self.version:>10} {value}" if _config.label else value
+        return f"({self.version}) {value}" if _config.label else value
 
     def colored(self, value):
         return (
@@ -76,22 +77,22 @@ class Bible(metaclass=BibleMeta):
 
     def book(self, name):
         return [
-            self.display(line)
-            for line, normalized in self.content
+            line
+            for line, (_, normalized) in self.content
             if re.search(rf"^{name}", normalized, re.IGNORECASE)
         ]
 
     def chapter(self, book, name):
         return [
-            self.display(line)
-            for line, normalized in self.content
+            line
+            for line, (_, normalized) in self.content
             if re.search(rf"^{book}.* {name}:", normalized, re.IGNORECASE)
         ]
 
     def chapters(self):
         names = {
             self.display(line[: re.search(r"\d+:\d+", line).start() - 1]): None
-            for line, _ in self.content
+            for n, (line, _) in self.content
         }
         return names.keys()
 
@@ -118,9 +119,7 @@ class Bible(metaclass=BibleMeta):
             case []:
                 return self.book(book)
 
-    def _filter(self, *values, content=None):
-        if content is not None:
-            content = self.content
+    def _filter(self, *values):
         return [
             (line, normalized)
             for line, normalized in self.content
@@ -146,19 +145,23 @@ class Bible(metaclass=BibleMeta):
     def count(self, value):
         if target := value.lower():
             return sum(
-                normalized.lower().count(target)
+                normalized.count(target)
                 for _, normalized in self._filter(value)
             )
         return 0
 
-    def parse(self, args):
+    def refs(self, args):
+        target = None
         match args:
             case [number, book, ref] if number.isdigit():
-                return self.ref(f"{number} {book}", ref)
+                target = self.ref(f"{number} {book}", ref)
             case [book, ref]:
                 if book and book.isdigit():
-                    return self.book(f"{book} {ref}")
-                return self.ref(book, ref)
+                    target = self.book(f"{book} {ref}")
+                target = self.ref(book, ref)
             case [book]:
-                return self.book(book)
-        return None
+                target = self.book(book)
+        return target
+
+    def ref_parse(self, args):
+        return [self.display(self.content[line][1][0]) for line in args]

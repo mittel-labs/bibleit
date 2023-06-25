@@ -45,3 +45,4 @@ def bible(ctx, *args):
         {_Bible(translation.lower()) for translation in translations},
         key=_attrgetter("version"),
     )
+    _config.label = len(translations) > 1

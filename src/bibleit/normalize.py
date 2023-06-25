@@ -57,4 +57,4 @@ _ACCENTS = {
 _NORMALIZE = str.maketrans(_ACCENTS)
 
 def normalize(text):
-    return text.translate(_NORMALIZE).strip() if text else None
+    return text.lower().translate(_NORMALIZE).strip() if text else None

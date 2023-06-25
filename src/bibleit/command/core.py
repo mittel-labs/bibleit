@@ -58,7 +58,8 @@ def ref(ctx, *args):
         ref john 8:31^2-32^2   (get verses before start end after end)"""
     assert args, "you should use <book> [<chapter>[:<verse[-verse]>]]"
 
-    refs = [bible.parse(args) for bible in ctx.bible]
+    refs = max([bible.refs(args) for bible in ctx.bible], key=len)
+    refs = [bible.ref_parse(refs) for bible in ctx.bible]
     result = "\n\n".join(
         "\n".join(verses) for verses in _zip(*refs, fillvalue="Reference not found")
     )
@@ -94,7 +95,7 @@ def count(ctx, *args):
     assert target, "you should use count <word>"
     if refs := [(bible.version, str(bible.count(target))) for bible in ctx.bible]:
         if len(refs) > 1:
-            return "\n".join("\t".join(ref) for ref in refs)
+            return "\n".join(f"({label}) {c}" for label, c in refs)
         else:
             return refs[0][1]
     return None

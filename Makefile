@@ -1,3 +1,5 @@
+.PHONY: run bump-version
+
 run:
 	@(cd src; python -m bibleit)
 

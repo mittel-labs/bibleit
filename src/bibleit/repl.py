@@ -1,5 +1,8 @@
 import atexit
-import readline
+try:
+    import gnureadline as readline
+except ImportError:
+    import readline
 import sys
 from pathlib import Path
 

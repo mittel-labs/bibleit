@@ -97,7 +97,7 @@ class Bible(metaclass=BibleMeta):
         return names.keys()
 
     def ref(self, book, ref):
-        target_ref = ref.split(_VERSE_SLICE_DELIMITER)
+        target_ref = normalize.normalize_ref(ref).split(_VERSE_SLICE_DELIMITER)
         match target_ref:
             case [chapter, *verses]:
                 verse = "".join(verses) or _VERSE_CONTINUATION_DEFAULT

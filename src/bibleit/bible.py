@@ -122,7 +122,7 @@ class Bible(metaclass=BibleMeta):
     def _filter(self, *values):
         return [
             (line, normalized)
-            for line, normalized in self.content
+            for line, (_, normalized) in self.content
             if all(
                 re.search(rf"\b{value}s??\b", normalized, re.IGNORECASE)
                 for value in values
@@ -138,7 +138,7 @@ class Bible(metaclass=BibleMeta):
 
     def search(self, value):
         return [
-            self.display(line)
+            line
             for line, _ in self._filter(*value.split(_SEARCH_MULTIPLE_WORDS_DELIMITER))
         ]
 

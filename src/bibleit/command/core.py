@@ -5,6 +5,16 @@ from itertools import zip_longest as _zip
 from bibleit import command as _command
 from bibleit import config as _config
 
+from operator import attrgetter
+
+def _ref_parse(ctx, bible_fn, target, term):
+    refs = max([bible_fn(bible)(target) for bible in ctx.bible], key=len)
+    refs = [bible.ref_parse(refs) for bible in ctx.bible]
+    result = "\n\n".join(
+        "\n".join(verses) for verses in _zip(*refs, fillvalue=f"{term} not found")
+    )
+    return result if result else f"{term} '{' '.join(target)}' not found"
+
 
 def help(ctx, *args):
     """Prints this help."""
@@ -58,12 +68,12 @@ def ref(ctx, *args):
         ref john 8:31^2-32^2   (get verses before start end after end)"""
     assert args, "you should use <book> [<chapter>[:<verse[-verse]>]]"
 
-    refs = max([bible.refs(args) for bible in ctx.bible], key=len)
-    refs = [bible.ref_parse(refs) for bible in ctx.bible]
-    result = "\n\n".join(
-        "\n".join(verses) for verses in _zip(*refs, fillvalue="Reference not found")
+    return _ref_parse(
+        ctx,
+        attrgetter("refs"),
+        args,
+        "Reference"
     )
-    return result if result else f"Reference '{' '.join(args)}' not found"
 
 
 def search(ctx, *args):
@@ -77,9 +87,13 @@ def search(ctx, *args):
         search bread+Jesus      (search multiple words for all verses with bread and Jesus)"""
     target = " ".join(args)
     assert target, "You should use search <word>"
-    refs = [bible.search(target) for bible in ctx.bible]
-    result = "\n\n".join("\n".join(verses) for verses in refs)
-    return result
+    
+    return _ref_parse(
+        ctx,
+        attrgetter("search"),
+        target,
+        "Term"
+    )
 
 
 def count(ctx, *args):

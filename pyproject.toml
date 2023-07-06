@@ -16,6 +16,11 @@ classifiers = [
 dependencies = [
   "gnureadline; platform_system == 'Darwin'",
 ]
+[project.optional-dependencies]
+dev = [
+  "black",
+  "flake8",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/fmamud/bibleit"

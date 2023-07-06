@@ -21,7 +21,7 @@ _MAX_VERSES = 200
 
 def range_parse(start, end):
     ...
-            
+
 
 
 class BibleNotFound(AssertionError):
@@ -76,9 +76,10 @@ class Bible(metaclass=BibleMeta):
         return f"({self.version}) {value}" if _config.label else value
 
     def colored(self, value):
-        return (
-            "{}{}{}".format(self.color, value, _COLOR_END) if _config.color else value
-        )
+        if _config.color:
+            return "{}{}{}".format(self.color, value, _COLOR_END)
+        else:
+            return value
 
     def book(self, name):
         return [
@@ -138,7 +139,7 @@ class Bible(metaclass=BibleMeta):
 
             if adjustment:
                 current += adjustment[0]
-            
+
             return current
         return int(value)
 
@@ -151,21 +152,22 @@ class Bible(metaclass=BibleMeta):
     def count(self, value):
         if target := value.lower():
             return sum(
-                normalized.count(target)
-                for _, normalized in self._filter(value)
+                normalized.count(target) for _, normalized in self._filter(value)
             )
         return 0
 
     def refs(self, args):
+        target = None
         match args:
             case [number, book, ref] if number.isdigit():
-                return self.ref(f"{number} {book}", ref)
+                target = self.ref(f"{number} {book}", ref)
             case [book, ref]:
                 if book and book.isdigit():
-                    return self.book(f"{book} {ref}")
-                return self.ref(book, ref)
+                    target = self.book(f"{book} {ref}")
+                target = self.ref(book, ref)
             case [book]:
-                return self.book(book)
+                target = self.book(book)
+        return target
 
     def ref_parse(self, args):
         return [self.display(self.content[line][1][0]) for line in args]

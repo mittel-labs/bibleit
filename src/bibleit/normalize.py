@@ -59,8 +59,10 @@ _ACCENTS = {
 _NORMALIZE = str.maketrans(_ACCENTS)
 _REF_REGEX = re.compile(r"[^a-zA-Z0-9:\s\+\-\^]")
 
+
 def normalize(text):
     return text.lower().translate(_NORMALIZE).strip() if text else None
+
 
 def normalize_ref(ref):
     return _REF_REGEX.sub("", ref)

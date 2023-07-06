@@ -26,6 +26,7 @@ for _flag_name in _FLAGS:
     def _flag_method(name):
         def fn(ctx, value):
             setattr(_config, name, _flag(value))
+
         fn.__doc__ = f"Configure {_flag_name} config\n\n    set {_flag_name} <{'|'.join(_FLAGS_TOGGLE)}>"
         return fn
 

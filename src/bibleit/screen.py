@@ -22,71 +22,81 @@ def init(ctx, result):
 
 
 def display(ctx):
-    if ctx.screen.result:
-        output = list(filter(None, ctx.screen.result.splitlines()))
-        ctx.screen.total_lines = len(output)
+    if not ctx.screen.result:
+        close(ctx)
+        return
 
-        display_lines = [
-            line for line in output[ctx.screen.scroll_start:] if line.strip()
-        ][: ctx.screen.visible_lines]
+    output = list(filter(None, ctx.screen.result.splitlines()))
+    ctx.screen.total_lines = len(output)
 
-        if ctx.screen.selected_idx < ctx.screen.scroll_start:
-            ctx.screen.selected_idx = ctx.screen.scroll_start
-        elif (
-            ctx.screen.selected_idx
-            >= ctx.screen.scroll_start + ctx.screen.visible_lines
-        ):
-            ctx.screen.selected_idx = (
-                ctx.screen.scroll_start + ctx.screen.visible_lines - 1
-            )
+    display_lines = [
+        line for line in output[ctx.screen.scroll_start :] if line.strip()
+    ][: ctx.screen.visible_lines]
 
-        ctx.screen.stdscr.clear()
+    if ctx.screen.selected_idx < ctx.screen.scroll_start:
+        ctx.screen.selected_idx = ctx.screen.scroll_start
+    elif ctx.screen.selected_idx >= ctx.screen.scroll_start + ctx.screen.visible_lines:
+        ctx.screen.selected_idx = ctx.screen.scroll_start + ctx.screen.visible_lines - 1
+
+    with ctx.screen.stdscr as screen:
+        screen.clear()
         for i, line in enumerate(display_lines):
             if i == ctx.screen.selected_idx - ctx.screen.scroll_start:
-                ctx.screen.stdscr.addstr(i, 0, line, curses.A_REVERSE)
+                screen.addstr(i, 0, line, curses.A_REVERSE)
             else:
-                ctx.screen.stdscr.addstr(line)
-            ctx.screen.stdscr.addstr("\n")
+                screen.addstr(line)
+            screen.addstr("\n")
 
-        key = ctx.screen.stdscr.getch()
+        key = screen.getch()
 
-        if key == curses.KEY_UP:
-            if ctx.screen.selected_idx > 0:
-                ctx.screen.selected_idx -= 1
-                if ctx.screen.selected_idx < ctx.screen.scroll_start:
-                    ctx.screen.scroll_start = ctx.screen.selected_idx
-        elif key == curses.KEY_DOWN:
-            if ctx.screen.selected_idx < ctx.screen.total_lines - 1:
-                if (
-                    ctx.screen.selected_idx - ctx.screen.scroll_start
-                    >= ctx.screen.visible_lines - 1
-                    or ctx.screen.selected_idx == len(display_lines) - 1
-                ):
-                    ctx.screen.scroll_start += 1
-                ctx.screen.selected_idx = min(
-                    ctx.screen.selected_idx + 1, ctx.screen.total_lines - 1
-                )
-        elif key == curses.KEY_PPAGE:
-            ctx.screen.selected_idx = max(
-                0, ctx.screen.selected_idx - ctx.screen.visible_lines
-            )
-            ctx.screen.scroll_start = max(
-                0, ctx.screen.scroll_start - ctx.screen.visible_lines
-            )
-        elif key == curses.KEY_NPAGE:
-            ctx.screen.selected_idx = min(
-                ctx.screen.total_lines - 1,
-                ctx.screen.selected_idx + ctx.screen.visible_lines,
-            )
-            ctx.screen.scroll_start = min(
-                ctx.screen.scroll_start + ctx.screen.visible_lines,
-                ctx.screen.total_lines - ctx.screen.visible_lines,
-            )
+        key_handlers = {
+            curses.KEY_UP: handle_up,
+            curses.KEY_DOWN: handle_down,
+            curses.KEY_PPAGE: handle_page_up,
+            curses.KEY_NPAGE: handle_page_down,
+        }
 
-        if key in EXIT_KEYS:
+        handler = key_handlers.get(key, None)
+        if handler:
+            handler(ctx, display_lines)
+        elif key in EXIT_KEYS:
             close(ctx)
-    else:
-        close(ctx)
+
+
+def handle_up(ctx, display_lines):
+    if ctx.screen.selected_idx > 0:
+        ctx.screen.selected_idx -= 1
+        if ctx.screen.selected_idx < ctx.screen.scroll_start:
+            ctx.screen.scroll_start = ctx.screen.selected_idx
+
+
+def handle_down(ctx, display_lines):
+    if ctx.screen.selected_idx < ctx.screen.total_lines - 1:
+        if (
+            ctx.screen.selected_idx - ctx.screen.scroll_start
+            >= ctx.screen.visible_lines - 1
+            or ctx.screen.selected_idx == len(display_lines) - 1
+        ):
+            ctx.screen.scroll_start += 1
+        ctx.screen.selected_idx = min(
+            ctx.screen.selected_idx + 1, ctx.screen.total_lines - 1
+        )
+
+
+def handle_page_up(ctx, display_lines):
+    ctx.screen.selected_idx = max(0, ctx.screen.selected_idx - ctx.screen.visible_lines)
+    ctx.screen.scroll_start = max(0, ctx.screen.scroll_start - ctx.screen.visible_lines)
+
+
+def handle_page_down(ctx, display_lines):
+    ctx.screen.selected_idx = min(
+        ctx.screen.total_lines - 1,
+        ctx.screen.selected_idx + ctx.screen.visible_lines,
+    )
+    ctx.screen.scroll_start = min(
+        ctx.screen.scroll_start + ctx.screen.visible_lines,
+        ctx.screen.total_lines - ctx.screen.visible_lines,
+    )
 
 
 def close(ctx):

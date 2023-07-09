@@ -157,17 +157,15 @@ class Bible(metaclass=BibleMeta):
         return 0
 
     def refs(self, args):
-        target = None
         match args:
             case [number, book, ref] if number.isdigit():
-                target = self.ref(f"{number} {book}", ref)
+                return self.ref(f"{number} {book}", ref)
             case [book, ref]:
                 if book and book.isdigit():
-                    target = self.book(f"{book} {ref}")
-                target = self.ref(book, ref)
+                    return self.book(f"{book} {ref}")
+                return self.ref(book, ref)
             case [book]:
-                target = self.book(book)
-        return target
+                return self.book(book)
 
     def ref_parse(self, args):
         return [self.display(self.content[line][1][0]) for line in args]

@@ -7,7 +7,7 @@ bump-version:
 	@./bump-version.sh
 
 lint:
-	@flake8 src
+	@flake8 --config=.flake8 .
 
 fix-lint:
-	black src
+	black .

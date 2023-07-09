@@ -20,6 +20,7 @@ dependencies = [
 dev = [
   "black",
   "flake8",
+  "requests"
 ]
 
 [project.urls]

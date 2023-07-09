@@ -52,5 +52,5 @@ for filename in glob.glob(f"{bible_files_dir}/*.txt"):
     new_lines.append("")
 
     # Write the new content back to the file
-    with open(f"{filename}", "w") as f:
+    with open(f"{filename}.new", "w") as f:
         f.write("\n".join(new_lines))

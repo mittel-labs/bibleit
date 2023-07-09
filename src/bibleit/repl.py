@@ -1,4 +1,5 @@
 import atexit
+
 try:
     import gnureadline as readline
 except ImportError:
@@ -38,7 +39,6 @@ class AutoCompleter:
             return self.options[state]
         except Exception:
             return None
-
 
 
 def run():

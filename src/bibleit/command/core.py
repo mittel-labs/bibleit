@@ -7,6 +7,7 @@ from bibleit import config as _config
 
 from operator import attrgetter
 
+
 def _ref_parse(ctx, bible_fn, target, term):
     refs = max([bible_fn(bible)(target) for bible in ctx.bible], key=len)
     refs = [bible.ref_parse(refs) for bible in ctx.bible]
@@ -68,12 +69,7 @@ def ref(ctx, *args):
         ref john 8:31^2-32^2   (get verses with extra)"""
     assert args, "you should use <book> [<chapter>[:<verse[-verse]>]]"
 
-    return _ref_parse(
-        ctx,
-        attrgetter("refs"),
-        args,
-        "Reference"
-    )
+    return _ref_parse(ctx, attrgetter("refs"), args, "Reference")
 
 
 def search(ctx, *args):
@@ -84,16 +80,12 @@ def search(ctx, *args):
     Examples:
         search Jesus            (search for all verses with Jesus)
         search bread of life    (search exact for all verses with "bread of life")
-        search bread+Jesus      (search multiple words for all verses with bread and Jesus)"""
+        search bread+Jesus      (search multiple words for all verses with bread and Jesus)
+    """
     target = " ".join(args)
     assert target, "You should use search <word>"
-    
-    return _ref_parse(
-        ctx,
-        attrgetter("search"),
-        target,
-        "Term"
-    )
+
+    return _ref_parse(ctx, attrgetter("search"), target, "Term")
 
 
 def count(ctx, *args):
@@ -136,18 +128,18 @@ def exit(ctx, *args):
 def blb(ctx, *args):
     """Blue Letter Bible search.
 
-     blb <term [term2 [...]]>
+         blb <term [term2 [...]]>
 
-     Examples:
-         blb John 10:2
-         blb bread of life
-         blb sincer*
-         blb (Jesus AND faith) NOT (love OR truth)
+         Examples:
+             blb John 10:2
+             blb bread of life
+             blb sincer*
+             blb (Jesus AND faith) NOT (love OR truth)
 
- How to Use the Bible Search:
-     https://www.blueletterbible.org/help/bible_search.cfm
+     How to Use the Bible Search:
+         https://www.blueletterbible.org/help/bible_search.cfm
 
-https://www.blueletterbible.org | ©2022 Blue Letter Bible"""
+    https://www.blueletterbible.org | ©2022 Blue Letter Bible"""
     target = " ".join(args)
     assert target, "you should use blb <terms>"
     _wb.open(f"https://www.blueletterbible.org/search/preSearch.cfm?Criteria={target}")
@@ -161,8 +153,8 @@ def notes(ctx, *args):
 
 def note(ctx, *args):
     """Adds a new note.
-    
-     notes <string>"""
+
+    notes <string>"""
     target = " ".join(args)
 
     assert target, "you should use notes <string>"

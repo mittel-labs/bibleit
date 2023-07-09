@@ -4,7 +4,6 @@ from operator import attrgetter as _attrgetter
 
 from bibleit import config as _config
 from bibleit.bible import Bible as _Bible
-from bibleit import screen as _screen
 
 _FLAGS_ON = ["true", "on"]
 _FLAGS_OFF = ["false", "off"]
@@ -25,7 +24,9 @@ def _flag(value):
 for _flag_name in _FLAGS:
 
     def _flag_method(name):
-        fn = lambda ctx, value: setattr(_config, name, _flag(value))
+        def fn(ctx, value):
+            setattr(_config, name, _flag(value))
+
         fn.__doc__ = f"Configure {_flag_name} config\n\n    set {_flag_name} <{'|'.join(_FLAGS_TOGGLE)}>"
         return fn
 

@@ -46,8 +46,12 @@ def eval(ctx, *line, module=None):
         ctx.methods = eval_methods(ctx.module)
 
         args = list(filter(None, args))
-        
-        target = f"{'{} '.format(module) if module != _default_module else ''}{name}{' {}'.format(' '.join(args)) if args else ''}"
+
+        target = (
+            f"{'{} '.format(module) if module != _default_module else ''}"
+            f"{name}"
+            f"{' {}'.format(' '.join(args)) if args else ''}"
+        )
         if name in ctx.methods:
             fn = getattr(ctx.module, name)
             nargs = [normalize.normalize(arg) for arg in args]

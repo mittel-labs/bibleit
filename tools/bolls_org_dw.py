@@ -11,7 +11,7 @@ with open("bolls/books.json") as f:
 # Base URL of the API endpoint
 base_url = "https://bolls.life/get-text/"
 # Translation to download
-translation = "LUT"
+translation = "NVI"
 # Output file
 output_dir = f"{base_dir}/{translation}"
 

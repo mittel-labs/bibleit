@@ -1,10 +1,10 @@
 {
-  "LUT": [
+  "NVI": [
     {
-      "bookid": 1,
-      "chronorder": 1,
-      "name": "1 Mose",
-      "chapters": 3
+      "bookid": 5,
+      "chronorder": 6,
+      "name": "Deuteronomio",
+      "chapters": 34
     }
   ]
 }

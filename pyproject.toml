@@ -16,10 +16,12 @@ classifiers = [
 dependencies = [
   "gnureadline; platform_system == 'Darwin'",
 ]
+
 [project.optional-dependencies]
 dev = [
   "black",
   "flake8",
+  "requests"
 ]
 
 [project.urls]

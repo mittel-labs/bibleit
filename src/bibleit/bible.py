@@ -17,6 +17,11 @@ _VERSE_CONTINUATION_DEFAULT = f"1{_VERSE_CONTINUATION_DELIMITER}"
 _VERSE_POINTER_DELIMITER = "^"
 _SEARCH_MULTIPLE_WORDS_DELIMITER = "+"
 _TRANSLATIONS_DIR = importlib.resources.files(_translations)
+_MAX_VERSES = 200
+
+def range_parse(start, end):
+    ...
+            
 
 
 class BibleNotFound(AssertionError):
@@ -82,11 +87,21 @@ class Bible(metaclass=BibleMeta):
             if re.search(rf"^{name}", normalized, re.IGNORECASE)
         ]
 
-    def chapter(self, book, name):
+    def chapter(self, book, name, verse):
+        start, *end = verse.split(_VERSE_RANGE_DELIMITER)
+
+        start = self._versePointer(start)
+
+        if end:
+            end = min(self._versePointer(end[0]), _MAX_VERSES)
+            verse =  "|".join(map(str, range(start, end + 1)))
+        else:
+            verse = start
+
         return [
             line
             for line, (_, normalized) in self.content
-            if re.search(rf"^{book}.* {name}:", normalized, re.IGNORECASE)
+            if re.search(rf"^{book}.* {name}:({verse}) ", normalized, re.IGNORECASE)
         ]
 
     def chapters(self):
@@ -102,20 +117,8 @@ class Bible(metaclass=BibleMeta):
             case [chapter, *verses]:
                 verse = "".join(verses) or _VERSE_CONTINUATION_DEFAULT
                 if verse.endswith(_VERSE_CONTINUATION_DELIMITER):
-                    verse = int(verse[: verse.index(_VERSE_CONTINUATION_DELIMITER)]) - 1
-                    return self.chapter(book, int(chapter))[verse:]
-                match verse.split(_VERSE_RANGE_DELIMITER):
-                    case [start]:
-                        start, before = self._versePointer(start)
-                        return self.chapter(book, int(chapter))[
-                            int(start) - (before + 1) : int(start)
-                        ]
-                    case [start, end]:
-                        start, before = self._versePointer(start)
-                        end, after = self._versePointer(end)
-                        return self.chapter(book, int(chapter))[
-                            int(start) - (before + 1) : end + after
-                        ]
+                    verse = f"{verse.removesuffix(_VERSE_CONTINUATION_DELIMITER)}-{_MAX_VERSES}"
+                return self.chapter(book, chapter, verse)
             case []:
                 return self.book(book)
 
@@ -131,10 +134,13 @@ class Bible(metaclass=BibleMeta):
 
     def _versePointer(self, value):
         if _VERSE_POINTER_DELIMITER in value:
-            return map(
-                int, map(lambda p: p or "0", value.split(_VERSE_POINTER_DELIMITER))
-            )
-        return int(value), 0
+            current, *adjustment = map(int, str(value).split(_VERSE_POINTER_DELIMITER))
+
+            if adjustment:
+                current += adjustment[0]
+            
+            return current
+        return int(value)
 
     def search(self, value):
         return [

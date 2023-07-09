@@ -2,6 +2,9 @@ from bibleit import config
 from bibleit.bible import Bible, BibleNotFound
 
 
+BOLD = "\033[1m"
+END = "\033[0m"
+
 class Context:
     def __init__(self):
         self._notes = set()
@@ -13,7 +16,7 @@ class Context:
             self.bible = []
 
     def __repr__(self):
-        return f"{','.join(map(str,self.bible))}{config.context_ps1} "
+        return f"{BOLD}{','.join(map(str,self.bible))}{config.context_ps1}{END} "
     
     @property
     def notes(self):

@@ -16,7 +16,7 @@ class Context:
             self.bible = []
 
     def __repr__(self):
-        return f"{BOLD}{','.join(map(str,self.bible))}{config.context_ps1}{END} "
+        return f"✝ {BOLD}{','.join(map(str,self.bible))}{config.context_ps1}{END} "
     
     @property
     def notes(self):

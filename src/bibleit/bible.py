@@ -19,9 +19,9 @@ _SEARCH_MULTIPLE_WORDS_DELIMITER = "+"
 _TRANSLATIONS_DIR = importlib.resources.files(_translations)
 _MAX_VERSES = 200
 
+
 def range_parse(start, end):
     ...
-
 
 
 class BibleNotFound(AssertionError):
@@ -51,9 +51,7 @@ class Bible(metaclass=BibleMeta):
                 raise BibleNotFound(self.version)
             with target.open() as f:
                 self.content = list(
-                    enumerate(
-                        (line.strip(), normalize.normalize(line)) for line in f
-                    )
+                    enumerate((line.strip(), normalize.normalize(line)) for line in f)
                 )
             self.display = functools.reduce(
                 lambda f, g: lambda x: f(g(x)),
@@ -95,7 +93,7 @@ class Bible(metaclass=BibleMeta):
 
         if end:
             end = min(self._versePointer(end[0]), _MAX_VERSES)
-            verse =  "|".join(map(str, range(start, end + 1)))
+            verse = "|".join(map(str, range(start, end + 1)))
         else:
             verse = start
 

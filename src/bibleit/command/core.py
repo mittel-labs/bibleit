@@ -5,7 +5,7 @@ from itertools import zip_longest as _zip
 from bibleit import command as _command
 from bibleit import config as _config
 
-from operator import attrgetter
+from operator import attrgetter as _attrgetter
 
 
 def _ref_parse(ctx, bible_fn, target, term):
@@ -69,7 +69,7 @@ def ref(ctx, *args):
         ref john 8:31^2-32^2   (get verses with extra)"""
     assert args, "you should use <book> [<chapter>[:<verse[-verse]>]]"
 
-    return _ref_parse(ctx, attrgetter("refs"), args, "Reference")
+    return _ref_parse(ctx, _attrgetter("refs"), args, "Reference")
 
 
 def search(ctx, *args):
@@ -85,7 +85,7 @@ def search(ctx, *args):
     target = " ".join(args)
     assert target, "You should use search <word>"
 
-    return _ref_parse(ctx, attrgetter("search"), target, "Term")
+    return _ref_parse(ctx, _attrgetter("search"), target, "Term")
 
 
 def count(ctx, *args):

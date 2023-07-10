@@ -1,13 +1,13 @@
 import glob
 import re
 
-translation = "NVI"
-bible_files_dir = f'bolls/bibles/{translation}'
+translation = "NTLH"
+bible_files_dir = f"bolls/bibles/{translation}"
 
 
 def extract_chapter_and_verse(reference_text):
     # Extract book name, chapter, and verse using regular expressions
-    pattern = r'^([\w\s]+)\s(\d+):(\d+).*$'
+    pattern = r"^([\w\s]+)\s(\d+):(\d+).*$"
     match = re.match(pattern, reference_text)
 
     if match:
@@ -52,5 +52,5 @@ for filename in glob.glob(f"{bible_files_dir}/*.txt"):
     new_lines.append("")
 
     # Write the new content back to the file
-    with open(f"{filename}.new", "w") as f:
+    with open(f"{filename}", "w") as f:
         f.write("\n".join(new_lines))

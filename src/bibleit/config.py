@@ -1,6 +1,3 @@
-import importlib.resources
-import bibleit.translations as _translations
-
 # General
 debug = False
 color = False
@@ -16,8 +13,6 @@ welcome = f"""
 """
 
 # Bible
-translation_dir = "translations"
-available_bible = importlib.resources.contents(_translations)
 default_bible = "nvi"
 
 # Repl

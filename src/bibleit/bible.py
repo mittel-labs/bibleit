@@ -2,6 +2,7 @@ import itertools
 import functools
 import re
 import importlib.resources
+import operator
 
 from bibleit import config as _config
 from bibleit import translations as _translations
@@ -9,7 +10,6 @@ from bibleit import normalize
 
 
 _COLOR_END = "\x1b[0m"
-_COLOR_LEN = 255 // len(_config.available_bible)
 _VERSE_SLICE_DELIMITER = ":"
 _VERSE_RANGE_DELIMITER = "-"
 _VERSE_CONTINUATION_DELIMITER = "+"
@@ -20,8 +20,11 @@ _TRANSLATIONS_DIR = importlib.resources.files(_translations)
 _MAX_VERSES = 200
 
 
-def range_parse(start, end):
-    ...
+def get_available_bibles():
+    return sorted(map(operator.attrgetter("name"), _TRANSLATIONS_DIR.iterdir()))
+
+
+_COLOR_LEN = 255 // len(get_available_bibles())
 
 
 class BibleNotFound(AssertionError):

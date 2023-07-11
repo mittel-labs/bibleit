@@ -4,6 +4,7 @@ from itertools import zip_longest as _zip
 
 from bibleit import command as _command
 from bibleit import config as _config
+from bibleit import bible as _bible
 
 from operator import attrgetter as _attrgetter
 
@@ -116,7 +117,7 @@ def chapters(ctx, *args):
 
 def versions(ctx, *args):
     """List available Bible versions"""
-    return "\n{}\n".format("\n".join(_config.available_bible))
+    return "\n{}\n".format("\n".join(_bible.get_available_bibles()))
 
 
 def exit(ctx, *args):

@@ -1,6 +1,6 @@
 import sys
 import webbrowser as _wb
-import textwrap
+import textwrap as _tw
 from itertools import zip_longest as _zip
 
 from bibleit import command as _command
@@ -14,7 +14,7 @@ def _format_lines(lines):
     if _config.textwrap:
         lines = map(
             lambda x: ("\n" * _config.linesep).join(x),
-            map(lambda x: textwrap.wrap(x, width=120, fix_sentence_endings=True), lines),
+            map(lambda x: _tw.wrap(x, width=120, fix_sentence_endings=True), lines),
         )
     return ("\n" * _config.linesep).join(lines)
 

@@ -1,18 +1,29 @@
 import sys
 import webbrowser as _wb
+import textwrap
 from itertools import zip_longest as _zip
 
 from bibleit import command as _command
 from bibleit import config as _config
+from bibleit import bible as _bible
 
 from operator import attrgetter as _attrgetter
+
+
+def _format_lines(lines):
+    if _config.textwrap:
+        lines = map(
+            lambda x: ("\n" * _config.linesep).join(x),
+            map(lambda x: textwrap.wrap(x, width=120, fix_sentence_endings=True), lines),
+        )
+    return ("\n" * _config.linesep).join(lines)
 
 
 def _ref_parse(ctx, bible_fn, target, term):
     refs = max([bible_fn(bible)(target) for bible in ctx.bible], key=len)
     refs = [bible.ref_parse(refs) for bible in ctx.bible]
-    result = "\n\n".join(
-        "\n".join(verses) for verses in _zip(*refs, fillvalue=f"{term} not found")
+    result = _format_lines(
+        _format_lines(verses) for verses in _zip(*refs, fillvalue=f"{term} not found")
     )
     return result if result else f"{term} '{' '.join(target)}' not found"
 
@@ -101,7 +112,7 @@ def count(ctx, *args):
     assert target, "you should use count <word>"
     if refs := [(bible.version, str(bible.count(target))) for bible in ctx.bible]:
         if len(refs) > 1:
-            return "\n".join(f"({label}) {c}" for label, c in refs)
+            return _format_lines(f"({label}) {c}" for label, c in refs)
         else:
             return refs[0][1]
     return None
@@ -111,12 +122,17 @@ def chapters(ctx, *args):
     """Show the chapters.
 
     chapters"""
-    return "\n\n".join("\n".join(bible.chapters()) for bible in ctx.bible)
+    return _format_lines(_format_lines(bible.chapters()) for bible in ctx.bible)
+
+
+def version(ctx, *args):
+    """Prints bibleit version"""
+    return f"{_config.application} v{_config.version}"
 
 
 def versions(ctx, *args):
     """List available Bible versions"""
-    return "\n{}\n".format("\n".join(_config.available_bible))
+    return _format_lines(_bible.get_available_bibles())
 
 
 def exit(ctx, *args):
@@ -148,7 +164,7 @@ def blb(ctx, *args):
 
 def notes(ctx, *args):
     """List all notes."""
-    return "\n".join(ctx.notes) if ctx.notes else None
+    return _format_lines(ctx.notes) if ctx.notes else None
 
 
 def note(ctx, *args):

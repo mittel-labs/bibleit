@@ -38,29 +38,28 @@ def display(ctx):
     elif ctx.screen.selected_idx >= ctx.screen.scroll_start + ctx.screen.visible_lines:
         ctx.screen.selected_idx = ctx.screen.scroll_start + ctx.screen.visible_lines - 1
 
-    with ctx.screen.stdscr as screen:
-        screen.clear()
-        for i, line in enumerate(display_lines):
-            if i == ctx.screen.selected_idx - ctx.screen.scroll_start:
-                screen.addstr(i, 0, line, curses.A_REVERSE)
-            else:
-                screen.addstr(line)
-            screen.addstr("\n")
+    ctx.screen.stdscr.clear()
+    for i, line in enumerate(display_lines):
+        if i == ctx.screen.selected_idx - ctx.screen.scroll_start:
+            ctx.screen.stdscr.addstr(i, 0, line, curses.A_REVERSE)
+        else:
+            ctx.screen.stdscr.addstr(line)
+        ctx.screen.stdscr.addstr("\n")
 
-        key = screen.getch()
+    key = ctx.screen.stdscr.getch()
 
-        key_handlers = {
-            curses.KEY_UP: handle_up,
-            curses.KEY_DOWN: handle_down,
-            curses.KEY_PPAGE: handle_page_up,
-            curses.KEY_NPAGE: handle_page_down,
-        }
+    key_handlers = {
+        curses.KEY_UP: handle_up,
+        curses.KEY_DOWN: handle_down,
+        curses.KEY_PPAGE: handle_page_up,
+        curses.KEY_NPAGE: handle_page_down,
+    }
 
-        handler = key_handlers.get(key, None)
-        if handler:
-            handler(ctx, display_lines)
-        elif key in EXIT_KEYS:
-            close(ctx)
+    handler = key_handlers.get(key, None)
+    if handler:
+        handler(ctx, display_lines)
+    elif key in EXIT_KEYS:
+        close(ctx)
 
 
 def handle_up(ctx, display_lines):

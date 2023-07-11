@@ -9,7 +9,7 @@ _FLAGS_ON = ["true", "on"]
 _FLAGS_OFF = ["false", "off"]
 _FLAGS_TOGGLE = _FLAGS_ON + _FLAGS_OFF
 
-_FLAGS = {"debug", "color", "label", "screen"}
+_FLAGS = {"debug", "label", "screen", "textwrap"}
 
 
 def _flag(value):
@@ -47,3 +47,20 @@ def bible(ctx, *args):
         key=_attrgetter("version"),
     )
     _config.label = len(translations) > 1
+
+
+def linesep(ctx, *args):
+    """Configure line separation from results
+
+    set linesep <int>
+
+    Examples:
+        set linesep 1
+        set linesep 10"""
+    value = "".join(args)
+    if value.isdigit():
+        value = int(value)
+        assert 0 < value < 10, "value must be a int between 1 and 10"
+        _config.linesep = value
+    else:
+        raise AssertionError("value should be an int")

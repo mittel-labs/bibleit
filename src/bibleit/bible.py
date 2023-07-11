@@ -57,7 +57,7 @@ class Bible:
         return self.__class__ == other.__class__ and self.version == other.version
 
     def labeled(self, value):
-        return f"({self.version}) {value}" if _config.label else value
+        return f"({self.version})\t{value}" if _config.label else value
 
     def book(self, name):
         return [

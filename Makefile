@@ -22,3 +22,6 @@ lint: $(VENV_DIR)
 
 fix-lint: $(VENV_DIR)
 	@$(VENV_ACTIVATE) && black $(SOURCE_DIR)
+
+shell:
+	@($(VENV_ACTIVATE) && cd $(SOURCE_DIR) && python)

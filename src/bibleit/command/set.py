@@ -9,7 +9,7 @@ _FLAGS_ON = ["true", "on"]
 _FLAGS_OFF = ["false", "off"]
 _FLAGS_TOGGLE = _FLAGS_ON + _FLAGS_OFF
 
-_FLAGS = {"debug", "label", "screen"}
+_FLAGS = {"debug", "label", "screen", "textwrap"}
 
 
 def _flag(value):

@@ -1,6 +1,5 @@
 # General
 debug = False
-color = False
 label = False
 screen = False
 application = "bibleit"

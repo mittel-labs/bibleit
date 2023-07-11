@@ -1,4 +1,3 @@
-import itertools
 import functools
 import re
 import importlib.resources
@@ -9,7 +8,6 @@ from bibleit import translations as _translations
 from bibleit import normalize
 
 
-_COLOR_END = "\x1b[0m"
 _VERSE_SLICE_DELIMITER = ":"
 _VERSE_RANGE_DELIMITER = "-"
 _VERSE_CONTINUATION_DELIMITER = "+"
@@ -24,30 +22,15 @@ def get_available_bibles():
     return sorted(map(operator.attrgetter("name"), _TRANSLATIONS_DIR.iterdir()))
 
 
-_COLOR_LEN = 255 // len(get_available_bibles())
-
-
 class BibleNotFound(AssertionError):
     def __init__(self, version) -> None:
         super().__init__(f"Bible translation not found: {version}")
         self.version = version
 
 
-class BibleMeta(type):
-    def __init__(cls, name, bases, attrs):
-        super().__init__(name, bases, attrs)
-        cls._ids = itertools.count(1)
-
-
-class Bible(metaclass=BibleMeta):
+class Bible:
     def __init__(self, version):
-        self.id = next(self.__class__._ids)
         self.version = version.lower()
-        self.color = "\x1b[48;2;{};{};{}m".format(
-            self.id + _COLOR_LEN,
-            (self.id + 2) * _COLOR_LEN,
-            (self.id + 3) * _COLOR_LEN,
-        )
         try:
             target = _TRANSLATIONS_DIR / self.version
             if not target.is_file():
@@ -58,14 +41,14 @@ class Bible(metaclass=BibleMeta):
                 )
             self.display = functools.reduce(
                 lambda f, g: lambda x: f(g(x)),
-                [self.labeled, self.colored],
+                [self.labeled],
                 lambda x: x,
             )
         except ValueError as e:
             raise BibleNotFound(self.version) from e
 
     def __repr__(self):
-        return self.colored(self.version)
+        return self.version
 
     def __hash__(self):
         return hash(self.version)
@@ -75,12 +58,6 @@ class Bible(metaclass=BibleMeta):
 
     def labeled(self, value):
         return f"({self.version}) {value}" if _config.label else value
-
-    def colored(self, value):
-        if _config.color:
-            return "{}{}{}".format(self.color, value, _COLOR_END)
-        else:
-            return value
 
     def book(self, name):
         return [

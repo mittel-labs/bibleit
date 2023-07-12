@@ -5,7 +5,7 @@ screen = False
 textwrap = False
 bold = False
 application = "bibleit"
-version = "0.0.16"
+version = "0.0.17"
 help = 'Type "help" for more information.'
 welcome = f"""
     Welcome to {application} v{version}

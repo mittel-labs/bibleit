@@ -63,7 +63,7 @@ def eval(ctx, target=None):
             sys.exit(0)
 
 
-def run():
+def run(ctx=None):
     print(config.welcome)
 
     ac = AutoCompleter()
@@ -73,8 +73,9 @@ def run():
     readline.set_completer_delims(" \t\n;")
     readline.parse_and_bind("tab: complete")
 
-    ctx = Context()
-    ctx.__main__ = __name__
+    if ctx is None:
+        ctx = Context()
+        ctx.__main__ = __name__
 
     eval(ctx)
 

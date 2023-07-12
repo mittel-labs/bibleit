@@ -41,6 +41,28 @@ class AutoCompleter:
             return None
 
 
+def read(ctx):
+    return input(ctx).strip()
+
+
+def eval(ctx, target=None):
+    while True:
+        try:
+            if config.flags.screen and ctx.screen:
+                screen.display(ctx)
+            elif line := target if target else read(ctx):
+                if (result := command.eval(ctx, *line.split())) is not None:
+                    if config.flags.screen:
+                        screen.init(ctx, result)
+                    else:
+                        print(result)
+                        ctx.exit_non_main()
+        except KeyboardInterrupt:
+            print("\n")
+        except EOFError:
+            sys.exit(0)
+
+
 def run():
     print(config.welcome)
 
@@ -52,21 +74,9 @@ def run():
     readline.parse_and_bind("tab: complete")
 
     ctx = Context()
+    ctx.__main__ = __name__
 
-    while True:
-        try:
-            if config.screen and ctx.screen:
-                screen.display(ctx)
-            elif line := input(ctx).strip():
-                if (result := command.eval(ctx, *line.split())) is not None:
-                    if config.screen:
-                        screen.init(ctx, result)
-                    else:
-                        print(result)
-        except KeyboardInterrupt:
-            print("\n")
-        except EOFError:
-            sys.exit(0)
+    eval(ctx)
 
 
 if __name__ == "__main__":

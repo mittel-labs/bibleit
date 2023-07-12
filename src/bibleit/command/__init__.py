@@ -26,7 +26,7 @@ def eval_module(name):
             return import_module(target)
         return sys.modules[target]
     except ModuleNotFoundError as e:
-        if config.debug:
+        if config.flags.debug:
             print(e)
         return eval_module(_default_module)
 
@@ -59,7 +59,7 @@ def eval(ctx, *line, module=None):
     except AssertionError as e:
         print(f"Error: {e}")
     except Exception as e:
-        if config.debug:
+        if config.flags.debug:
             print(f"*** {e}\n")
             print(traceback.format_exc())
         if module != _default_module:

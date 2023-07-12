@@ -60,10 +60,14 @@ class Bible:
         return self.__class__ == other.__class__ and self.version == other.version
 
     def labeled(self, value):
-        return f"✝ {self.version}{_config.context_ps1}\t{value}" if _config.label else value
+        return (
+            f"✝ {self.version}{_config.context_ps1}\t{value}"
+            if _config.flags.label
+            else value
+        )
 
     def bolded(self, value):
-        if _config.bold:
+        if _config.flags.bold:
             if ref_idx := re.search(r" \d+:\d+", value):
                 ref_idx = ref_idx.end()
             return f"{BOLD}{value[:ref_idx]}{END} {value[ref_idx + 1:]}"

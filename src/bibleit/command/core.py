@@ -11,8 +11,8 @@ from operator import attrgetter as _attrgetter
 
 
 def _format_lines(lines):
-    linesep = ("\n" * (_config.linesep + 1))
-    if _config.textwrap:
+    linesep = "\n" * (_config.linesep + 1)
+    if _config.flags.textwrap:
         lines = map(
             lambda x: linesep.join(x),
             map(lambda x: _tw.wrap(x, width=120, fix_sentence_endings=True), lines),

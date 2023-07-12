@@ -104,3 +104,4 @@ def close(ctx):
     curses.echo()
     curses.nocbreak()
     curses.endwin()
+    ctx.exit_non_main()

@@ -1,5 +1,5 @@
-from bibleit.command import args as bargs
-from bibleit import repl
+from bibleit.command import args as bargs, set
+from bibleit import repl, context, config
 
 _FLAG_PREFIX = "flag_"
 
@@ -16,24 +16,22 @@ def get_active_flags(ctx):
             yield flag
 
 
+ctx = context.Context()
+
+if args.bible:
+    set.bible(ctx, ",".join(args.bible))
+
+if args.linesep is not None:
+    set.linesep(ctx, str(args.linesep))
+
+for flag in get_active_flags(args):
+    config.set_flag(flag, True)
+
 if args.repl:
-    repl.run()
+    ctx.__main__ = "__main__"
+    repl.run(ctx)
 else:
     if args.args:
-        from bibleit import context, config
-        from bibleit.command import set
-
-        for flag in get_active_flags(args):
-            config.set_flag(flag, True)
-
-        ctx = context.Context()
-
-        if args.bible:
-            set.bible(ctx, ",".join(args.bible))
-
-        if args.linesep is not None:
-            set.linesep(ctx, str(args.linesep))
-
         repl.eval(ctx, " ".join(args.args))
     else:
         bargs.parser.print_help()

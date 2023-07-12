@@ -9,7 +9,7 @@ _FLAGS_ON = ["true", "on"]
 _FLAGS_OFF = ["false", "off"]
 _FLAGS_TOGGLE = _FLAGS_ON + _FLAGS_OFF
 
-_FLAGS = {"debug", "label", "screen", "textwrap"}
+_FLAGS = {"debug", "label", "screen", "textwrap", "bold"}
 
 
 def _flag(value):
@@ -60,7 +60,7 @@ def linesep(ctx, *args):
     value = "".join(args)
     if value.isdigit():
         value = int(value)
-        assert 0 < value < 10, "value must be a int between 1 and 10"
+        assert 0 <= value < 10, "value must be a int between 0 and 10"
         _config.linesep = value
     else:
         raise AssertionError("value should be an int")

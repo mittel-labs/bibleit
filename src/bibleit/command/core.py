@@ -11,19 +11,20 @@ from operator import attrgetter as _attrgetter
 
 
 def _format_lines(lines):
+    linesep = ("\n" * (_config.linesep + 1))
     if _config.textwrap:
         lines = map(
-            lambda x: ("\n" * _config.linesep).join(x),
+            lambda x: linesep.join(x),
             map(lambda x: _tw.wrap(x, width=120, fix_sentence_endings=True), lines),
         )
-    return ("\n" * _config.linesep).join(lines)
+    return linesep.join(lines)
 
 
 def _ref_parse(ctx, bible_fn, target, term):
     refs = max([bible_fn(bible)(target) for bible in ctx.bible], key=len)
     refs = [bible.ref_parse(refs) for bible in ctx.bible]
     result = _format_lines(
-        _format_lines(verses) for verses in _zip(*refs, fillvalue=f"{term} not found")
+        "\n".join(verses) for verses in _zip(*refs, fillvalue=f"{term} not found")
     )
     return result if result else f"{term} '{' '.join(target)}' not found"
 
@@ -122,7 +123,7 @@ def chapters(ctx, *args):
     """Show the chapters.
 
     chapters"""
-    return _format_lines(_format_lines(bible.chapters()) for bible in ctx.bible)
+    return _format_lines("\n".join(bible.chapters()) for bible in ctx.bible)
 
 
 def version(ctx, *args):

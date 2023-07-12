@@ -1,9 +1,5 @@
 from bibleit import config
-from bibleit.bible import Bible, BibleNotFound
-
-
-BOLD = "\033[1m"
-END = "\033[0m"
+from bibleit.bible import Bible, BibleNotFound, BOLD, END
 
 
 class Context:
@@ -17,7 +13,10 @@ class Context:
             self.bible = []
 
     def __repr__(self):
-        return f"✝ {BOLD}{','.join(map(str,self.bible))}{config.context_ps1}{END} "
+        line = f"{','.join(map(str,self.bible))}{config.context_ps1}"
+        if config.bold:
+            line = f"{BOLD}{line}{END}"
+        return f"✝ {line} "
 
     @property
     def notes(self):

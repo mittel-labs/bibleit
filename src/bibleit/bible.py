@@ -7,6 +7,9 @@ from bibleit import config as _config
 from bibleit import translations as _translations
 from bibleit import normalize
 
+BOLD = "\033[1m"
+END = "\033[0m"
+
 
 _VERSE_SLICE_DELIMITER = ":"
 _VERSE_RANGE_DELIMITER = "-"
@@ -41,7 +44,7 @@ class Bible:
                 )
             self.display = functools.reduce(
                 lambda f, g: lambda x: f(g(x)),
-                [self.labeled],
+                [self.labeled, self.bolded],
                 lambda x: x,
             )
         except ValueError as e:
@@ -57,7 +60,14 @@ class Bible:
         return self.__class__ == other.__class__ and self.version == other.version
 
     def labeled(self, value):
-        return f"({self.version})\t{value}" if _config.label else value
+        return f"✝ {self.version}{_config.context_ps1}\t{value}" if _config.label else value
+
+    def bolded(self, value):
+        if _config.bold:
+            if ref_idx := re.search(r" \d+:\d+", value):
+                ref_idx = ref_idx.end()
+            return f"{BOLD}{value[:ref_idx]}{END} {value[ref_idx + 1:]}"
+        return value
 
     def book(self, name):
         return [

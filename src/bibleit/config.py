@@ -3,6 +3,7 @@ debug = False
 label = False
 screen = False
 textwrap = False
+bold = False
 application = "bibleit"
 version = "0.0.16"
 help = 'Type "help" for more information.'

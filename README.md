@@ -44,3 +44,7 @@ python -m bibleit.repl
 After that you're going to see a console, so that you can start typing commands:
 
 ![](repl.gif)
+
+## Contributing
+
+Contributions are very welcome! Check our [Contributing](CONTRIBUTING.md) guide.

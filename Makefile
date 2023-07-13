@@ -1,4 +1,4 @@
-.PHONY: run bump-version lint fix-lint
+.PHONY: run bump-version lint fix-lint test
 
 VENV_DIR:=.venv
 VENV_ACTIVATE:=source $(VENV_DIR)/bin/activate
@@ -25,3 +25,6 @@ fix-lint: $(VENV_DIR)
 
 shell:
 	@($(VENV_ACTIVATE) && cd $(SOURCE_DIR) && python)
+
+test:
+	python -m unittest discover src

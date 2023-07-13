@@ -55,6 +55,8 @@ def eval(ctx, *line, module=None):
         if name in ctx.methods:
             fn = getattr(ctx.module, name)
             nargs = [normalize.normalize(arg) for arg in args]
+            if not nargs and fn.__annotations__.get("value") == bool:
+                nargs = [str(not getattr(config.flags, name))]
             return fn(ctx, *nargs)
     except AssertionError as e:
         print(f"Error: {e}")

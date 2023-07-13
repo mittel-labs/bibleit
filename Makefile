@@ -12,7 +12,7 @@ clean-venv:
 	@rm -rf $(VENV_DIR)
 
 run:
-	@(cd $(SOURCE_DIR); python -m bibleit)
+	@(cd $(SOURCE_DIR); python -m bibleit $(ARGS))
 
 bump-version:
 	@./bump-version.sh

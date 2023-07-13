@@ -7237,7 +7237,7 @@
     {
       "bookid": 7,
       "chronorder": 8,
-      "name": "O Livro dos Juízes",
+      "name": "Juízes",
       "chapters": 21
     },
     {
@@ -7309,25 +7309,25 @@
     {
       "bookid": 19,
       "chronorder": 13,
-      "name": "O Livro dos Salmos",
+      "name": "Salmos",
       "chapters": 150
     },
     {
       "bookid": 20,
       "chronorder": 17,
-      "name": "Provérbios de Salomão",
+      "name": "Provérbios",
       "chapters": 31
     },
     {
       "bookid": 21,
       "chronorder": 18,
-      "name": "Livro do Eclesiastes",
+      "name": "Eclesiastes",
       "chapters": 12
     },
     {
       "bookid": 22,
       "chronorder": 14,
-      "name": "Cântico dos Cânticos de Salomão",
+      "name": "Cânticos",
       "chapters": 8
     },
     {
@@ -7345,7 +7345,7 @@
     {
       "bookid": 25,
       "chronorder": 30,
-      "name": "Lamentações de Jeremias",
+      "name": "Jeremias",
       "chapters": 5
     },
     {
@@ -7435,109 +7435,109 @@
     {
       "bookid": 40,
       "chronorder": 40,
-      "name": "O Evangelho segundo Mateus",
+      "name": "Mateus",
       "chapters": 28
     },
     {
       "bookid": 41,
       "chronorder": 58,
-      "name": "O Evangelho segundo Marcos",
+      "name": "Marcos",
       "chapters": 16
     },
     {
       "bookid": 42,
       "chronorder": 52,
-      "name": "O Evangelho segundo Lucas",
+      "name": "Lucas",
       "chapters": 24
     },
     {
       "bookid": 43,
       "chronorder": 66,
-      "name": "O Evangelho segundo João",
+      "name": "João",
       "chapters": 21
     },
     {
       "bookid": 44,
       "chronorder": 54,
-      "name": "Atos dos Apóstolos",
+      "name": "Atos",
       "chapters": 28
     },
     {
       "bookid": 45,
       "chronorder": 46,
-      "name": "Epístola de Paulo aos Romanos",
+      "name": "Romanos",
       "chapters": 16
     },
     {
       "bookid": 46,
       "chronorder": 44,
-      "name": "Primeira Epístola de Paulo aos Coríntios",
+      "name": "1 Coríntios",
       "chapters": 16
     },
     {
       "bookid": 47,
       "chronorder": 45,
-      "name": "Segunda Epístola de Paulo aos Coríntios",
+      "name": "1 Coríntios",
       "chapters": 13
     },
     {
       "bookid": 48,
       "chronorder": 41,
-      "name": "Epístola de Paulo aos Gálatas",
+      "name": "Gálatas",
       "chapters": 6
     },
     {
       "bookid": 49,
       "chronorder": 47,
-      "name": "Epístola de Paulo aos Efésios",
+      "name": "Efésios",
       "chapters": 6
     },
     {
       "bookid": 50,
       "chronorder": 49,
-      "name": "Epístola de Paulo aos Filipenses",
+      "name": "Filipenses",
       "chapters": 4
     },
     {
       "bookid": 51,
       "chronorder": 50,
-      "name": "Epístola de Paulo aos Colossenses",
+      "name": "Colossenses",
       "chapters": 4
     },
     {
       "bookid": 52,
       "chronorder": 42,
-      "name": "Primeira Epístola de Paulo aos Tessalonicenses",
+      "name": "1 Tessalonicenses",
       "chapters": 5
     },
     {
       "bookid": 53,
       "chronorder": 43,
-      "name": "Segunda Epístola de Paulo aos Tessalonicenses",
+      "name": "2 Tessalonicenses",
       "chapters": 3
     },
     {
       "bookid": 54,
       "chronorder": 55,
-      "name": "Primeira Epístola de Paulo a Timóteo",
+      "name": "1 Timóteo",
       "chapters": 6
     },
     {
       "bookid": 55,
       "chronorder": 59,
-      "name": "Segunda Epístola de Paulo a Timóteo",
+      "name": "2 Timóteo",
       "chapters": 4
     },
     {
       "bookid": 56,
       "chronorder": 57,
-      "name": "Epístola de Paulo a Tito",
+      "name": "Tito",
       "chapters": 3
     },
     {
       "bookid": 57,
       "chronorder": 51,
-      "name": "Epístola de Paulo a Filemom",
+      "name": "Filemom",
       "chapters": 1
     },
     {
@@ -7549,49 +7549,49 @@
     {
       "bookid": 59,
       "chronorder": 48,
-      "name": "Epístola de Tiago",
+      "name": "Tiago",
       "chapters": 5
     },
     {
       "bookid": 60,
       "chronorder": 56,
-      "name": "Primeira Epístola de Pedro",
+      "name": "1 Pedro",
       "chapters": 5
     },
     {
       "bookid": 61,
       "chronorder": 60,
-      "name": "Segunda Epístola de Pedro",
+      "name": "2 Pedro",
       "chapters": 3
     },
     {
       "bookid": 62,
       "chronorder": 61,
-      "name": "Primeira Epístola de João",
+      "name": "1 João",
       "chapters": 5
     },
     {
       "bookid": 63,
       "chronorder": 62,
-      "name": "Segunda Epístola de João",
+      "name": "2 João",
       "chapters": 1
     },
     {
       "bookid": 64,
       "chronorder": 63,
-      "name": "Terceira Epístola de João",
+      "name": "3 João",
       "chapters": 1
     },
     {
       "bookid": 65,
       "chronorder": 64,
-      "name": "Epístola de Judas",
+      "name": "Judas",
       "chapters": 1
     },
     {
       "bookid": 66,
       "chronorder": 65,
-      "name": "Apocalipse de João",
+      "name": "Apocalipse",
       "chapters": 22
     }
   ],

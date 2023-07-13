@@ -18,8 +18,10 @@ def extract_chapter_and_verse(reference_text):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Fix missing verses in Bible translations.')
-    parser.add_argument('translation', type=str, help='the translation to fix')
+    parser = argparse.ArgumentParser(
+        description="Fix missing verses in Bible translations."
+    )
+    parser.add_argument("translation", type=str, help="the translation to fix")
     args = parser.parse_args()
 
     translation = args.translation
@@ -62,5 +64,5 @@ def main():
             f.write("\n".join(new_lines))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

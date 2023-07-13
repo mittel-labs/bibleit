@@ -22,7 +22,7 @@ def _flag(value):
 for _flag_name in _config.flag_names:
 
     def _flag_method(name):
-        def fn(ctx, value):
+        def fn(ctx, value: bool):
             _config.set_flag(name, _flag(value))
 
         fn.__doc__ = f"Configure {_flag_name} config\n\n    set {_flag_name} <{'|'.join(_FLAGS_TOGGLE)}>"

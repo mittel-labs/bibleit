@@ -11,6 +11,7 @@ $(VENV_DIR):
 clean-venv:
 	@rm -rf $(VENV_DIR)
 
+run: ARGS?=--repl --bold
 run:
 	@(cd $(SOURCE_DIR); python -m bibleit $(ARGS))
 

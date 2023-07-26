@@ -99,8 +99,14 @@ class Bible:
 
     def chapters(self):
         names = {
-            self.display(line[: re.search(r"\d+:\d+", line).start() - 1]): None
-            for n, (line, _) in self.content
+            line[: n.start() - 1]: None
+            for line, n in filter(
+                lambda found: found[1] is not None,
+                map(
+                    lambda line: (line[1][0], re.search(r"\d+:\d+", line[1][1])),
+                    self.content,
+                ),
+            )
         }
         return names.keys()
 

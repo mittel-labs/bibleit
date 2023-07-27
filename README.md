@@ -4,7 +4,7 @@ Interactive Bible reading.
 
 ## How to run
 
-```sh
+```
 $ python -m bibleit
 
 usage: bibleit [-h] [--version] [--repl] [--linesep value] [--bible value] [--debug] [--screen] [--textwrap] [--bold] [--label] [args ...]

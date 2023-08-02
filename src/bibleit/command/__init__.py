@@ -38,9 +38,12 @@ def eval(ctx, *line, module=None):
     try:
         name, *args = line
 
-        if name.startswith("!"):
-            args.insert(0, name[1:])
-            name = "set"
+        if any(name.startswith(alias) for alias in core._ALIASES):
+            alias = name.strip()[0]
+            name = "".join(filter(None, map(str.strip, name.split(alias))))
+            if target := core._ALIASES.get(alias):
+                args.insert(0, name)
+                name = target
 
         ctx.module = eval_module(module)
         ctx.methods = eval_methods(ctx.module)

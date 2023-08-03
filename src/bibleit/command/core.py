@@ -187,6 +187,7 @@ def blb(ctx, *args):
 
 def notes(ctx, *args):
     """List all notes. @alias"""
+    assert not args, "you should use only notes"
     return _format_lines(ctx.notes) if ctx.notes else None
 
 

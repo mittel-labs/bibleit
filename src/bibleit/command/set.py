@@ -39,6 +39,7 @@ def bible(ctx, *args):
     Examples:
         set bible kjv
         set bible acf, nvi"""
+    assert args, "you should use bible <translation[, translation[, ...]]>"
     translations = [value for arg in args for value in arg.split(",") if value]
     ctx.bible = sorted(
         {_Bible(translation.lower()) for translation in translations},

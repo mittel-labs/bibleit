@@ -9,6 +9,22 @@ from bibleit import bible as _bible
 
 from operator import attrgetter as _attrgetter
 
+_ALIASES = {
+    "!": "set",
+    "@": "ref",
+    "?": "help",
+    "&": "search",
+    "%": "count",
+    "-": "note",
+    "\\": "notes",
+}
+
+
+def _format_alias(name):
+    if alias := next((alias for alias, cmd in _ALIASES.items() if cmd == name), None):
+        return f"(alias: '{alias}')"
+    return ""
+
 
 def _format_lines(lines):
     linesep = "\n" * (_config.linesep + 1)
@@ -29,8 +45,13 @@ def _ref_parse(ctx, bible_fn, target, term):
     return result if result else f"{term} '{' '.join(target)}' not found"
 
 
+def _doc(hdoc, name):
+    if hdoc and name:
+        return hdoc.replace("@alias", _format_alias(name))
+
+
 def help(ctx, *args):
-    """Prints this help."""
+    """Prints this help. @alias"""
     if args:
         match args:
             case ["help", *sub_command]:
@@ -40,17 +61,18 @@ def help(ctx, *args):
                     sys.modules[__name__], name
                 ), f"command '{name}' not found"
                 if target := getattr(sys.modules[__name__], name).__doc__:
-                    print(target)
+                    print(_doc(target, name))
             case [name, sub_command]:
                 module = _command.eval_module(name)
-                print(getattr(module, sub_command).__doc__)
+                if target := getattr(module, sub_command).__doc__:
+                    print(_doc(target, name))
             case _:
                 print(
                     "Error: You must use help for command and one sub-command only.\n\nhelp <command> [<sub-command>]"
                 )
     else:
         methods = sorted(
-            f"{method.__name__:<20} {method.__doc__.splitlines()[0]}"
+            f"{method.__name__:<20} {_doc(method.__doc__.splitlines()[0], method.__name__)}"
             for method in [getattr(ctx.module, name) for name in ctx.methods]
         )
 
@@ -59,7 +81,7 @@ def help(ctx, *args):
 
 
 def set(ctx, *args):
-    """Configure a sub-command with a new value.
+    """Configure a sub-command with a new value. @alias
 
     set <config> <value>
 
@@ -69,7 +91,7 @@ def set(ctx, *args):
 
 
 def ref(ctx, *args):
-    """Search a reference(s) by chapters and verses.
+    """Search a reference(s) by chapters and verses. @alias
 
     ref <book> [<chapter>[:<verse[-verse]>]]
 
@@ -85,7 +107,7 @@ def ref(ctx, *args):
 
 
 def search(ctx, *args):
-    """Search one or more words.
+    """Search one or more words. @alias
 
     search <word [word2 [...]]>
 
@@ -101,7 +123,7 @@ def search(ctx, *args):
 
 
 def count(ctx, *args):
-    """Count how much words.
+    """Count how much words. @alias
 
     count <word [word2 [...]]>
 
@@ -164,16 +186,17 @@ def blb(ctx, *args):
 
 
 def notes(ctx, *args):
-    """List all notes."""
+    """List all notes. @alias"""
+    assert not args, "you should use only notes"
     return _format_lines(ctx.notes) if ctx.notes else None
 
 
 def note(ctx, *args):
-    """Adds a new note.
+    """Adds a new note. @alias
 
     notes <string>"""
     target = " ".join(args)
 
-    assert target, "you should use notes <string>"
+    assert target, "you should use note <string>"
     ctx.add_note(target)
     return None

@@ -16,7 +16,7 @@ _ALIASES = {
     "&": "search",
     "%": "count",
     "-": "note",
-    "\\": "notes"
+    "\\": "notes",
 }
 
 
@@ -46,8 +46,8 @@ def _ref_parse(ctx, bible_fn, target, term):
 
 
 def _doc(hdoc, name):
-        if hdoc and name:
-            return hdoc.replace("@alias", _format_alias(name))
+    if hdoc and name:
+        return hdoc.replace("@alias", _format_alias(name))
 
 
 def help(ctx, *args):

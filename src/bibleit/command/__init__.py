@@ -31,7 +31,7 @@ def eval_module(name):
         return eval_module(_default_module)
 
 
-def eval(ctx, *line, module=None):
+def eval(ctx, *line, module=None):  # noqa: C901
     """Evaluate a function with arbitrary arguments."""
     if module is None:
         module = _default_module

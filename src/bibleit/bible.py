@@ -168,4 +168,8 @@ class Bible:
         return target
 
     def ref_parse(self, args):
-        return [self.display(self.content[line][1][0]) for line in args]
+        return [
+            self.display(self.content[line][1][0])
+            for line in args
+            if 0 <= line < len(self.content)
+        ]

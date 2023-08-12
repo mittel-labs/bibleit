@@ -15,8 +15,10 @@ _ALIASES = {
     "?": "help",
     "&": "search",
     "%": "count",
-    "-": "note",
+    "*": "note",
     "\\": "notes",
+    "+": "plus",
+    "-": "minus",
 }
 
 
@@ -36,18 +38,31 @@ def _format_lines(lines):
     return linesep.join(lines)
 
 
-def _ref_parse(ctx, bible_fn, target, term):
-    refs = max([bible_fn(bible)(target) for bible in ctx.bible], key=len)
+def _ref_parse_bible(ctx, refs, term="Reference"):
     refs = [bible.ref_parse(refs) for bible in ctx.bible]
-    result = _format_lines(
+    return _format_lines(
         "\n".join(verses) for verses in _zip(*refs, fillvalue=f"{term} not found")
     )
+
+
+def _ref_parse(ctx, bible_fn, target, term):
+    refs = max([bible_fn(bible)(target) for bible in ctx.bible], key=len)
+    ctx.last_ref, result = refs[-1], _ref_parse_bible(ctx, refs, term)
     return result if result else f"{term} '{' '.join(target)}' not found"
 
 
 def _doc(hdoc, name):
     if hdoc and name:
         return hdoc.replace("@alias", _format_alias(name))
+
+
+def _last_refs(ctx, range_fn):
+    last_ref = getattr(ctx, "last_ref", None)
+    if last_ref is not None:
+        if refs := range_fn(last_ref):
+            ctx.last_ref = min(max(-1, refs[-1]), len(ctx.bible[0].content))
+            if result := _ref_parse_bible(ctx, refs):
+                return result
 
 
 def help(ctx, *args):
@@ -200,3 +215,27 @@ def note(ctx, *args):
     assert target, "you should use note <string>"
     ctx.add_note(target)
     return None
+
+
+def plus(ctx, *args):
+    """Get next verses. @alias
+
+    plus <int>"""
+    match args:
+        case [n] if n.isdigit():
+            n = int(n)
+            return _last_refs(
+                ctx, lambda last_ref: list(range(last_ref + 1, last_ref + n + 1))
+            )
+    raise AssertionError("you should use plus <int>")
+
+
+def minus(ctx, *args):
+    """Get previous verses. @alias
+
+    minus <int>"""
+    match args:
+        case [n] if n.isdigit():
+            n = int(n)
+            return _last_refs(ctx, lambda last_ref: list(range(last_ref - n, last_ref)))
+    raise AssertionError("you should use minus <int>")

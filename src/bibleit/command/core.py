@@ -46,9 +46,10 @@ def _ref_parse_bible(ctx, refs, term="Reference"):
 
 
 def _ref_parse(ctx, bible_fn, target, term):
-    refs = max([bible_fn(bible)(target) for bible in ctx.bible], key=len)
-    ctx.last_ref, result = refs[-1], _ref_parse_bible(ctx, refs, term)
-    return result if result else f"{term} '{' '.join(target)}' not found"
+    if refs := max([bible_fn(bible)(target) for bible in ctx.bible], key=len):
+        ctx.last_ref, result = refs[-1], _ref_parse_bible(ctx, refs, term)
+        return result
+    return f"{term} '{''.join(target)}' not found"
 
 
 def _doc(hdoc, name):

@@ -31,6 +31,17 @@ class BibleNotFound(AssertionError):
         self.version = version
 
 
+def _verse_pointer(value):
+    if _VERSE_POINTER_DELIMITER in value:
+        current, *adjustment = map(int, str(value).split(_VERSE_POINTER_DELIMITER))
+
+        if adjustment:
+            current += adjustment[0]
+
+        return current
+    return int(value)
+
+
 class Bible:
     def __init__(self, version):
         self.version = version.lower()
@@ -83,18 +94,26 @@ class Bible:
     def chapter(self, book, name, verse):
         start, *end = verse.split(_VERSE_RANGE_DELIMITER)
 
-        start = self._versePointer(start)
+        start = _verse_pointer(start)
 
         if end:
-            end = min(self._versePointer(end[0]), _MAX_VERSES)
+            end = min(_verse_pointer(end[0]), _MAX_VERSES)
             verse = "|".join(map(str, range(start, end + 1)))
         else:
             verse = start
 
+        exact_matches = [
+            line
+            for line, (_, normalized) in self.content
+            if re.search(rf"^\b{book}\b {name}:({verse}) ", normalized, re.IGNORECASE)
+        ]
+        if exact_matches:
+            return exact_matches
+
         return [
             line
             for line, (_, normalized) in self.content
-            if re.search(rf"^{book}.* {name}:({verse}) ", normalized, re.IGNORECASE)
+            if re.search(rf"^{book}.* {name}:({verse})", normalized, re.IGNORECASE)
         ]
 
     def chapters(self):
@@ -130,16 +149,6 @@ class Bible:
                 for value in values
             )
         ]
-
-    def _versePointer(self, value):
-        if _VERSE_POINTER_DELIMITER in value:
-            current, *adjustment = map(int, str(value).split(_VERSE_POINTER_DELIMITER))
-
-            if adjustment:
-                current += adjustment[0]
-
-            return current
-        return int(value)
 
     def search(self, value):
         return [

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SED_BIN=${SED_BIN:-gsed}
+
 set -e
 
 if [ $# -ne 1 ]; then
@@ -23,7 +25,7 @@ cd "$dir"
 
 for f in $(ls *.txt | sort -t'_' -k1,1n | grep -v output); do
   echo "Processing $f"
-  sed -i '/^$/d' "$f"
+  gsed -i '/^$/d' "$f"
   cat "$f" >> "${bible_dir}/${translation}"
 done
 

@@ -113,7 +113,7 @@ class Bible:
         return [
             line
             for line, (_, normalized) in self.content
-            if re.search(rf"^{book}.* {name}:({verse})", normalized, re.IGNORECASE)
+            if re.search(rf"^{book}.* {name}:({verse}) ", normalized, re.IGNORECASE)
         ]
 
     def chapters(self):

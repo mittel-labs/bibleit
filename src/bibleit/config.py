@@ -6,7 +6,7 @@ __this = sys.modules[__name__]
 
 # General
 application = "bibleit"
-version = "0.0.25"
+version = "0.0.26"
 help = 'Type "help" for more information.'
 welcome = f"""
     Welcome to {application} v{version}

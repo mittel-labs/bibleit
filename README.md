@@ -1,6 +1,12 @@
 # bibleit
 
-Interactive Bible reading.
+Interactive Bible reading from terminal.
+
+## How to install
+
+```shell
+pip install bibleit
+```
 
 ## How to run
 

@@ -1,0 +1,19 @@
+.{
+    .name = .bibleit,
+    .version = "0.0.1",
+    .fingerprint = 0x91f7dcb6b418cad2,
+    .description = "Interactive Bible reading from terminal",
+    .authors = .{
+        "Felipe Mamud <trovatti@gmail.com>",
+    },
+    .license = "MIT",
+    .license_file = "../LICENSE",
+    .minimum_zig_version = "0.14.1",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}

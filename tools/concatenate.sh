@@ -18,7 +18,7 @@ base_dir=$(dirname "$base_dir")
 
 touch "$base_dir/${translation}"
 
-bible_dir=$(realpath ../src/bibleit/translations)
+bible_dir=$(realpath ../python/src/bibleit/translations)
 
 old_dir=$(pwd)
 cd "$dir"

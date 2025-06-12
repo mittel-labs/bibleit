@@ -5,7 +5,7 @@ import sys
 def gen(target):
     input_file = target
     if not os.path.isfile(input_file):
-        input_file = f"../src/bibleit/translations/{arg}"
+        input_file = f"../python/src/bibleit/translations/{arg}"
     if not os.path.isfile(input_file):
         print(f"Error: translation '{input_file}' not found")
         sys.exit(1)
@@ -37,5 +37,5 @@ def gen(target):
 
 
 for arg in sys.argv[1:]:
-    # search in pre-defined directory: ../src/bibleit/translations/
+    # search in pre-defined directory: ../python/src/bibleit/translations/
     gen(arg)

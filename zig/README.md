@@ -1,1 +1,0 @@
-# bibleit zig

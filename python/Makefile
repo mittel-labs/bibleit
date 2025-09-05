@@ -14,19 +14,26 @@ SOURCE_DIR:=src
 $(VENV_DIR):
 	$(PYTHON_BIN) -m venv $@
 	$(VENV_ACTIVATE) && pip install --upgrade pip && pip install gnureadline flake8 black requests
+	python -m venv $@
+
+install: $(VENV_DIR)
+	@$(VENV_ACTIVATE) && pip -v install '.[dev]'
 
 clean-venv:
 	@rm -rf $(VENV_DIR)
 
-run: ARGS?=--repl --bold
 run:
-	@(cd $(SOURCE_DIR); $(VENV_PY) -m bibleit $(ARGS))
-
-repl: $(VENV_DIR)
-	@$(VENV_ACTIVATE) && PYTHONPATH=$(SOURCE_DIR) $(VENV_PY) -m bibleit --repl
+	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit)
 
 bump-version:
 	@./bump-version.sh
+	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit)
+
+run-dev:
+	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); textual run --dev bibleit.app:Bibleit)
+
+serve:
+	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); textual serve --dev "python -m bibleit")
 
 lint: $(VENV_DIR)
 	@$(VENV_ACTIVATE) && flake8 --config=.flake8 $(SOURCE_DIR)

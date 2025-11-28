@@ -17,13 +17,22 @@ class AutoCompleter:
     def __init__(self):
         self.options = list(command.eval_methods(command.eval_module("core")))
         _HISTORY_FILE.touch(exist_ok=True)
-        readline.read_history_file(_HISTORY_FILE)
+        try:
+            readline.read_history_file(str(_HISTORY_FILE))
+        except (FileNotFoundError, OSError):
+            pass
         atexit.register(self.save, readline.get_current_history_length())
 
     def save(self, prev):
-        new = readline.get_current_history_length()
-        readline.set_history_length(1000)
-        readline.append_history_file(new - prev, str(_HISTORY_FILE))
+        try:
+            new = readline.get_current_history_length()
+            readline.set_history_length(1000)
+            if hasattr(readline, 'append_history_file'):
+                readline.append_history_file(new - prev, str(_HISTORY_FILE))
+            else:
+                readline.write_history_file(str(_HISTORY_FILE))
+        except Exception:
+            pass
 
     def complete(self, text, state):
         try:

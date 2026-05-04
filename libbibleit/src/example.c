@@ -35,9 +35,9 @@ static void iter_range(const bidx_file* f, const bt_file* ft) {
     bidx_iter it;
     bidx_iter_init(&it, f, r_start, r_end);
 
-    bidx_record r;
-    while (bidx_iter_next(&it, &r) == BIDX_ITER_YIELD) {
-        print_verse(ft, r.offset);
+    bidx_record_view v;
+    while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
+        print_verse(ft, bidx_view_offset(v));
     }
 }
 
@@ -48,9 +48,9 @@ static void iter_range_reverse(const bidx_file* f, const bt_file* ft) {
     bidx_iter it;
     bidx_iter_init_reverse(&it, f, r_start, r_end);
 
-    bidx_record r;
-    while (bidx_iter_previous(&it, &r) == BIDX_ITER_YIELD) {
-        print_verse(ft, r.offset);
+    bidx_record_view v;
+    while (bidx_iter_previous(&it, &v) == BIDX_ITER_YIELD) {
+        print_verse(ft, bidx_view_offset(v));
     }
 }
 
@@ -59,10 +59,10 @@ static void iter_from(const bidx_file* f, const bt_file* ft) {
 
     bidx_iter it;
     if (bidx_iter_init_from(&it, f, (bidx_ref){19, 119, 1}) == BIDX_OK) {
-        bidx_record r;
+        bidx_record_view v;
         for (int i = 0; i <= 2; i++) {
-            if (bidx_iter_next(&it, &r) == BIDX_ITER_YIELD) {
-                print_verse(ft, r.offset);
+            if (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
+                print_verse(ft, bidx_view_offset(v));
             }
         }
     }
@@ -92,9 +92,9 @@ static void iter_book(const bidx_file* f, const bt_file* ft) {
 
     bidx_iter it;
     if (bidx_iter_init_book(&it, f, 31) == BIDX_OK) {
-        bidx_record r;
-        while (bidx_iter_next(&it, &r) == BIDX_ITER_YIELD) {
-            print_verse(ft, r.offset);
+        bidx_record_view v;
+        while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
+            print_verse(ft, bidx_view_offset(v));
         }
     }
 }
@@ -104,9 +104,9 @@ static void iter_chapter(const bidx_file* f, const bt_file* ft) {
 
     bidx_iter it;
     if (bidx_iter_init_chapter(&it, f, 19, 23) == BIDX_OK) {
-        bidx_record r;
-        while (bidx_iter_next(&it, &r) == BIDX_ITER_YIELD) {
-            print_verse(ft, r.offset);
+        bidx_record_view v;
+        while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
+            print_verse(ft, bidx_view_offset(v));
         }
     }
 }

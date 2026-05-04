@@ -53,6 +53,10 @@ typedef struct {
 } bidx_record;
 
 typedef struct {
+    const uint8_t* ptr;
+} bidx_record_view;
+
+typedef struct {
     const bidx_file* f;
     size_t index;
     size_t start;
@@ -60,6 +64,11 @@ typedef struct {
     bidx_record last;
     bool has_last;
 } bidx_iter;
+
+uint8_t        bidx_view_book(bidx_record_view v);
+uint8_t        bidx_view_chapter(bidx_record_view v);
+uint8_t        bidx_view_verse(bidx_record_view v);
+uint32_t       bidx_view_offset(bidx_record_view v);
 
 bidx_file*     bidx_open(const char* path);
 void           bidx_close(bidx_file* f);
@@ -75,8 +84,8 @@ bidx_rc        bidx_iter_init_reverse(bidx_iter* it, const bidx_file* f, bidx_re
 bidx_rc        bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book);
 bidx_rc        bidx_iter_init_chapter(bidx_iter* it, const bidx_file* f, uint8_t book, uint8_t chapter);
 bidx_rc        bidx_iter_init_from(bidx_iter* it, const bidx_file* f, bidx_ref from);
-bidx_iter_rc   bidx_iter_previous(bidx_iter* it, bidx_record* r);
-bidx_iter_rc   bidx_iter_next(bidx_iter* it, bidx_record* r);
+bidx_iter_rc   bidx_iter_previous(bidx_iter* it, bidx_record_view* r);
+bidx_iter_rc   bidx_iter_next(bidx_iter* it, bidx_record_view* r);
 
 #ifdef __cplusplus
 } /* extern "C" */

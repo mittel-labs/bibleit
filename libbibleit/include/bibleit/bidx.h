@@ -75,10 +75,8 @@ bidx_rc        bidx_iter_init_reverse(bidx_iter* it, const bidx_file* f, bidx_re
 bidx_rc        bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book);
 bidx_rc        bidx_iter_init_chapter(bidx_iter* it, const bidx_file* f, uint8_t book, uint8_t chapter);
 bidx_rc        bidx_iter_init_from(bidx_iter* it, const bidx_file* f, bidx_ref from);
-bidx_rc        bidx_iter_read(const bidx_iter* it, uint32_t* offset);
 bidx_iter_rc   bidx_iter_previous(bidx_iter* it, bidx_record* r);
 bidx_iter_rc   bidx_iter_next(bidx_iter* it, bidx_record* r);
-bidx_iter_rc   bidx_iter_has_next(const bidx_iter* it);
 
 #ifdef __cplusplus
 } /* extern "C" */

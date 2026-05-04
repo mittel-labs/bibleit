@@ -261,18 +261,6 @@ bidx_iter_rc bidx_iter_next(bidx_iter* it, bidx_record* r) {
     return BIDX_ITER_YIELD;
 }
 
-bidx_rc bidx_iter_read(const bidx_iter* it, uint32_t* offset) {
-    if (!it || !it->f || !offset) return BIDX_ERR;
-    if (!it->has_last) return BIDX_ERR;
-    *offset = it->last.offset;
-    return BIDX_OK;
-}
-
-bidx_iter_rc bidx_iter_has_next(const bidx_iter* it) {
-    if (!it || !it->f) return BIDX_ITER_ERROR;
-    return it->index < it->end ? BIDX_ITER_YIELD : BIDX_ITER_DONE;
-}
-
 bidx_rc bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book) {
     if (!it || !f || book == 0) return BIDX_ERR;
 

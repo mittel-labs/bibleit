@@ -198,7 +198,7 @@ static inline bool bidx_iter_ref_check(bidx_ref a, bidx_ref b) {
 }
 
 static ptrdiff_t bidx_iter_ref(const bidx_file* f, bidx_ref r) {
-    if (!f || r.book== 0 || r.chapter == 0) return -1;
+    if (!f || r.book <= 0 || r.chapter <= 0) return -1;
     size_t base = f->start_index[r.book][r.chapter];
     size_t nvs  = f->verse_count[r.book][r.chapter];
     if (base == SIZE_MAX || nvs == 0) return -1;
@@ -207,7 +207,7 @@ static ptrdiff_t bidx_iter_ref(const bidx_file* f, bidx_ref r) {
 }
 
 bidx_rc bidx_iter_init(bidx_iter* it, const bidx_file* f,
-                   bidx_ref from, bidx_ref to)
+                       bidx_ref from, bidx_ref to)
 {
     if (!it || !f || !bidx_iter_ref_check(from, to)) return BIDX_ERR;
 
@@ -217,16 +217,41 @@ bidx_rc bidx_iter_init(bidx_iter* it, const bidx_file* f,
     if (i0 < 0 || i1 < 0 || i0 > i1) return BIDX_ERR;
 
     it->f = f;
-    it->index = (size_t)i0;
-    it->end = (size_t)i1 + 1;
+    it->start = (size_t)i0;
+    it->end   = (size_t)i1 + 1;
+
+    it->index = it->start;
     it->has_last = false;
 
     return BIDX_OK;
 }
 
+bidx_rc bidx_iter_init_reverse(bidx_iter* it, const bidx_file* f,
+                               bidx_ref from, bidx_ref to)
+{
+    if (bidx_iter_init(it, f, from, to) != BIDX_OK) return BIDX_ERR;
+
+    it->index = it->end;
+    return BIDX_OK;
+}
+
+bidx_iter_rc bidx_iter_previous(bidx_iter* it, bidx_record* r) {
+    if (!it || !r || !it->f) return BIDX_ITER_ERROR;
+    if (it->index <= it->start) return BIDX_ITER_DONE;
+
+    it->index--;
+
+    if (!bidx_read_record(it->f, it->index, r)) return BIDX_ITER_ERROR;
+
+    it->last = *r;
+    it->has_last = true;
+
+    return BIDX_ITER_YIELD;
+}
+
 bidx_iter_rc bidx_iter_next(bidx_iter* it, bidx_record* r) {
     if (!it || !r || !it->f) return BIDX_ITER_ERROR;
-    if (it->index >= it->end) return BIDX_ITER_END;
+    if (it->index >= it->end) return BIDX_ITER_DONE;
     if (!bidx_read_record(it->f, it->index, r)) return BIDX_ITER_ERROR;
 
     it->last = *r;
@@ -245,7 +270,7 @@ bidx_rc bidx_iter_read(const bidx_iter* it, uint32_t* offset) {
 
 bidx_iter_rc bidx_iter_has_next(const bidx_iter* it) {
     if (!it || !it->f) return BIDX_ITER_ERROR;
-    return it->index < it->end ? BIDX_ITER_YIELD : BIDX_ITER_END;
+    return it->index < it->end ? BIDX_ITER_YIELD : BIDX_ITER_DONE;
 }
 
 bidx_rc bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book) {

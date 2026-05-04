@@ -21,7 +21,7 @@ typedef enum {
 
 typedef enum {
     BIDX_ITER_ERROR = -1,
-    BIDX_ITER_END   =  0,
+    BIDX_ITER_DONE  =  0,
     BIDX_ITER_YIELD =  1
 } bidx_iter_rc;
 
@@ -54,7 +54,9 @@ typedef struct {
 
 typedef struct {
     const bidx_file* f;
-    size_t index, end;
+    size_t index;
+    size_t start;
+    size_t end;
     bidx_record last;
     bool has_last;
 } bidx_iter;
@@ -69,10 +71,12 @@ size_t         bidx_count(const bidx_file* f);
 bidx_lookup_rc bidx_read(const bidx_file* f, bidx_ref r, uint32_t* offset);
 
 bidx_rc        bidx_iter_init(bidx_iter* it, const bidx_file* f, bidx_ref from, bidx_ref to);
+bidx_rc        bidx_iter_init_reverse(bidx_iter* it, const bidx_file* f, bidx_ref from, bidx_ref to);
 bidx_rc        bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book);
 bidx_rc        bidx_iter_init_chapter(bidx_iter* it, const bidx_file* f, uint8_t book, uint8_t chapter);
 bidx_rc        bidx_iter_init_from(bidx_iter* it, const bidx_file* f, bidx_ref from);
 bidx_rc        bidx_iter_read(const bidx_iter* it, uint32_t* offset);
+bidx_iter_rc   bidx_iter_previous(bidx_iter* it, bidx_record* r);
 bidx_iter_rc   bidx_iter_next(bidx_iter* it, bidx_record* r);
 bidx_iter_rc   bidx_iter_has_next(const bidx_iter* it);
 

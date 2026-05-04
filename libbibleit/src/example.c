@@ -27,18 +27,31 @@ static void iter_range(const bidx_file* f, const bt_file* ft) {
     test_header("example lookup iter: Psalms 119:1-5");
     bidx_ref r_start = {19, 119, 1}, r_end = {19, 119, 5};
     bidx_iter it;
-    bidx_iter_init(&it, f, r_start, r_end);
+    bidx_iter_init(&it, f, r_start, r_end);    
     bidx_record r;
-    while (bidx_iter_has_next(&it)) {
-        bidx_iter_next(&it, &r);
-        uint32_t offset;
-        if (bidx_iter_read(&it, &offset) == BIDX_OK) {
-            char buf[1024];
-            if (bt_read(ft, offset, buf, sizeof(buf)) == BT_OK) {
-                printf("(offset %d) %s\n", offset, buf);
-            } else {
-                fprintf(stderr, "bt_read failed at offset %u\n", offset);
-            }
+    while (bidx_iter_next(&it, &r) == BIDX_ITER_YIELD) {
+        char buf[1024];
+        if (bt_read(ft, r.offset, buf, sizeof(buf)) == BT_OK) {
+            printf("(offset %d) %s\n", r.offset, buf);
+        } else {
+            fprintf(stderr, "bt_read failed at offset %u\n", r.offset);
+        }
+    }
+}
+
+static void iter_range_reverse(const bidx_file* f, const bt_file* ft) {
+    test_header("example lookup iter: Psalms 119:1-5 (reverse order)");
+    bidx_ref r_start = {19, 119, 1}, r_end = {19, 119, 5};
+    bidx_iter it;
+    bidx_iter_init_reverse(&it, f, r_start, r_end);
+
+    bidx_record r;
+    while (bidx_iter_previous(&it, &r) == BIDX_ITER_YIELD) {
+        char buf[1024];
+        if (bt_read(ft, r.offset, buf, sizeof(buf)) == BT_OK) {
+            printf("(offset %d) %s\n", r.offset, buf);
+        } else {
+            fprintf(stderr, "bt_read failed at offset %u\n", r.offset);
         }
     }
 }
@@ -50,14 +63,11 @@ static void iter_from(const bidx_file* f, const bt_file* ft) {
         bidx_record r;
         for (int i = 0; i <= 2; i++) {
             if (bidx_iter_next(&it, &r) == BIDX_ITER_YIELD) {
-                uint32_t offset;
-                if (bidx_iter_read(&it, &offset) == BIDX_OK) {
-                    char buf[1024];
-                    if (bt_read(ft, offset, buf, sizeof(buf)) == BT_OK) {
-                        printf("(offset %d) %s\n", offset, buf);
-                    } else {
-                        fprintf(stderr, "bt_read failed at offset %u\n", offset);
-                    }
+                char buf[1024];
+                if (bt_read(ft, r.offset, buf, sizeof(buf)) == BT_OK) {
+                    printf("(offset %d) %s\n", r.offset, buf);
+                } else {
+                    fprintf(stderr, "bt_read failed at offset %u\n", r.offset);
                 }
             }
         }
@@ -87,14 +97,11 @@ static void iter_book(const bidx_file* f, const bt_file* ft) {
     if (bidx_iter_init_book(&it, f, 31) == BIDX_OK) {
         bidx_record r;
         while (bidx_iter_next(&it, &r) == BIDX_ITER_YIELD) {
-            uint32_t offset;
-            if (bidx_iter_read(&it, &offset) == BIDX_OK) {
-                char buf[1024];
-                if (bt_read(ft, offset, buf, sizeof(buf)) == BT_OK) {
-                    printf("(offset %d) %s\n", offset, buf);
-                } else {
-                    fprintf(stderr, "bt_read failed at offset %u\n", offset);
-                }
+            char buf[1024];
+            if (bt_read(ft, r.offset, buf, sizeof(buf)) == BT_OK) {
+                printf("(offset %d) %s\n", r.offset, buf);
+            } else {
+                fprintf(stderr, "bt_read failed at offset %u\n", r.offset);
             }
         }
     }
@@ -106,22 +113,19 @@ static void iter_chapter(const bidx_file* f, const bt_file* ft) {
     if (bidx_iter_init_chapter(&it, f, 19, 23) == BIDX_OK) {
         bidx_record r;
         while (bidx_iter_next(&it, &r) == BIDX_ITER_YIELD) {
-            uint32_t offset;
-            if (bidx_iter_read(&it, &offset) == BIDX_OK) {
-                char buf[1024];
-                if (bt_read(ft, offset, buf, sizeof(buf)) == BT_OK) {
-                    printf("(offset %d) %s\n", offset, buf);
-                } else {
-                    fprintf(stderr, "bt_read failed at offset %u\n", offset);
-                }
+            char buf[1024];
+            if (bt_read(ft, r.offset, buf, sizeof(buf)) == BT_OK) {
+                printf("(offset %d) %s\n", r.offset, buf);
+            } else {
+                fprintf(stderr, "bt_read failed at offset %u\n", r.offset);
             }
         }
     }
 }
 
 int main(void) {
-    const char* bidx_path = "build/CEB.bi";
-    const char* translation_path = "../translations/niv";
+    const char* bidx_path = "build/KJV.bidx";
+    const char* translation_path = "build/KJV.bt";
 
     bidx_file* f = bidx_open(bidx_path);
     if (!f) {
@@ -140,6 +144,7 @@ int main(void) {
 
     single_ref(f, ft);
     iter_range(f, ft);
+    iter_range_reverse(f, ft);
     iter_book(f, ft);
     iter_chapter(f, ft);
     iter_from(f, ft);

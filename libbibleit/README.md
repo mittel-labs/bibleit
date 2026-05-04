@@ -63,49 +63,58 @@ This is a basic example for a program using bibleit in order to use existing tra
 #include <bibleit/translation.h>
 #include <stdio.h>
 
+static void print_verse(bt_file* ft, uint32_t offset) {
+    bt_record_view v;
+    if (bt_read_view(ft, offset, &v) == BT_OK) {
+        printf("%.*s\n", (int)v.len, v.ptr);
+    } else {
+        fprintf(stderr, "bt_read failed at offset %u\n", offset);
+    }
+}
+
 int main(void) {
-    const char* idx = "bibleit.bidx";
-    const char* txt = "../translations/niv";
+    const char* bidx_path = "build/KJV.bidx";
+    const char* translation_path = "build/KJV.bt";
 
     /* Create index (if missing) */
-    if (bidx_create(idx, txt) == BIDX_CREATE_OK) {
+    if (bidx_create(bidx_path, translation_path) == BIDX_CREATE_OK) {
         printf("Index created.\n");
     }
 
     /* Open index */
-    bidx_file* f = bidx_open(idx);
+    bidx_file* f = bidx_open(bidx_path);
     if (!f) { perror("bidx_open"); return 1; }
 
     /* Open translation text */
-    bt_file* ft = bt_open(txt);
+    bt_file* ft = bt_open(translation_path);
 
-    /* Single lookup: Genesis 1:1 */
-    bidx_ref ref = {
-        .book    = 1,
-        .chapter = 1,
-        .verse  = 1
-    };
+    /* ============================= */
+    /* Single lookup: Genesis 1:1    */
+    /* ============================= */
+
+    bidx_ref ref = {1, 1, 1};
 
     uint32_t off;
     if (bidx_read(f, ref, &off) == BIDX_LOOKUP_OK) {
-        char buf[1024];
-        if (bt_read(ft, off, buf, sizeof buf) == BT_OK) {
-            printf("Genesis 1:1 -> %s\n", buf);
-        }
+        printf("Genesis 1:1 -> ");
+        print_verse(ft, off);
     }
 
-    /* Iterate over Psalms 23 */
+    /* ============================= */
+    /* Iterate over Psalms 23        */
+    /* ============================= */
+
     bidx_iter it;
     if (bidx_iter_init_chapter(&it, f, 19, 23) == BIDX_OK) {
-        bidx_record rec;
-        while (bidx_iter_next(&it, &rec) == BIDX_ITER_YIELD) {
-            if (bidx_iter_read(&it, &off) == BIDX_OK) {
-                char buf[1024];
-                if (bt_read(ft, off, buf, sizeof buf) == BT_OK) {
-                    printf("%u %u:%u %s\n",
-                           rec.ref.book, rec.ref.chapter, rec.ref.verse, buf);
-                }
-            }
+        bidx_record_view v;
+
+        while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
+            printf("%u %u:%u ",
+                   bidx_view_book(v),
+                   bidx_view_chapter(v),
+                   bidx_view_verse(v));
+
+            print_verse(ft, bidx_view_offset(v));
         }
     }
 
@@ -113,7 +122,6 @@ int main(void) {
     bt_close(ft);
     return 0;
 }
-
 ```
 
 For more concrete examples, please check [example.c](src/example.c) file.

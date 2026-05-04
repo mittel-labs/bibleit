@@ -16,9 +16,15 @@ typedef enum {
     BT_TRUNCATED  =  1
 } bt_rc;
 
+typedef struct {
+    const char* ptr;
+    size_t len;
+} bt_record_view;
+
 bt_file* bt_open(const char* path);
 void     bt_close(bt_file* f);
 bt_rc    bt_read(const bt_file* f, uint32_t offset, char* buf, size_t bufsize);
+bt_rc    bt_read_view(const bt_file* f, uint32_t offset, bt_record_view* out);
 
 #ifdef __cplusplus
 } /* extern "C" */

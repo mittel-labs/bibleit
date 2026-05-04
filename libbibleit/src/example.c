@@ -10,11 +10,12 @@ static void test_header(const char* txt) {
 }
 
 static void print_verse(const bt_file* ft, uint32_t offset) {
-    char buf[1024];
-    if (bt_read(ft, offset, buf, sizeof(buf)) == BT_OK) {
-        printf("(offset %u) %s\n", offset, buf);
+    bt_record_view v;
+
+    if (bt_read_view(ft, offset, &v) == BT_OK) {
+        printf("(offset %u) %.*s\n", offset, (int)v.len, v.ptr);
     } else {
-        fprintf(stderr, "bt_read failed at offset %u\n", offset);
+        fprintf(stderr, "bt_read_view failed at offset %u\n", offset);
     }
 }
 

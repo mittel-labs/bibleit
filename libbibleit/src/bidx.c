@@ -1,6 +1,8 @@
 #include "bibleit/utils.h"
 #include "bibleit/bidx.h"
 
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -21,7 +23,10 @@ enum {
 };
 
 struct bidx_file {
-    FILE*   fp;
+    int fd;
+    uint8_t* data;
+    size_t size;
+    
     size_t  count;
     uint8_t version;
 
@@ -30,22 +35,24 @@ struct bidx_file {
     size_t max_chapter[BIDX_MAX_BOOKS + 1];
 };
 
-static inline bool bidx_read_record(const bidx_file* f, 
-                            size_t index,
-                            bidx_record* r) 
+static inline bool bidx_read_record(const bidx_file* f,
+                                    size_t index,
+                                    bidx_record* r)
 {
     if (!f || !r) return false;
 
-    long pos = BIDX_HEADER_SIZE + (long)(index * (size_t) BIDX_RECORD_SIZE);
-    if (fseek(f->fp, pos, SEEK_SET) != 0) return false;
+    size_t pos = BIDX_HEADER_SIZE + index * BIDX_RECORD_SIZE;
+    if (pos + BIDX_RECORD_SIZE > f->size) return false;
 
-    unsigned char bcv[3];
-    if (fread(bcv, 1, 3, f->fp) != 3) return false;
-    if (fread(&r->offset, 1, 4, f->fp) != 4) return false;
+    const uint8_t* p = f->data + pos;
 
-    r->ref.book    = bcv[0];
-    r->ref.chapter = bcv[1];
-    r->ref.verse   = bcv[2];
+    r->ref.book    = p[0];
+    r->ref.chapter = p[1];
+    r->ref.verse   = p[2];
+
+    uint32_t offset;
+    memcpy(&offset, p + 3, 4);   // safe unaligned read
+    r->offset = offset;
 
     return true;
 }
@@ -55,12 +62,10 @@ static void bidx_error(bidx_file* f, const char* msg) {
     fprintf(stderr, "bidx error: %s\n", msg);
 }
 
-static bool read_header(FILE* fp, uint8_t* v) {
-    unsigned char hdr[BIDX_HEADER_SIZE];
-    if (fread(hdr, 1, BIDX_HEADER_SIZE, fp) != BIDX_HEADER_SIZE) return false;
-    if (memcmp(hdr, BIDX_MAGIC, 4) != 0) return false;
+static bool read_header(const uint8_t* data, uint8_t* v) {
+    if (memcmp(data, BIDX_MAGIC, 4) != 0) return false;
 
-    unsigned char version = hdr[4];
+    uint8_t version = data[4];
     if (version == BIDX_VERSION) {
         *v = version;
         return true;
@@ -91,55 +96,61 @@ static bool build_idx(bidx_file* f) {
 
 void bidx_close(bidx_file* f) {
     if (!f) return;
-    if (f->fp) fclose(f->fp);
+    if (f->data) munmap(f->data, f->size);
+    if (f->fd >= 0) close(f->fd);
     free(f);
 }
 
 bidx_file* bidx_open(const char* path) {
     if (!path) return NULL;
-    
-    FILE* fp = fopen(path, "rb");
-    if (!fp) return NULL;
+
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return NULL;
+
+    struct stat st;
+    if (fstat(fd, &st) != 0) {
+        close(fd);
+        return NULL;
+    }
+
+    uint8_t* data = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (data == MAP_FAILED) {
+        close(fd);
+        return NULL;
+    }
 
     bidx_file *f = calloc(1, sizeof(*f));
     if (!f) {
-        fclose(fp);
-        return NULL;
-    }
-    f->fp = fp;
-
-    if (!read_header(fp, &f->version)) {
-        bidx_error(f, "bad bidx header");
-        bidx_close(f);
+        munmap(data, st.st_size);
+        close(fd);
         return NULL;
     }
 
-    if (fseek(fp, 0, SEEK_END) != 0) {
-        bidx_error(f, "invalid END file pointer");
-        bidx_close(f);
-        return NULL;
-    }
+    f->fd = fd;
+    f->data = data;
+    f->size = st.st_size;
 
-    long ffp = ftell(fp);
-    if (ffp < 0 || ffp < BIDX_HEADER_SIZE) {
+    if (f->size < BIDX_HEADER_SIZE) {
         bidx_error(f, "invalid file size");
         bidx_close(f);
         return NULL;
     }
 
-    long data = ffp - BIDX_HEADER_SIZE;
-    if (data % BIDX_RECORD_SIZE != 0) {
+    if (!read_header(f->data, &f->version)) {
+        bidx_error(f, "bad bidx header");
+        bidx_close(f);
+        return NULL;
+    }
+
+    size_t data_size = f->size - BIDX_HEADER_SIZE;
+
+    if (data_size % BIDX_RECORD_SIZE != 0) {
         bidx_error(f, "bad record alignment");
         bidx_close(f);
         return NULL;
     }
-    f->count = ((size_t) (data / BIDX_RECORD_SIZE));
 
-    if (fseek(fp, BIDX_HEADER_SIZE, SEEK_SET) != 0) {
-        bidx_error(f, "invalid START file pointer");
-        bidx_close(f);
-        return NULL;
-    }
+    f->count = data_size / BIDX_RECORD_SIZE;
 
     if (!build_idx(f)) {
         bidx_error(f, "build index failed");

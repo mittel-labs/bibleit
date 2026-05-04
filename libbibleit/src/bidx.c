@@ -32,6 +32,9 @@ struct bidx_file {
     int fd;
     uint8_t* data;
     size_t size;
+
+    const uint8_t* records_base;
+    const uint8_t* records_end;
     
     size_t  count;
     uint8_t version;
@@ -65,32 +68,12 @@ static inline bool bidx_get_view(const bidx_file* f,
 {
     if (!f || !v) return false;
 
-    size_t pos = BIDX_HEADER_SIZE + index * BIDX_RECORD_SIZE;
-    if (pos + BIDX_RECORD_SIZE > f->size) return false;
+    const uint8_t* p = f->records_base + index * BIDX_RECORD_SIZE;
 
-    v->ptr = f->data + pos;
-    return true;
-}
+    if (p + BIDX_RECORD_SIZE > f->records_end)
+        return false;
 
-static inline bool bidx_read_record(const bidx_file* f,
-                                    size_t index,
-                                    bidx_record* r)
-{
-    if (!f || !r) return false;
-
-    size_t pos = BIDX_HEADER_SIZE + index * BIDX_RECORD_SIZE;
-    if (pos + BIDX_RECORD_SIZE > f->size) return false;
-
-    const uint8_t* p = f->data + pos;
-
-    r->ref.book    = p[0];
-    r->ref.chapter = p[1];
-    r->ref.verse   = p[2];
-
-    uint32_t offset;
-    memcpy(&offset, p + 3, 4);   // safe unaligned read
-    r->offset = offset;
-
+    v->ptr = p;
     return true;
 }
 
@@ -193,6 +176,8 @@ bidx_file* bidx_open(const char* path) {
     }
 
     f->count = data_size / BIDX_RECORD_SIZE;
+    f->records_base = f->data + BIDX_HEADER_SIZE;
+    f->records_end  = f->records_base + f->count * BIDX_RECORD_SIZE;
 
     if (!build_idx(f)) {
         bidx_error(f, "build index failed");
@@ -213,7 +198,7 @@ size_t bidx_count(const bidx_file* f) {
     return f->count;
 }
 
-static int bidx_read_index(const bidx_file* f, bidx_ref r)
+static ptrdiff_t bidx_read_index(const bidx_file* f, bidx_ref r)
 {
     if (!f) return -1;
     if (r.book == 0 || r.book > BIDX_MAX_BOOKS) return BIDX_LOOKUP_ERR;
@@ -270,11 +255,11 @@ bidx_rc bidx_iter_init(bidx_iter* it, const bidx_file* f,
     if (i0 < 0 || i1 < 0 || i0 > i1) return BIDX_ERR;
 
     it->f = f;
-    it->start = (size_t)i0;
-    it->end   = (size_t)i1 + 1;
 
-    it->index = it->start;
-    it->has_last = false;
+    it->start = f->records_base + i0 * BIDX_RECORD_SIZE;
+    it->end   = it->start + (size_t)(i1 - i0 + 1) * BIDX_RECORD_SIZE;
+
+    it->ptr = it->start;
 
     return BIDX_OK;
 }
@@ -284,30 +269,27 @@ bidx_rc bidx_iter_init_reverse(bidx_iter* it, const bidx_file* f,
 {
     if (bidx_iter_init(it, f, from, to) != BIDX_OK) return BIDX_ERR;
 
-    it->index = it->end;
+    it->ptr = it->end;
     return BIDX_OK;
 }
 
 bidx_iter_rc bidx_iter_previous(bidx_iter* it, bidx_record_view* v) {
     if (!it || !v || !it->f) return BIDX_ITER_ERROR;
-    if (it->index <= it->start) return BIDX_ITER_DONE;
+    if (it->ptr <= it->start) return BIDX_ITER_DONE;
 
-    it->index--;
-
-    if (!bidx_get_view(it->f, it->index, v))
-        return BIDX_ITER_ERROR;
+    it->ptr -= BIDX_RECORD_SIZE;
+    v->ptr = it->ptr;
 
     return BIDX_ITER_YIELD;
 }
 
 bidx_iter_rc bidx_iter_next(bidx_iter* it, bidx_record_view* v) {
     if (!it || !v || !it->f) return BIDX_ITER_ERROR;
-    if (it->index >= it->end) return BIDX_ITER_DONE;
+    if (it->ptr >= it->end) return BIDX_ITER_DONE;
 
-    if (!bidx_get_view(it->f, it->index, v))
-        return BIDX_ITER_ERROR;
+    v->ptr = it->ptr;
+    it->ptr += BIDX_RECORD_SIZE;
 
-    it->index++;
     return BIDX_ITER_YIELD;
 }
 
@@ -327,7 +309,7 @@ bidx_rc bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book) {
 
     bidx_ref from = { book, first, 1 };
     bidx_ref to   = { book, last, f->verse_count[book][last] };
-    it->has_last = false;
+
     return bidx_iter_init(it, f, from, to);
 }
 
@@ -339,8 +321,8 @@ bidx_rc bidx_iter_init_chapter(bidx_iter* it, const bidx_file* f, uint8_t book, 
     if (base == SIZE_MAX || nvs == 0) return BIDX_ERR;
 
     bidx_ref from = { book, chapter, 1 };
-    bidx_ref to   = { book, chapter, (uint8_t) nvs };
-    it->has_last = false;
+    bidx_ref to   = { book, chapter, (uint8_t)nvs };
+
     return bidx_iter_init(it, f, from, to);
 }
 
@@ -348,13 +330,13 @@ bidx_rc bidx_iter_init_from(bidx_iter* it, const bidx_file* f, bidx_ref from) {
     if (!it || !f) return BIDX_ERR;
 
     ptrdiff_t index = bidx_iter_ref(f, from);
-
     if (index < 0) return BIDX_ERR;
 
     it->f = f;
-    it->index = (size_t)index;
-    it->end = f->count;
-    it->has_last = false;
+
+    it->start = f->records_base + (size_t)index * BIDX_RECORD_SIZE;
+    it->end   = f->records_end;
+    it->ptr = it->start;
 
     return BIDX_OK;
 }
@@ -518,14 +500,15 @@ bidx_rc bidx_dump(const bidx_file* f, FILE* out, size_t limit) {
     fprintf(out, "Records : %zu\n", total);
     fprintf(out, "BOOK CHAP VERSE     OFFSET\n");
 
-    bidx_record r;
+    bidx_record_view v;
     for (size_t i = 0; i < ttotal; ++i) {
-        if (!bidx_read_record(f, i, &r)) return -1;
+        if (!bidx_get_view(f, i, &v)) return -1;
+
         fprintf(out, "%3u %4u %5u %10" PRIu32 "\n",
-                (unsigned)r.ref.book,
-                (unsigned)r.ref.chapter,
-                (unsigned)r.ref.verse,
-                r.offset);
+                (unsigned)bidx_view_book(v),
+                (unsigned)bidx_view_chapter(v),
+                (unsigned)bidx_view_verse(v),
+                bidx_view_offset(v));
     }
     return BIDX_OK;
 }

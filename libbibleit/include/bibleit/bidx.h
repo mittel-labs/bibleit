@@ -58,11 +58,10 @@ typedef struct {
 
 typedef struct {
     const bidx_file* f;
-    size_t index;
-    size_t start;
-    size_t end;
-    bidx_record last;
-    bool has_last;
+
+    const uint8_t* ptr;
+    const uint8_t* start;
+    const uint8_t* end;
 } bidx_iter;
 
 uint8_t        bidx_view_book(bidx_record_view v);

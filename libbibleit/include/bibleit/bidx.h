@@ -58,10 +58,9 @@ typedef struct {
 
 typedef struct {
     const bidx_file* f;
-
-    const uint8_t* ptr;
     const uint8_t* start;
     const uint8_t* end;
+    const uint8_t* ptr;
 } bidx_iter;
 
 uint8_t        bidx_view_book(bidx_record_view v);
@@ -78,11 +77,9 @@ int            bidx_version(const bidx_file* f);
 size_t         bidx_count(const bidx_file* f);
 bidx_lookup_rc bidx_read(const bidx_file* f, bidx_ref r, uint32_t* offset);
 
-bidx_rc        bidx_iter_init(bidx_iter* it, const bidx_file* f, bidx_ref from, bidx_ref to);
-bidx_rc        bidx_iter_init_reverse(bidx_iter* it, const bidx_file* f, bidx_ref from, bidx_ref to);
+bidx_rc        bidx_iter_init(bidx_iter* it, const bidx_file* f, bidx_ref from);
 bidx_rc        bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book);
 bidx_rc        bidx_iter_init_chapter(bidx_iter* it, const bidx_file* f, uint8_t book, uint8_t chapter);
-bidx_rc        bidx_iter_init_from(bidx_iter* it, const bidx_file* f, bidx_ref from);
 bidx_iter_rc   bidx_iter_previous(bidx_iter* it, bidx_record_view* r);
 bidx_iter_rc   bidx_iter_next(bidx_iter* it, bidx_record_view* r);
 

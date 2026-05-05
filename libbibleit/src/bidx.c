@@ -229,12 +229,6 @@ bidx_lookup_rc bidx_read(const bidx_file* f, bidx_ref r, uint32_t* offset)
     return BIDX_LOOKUP_OK;
 }
 
-static inline bool bidx_iter_ref_check(bidx_ref a, bidx_ref b) {
-    if (a.book   != b.book)    return a.book   < b.book;
-    if (a.chapter!= b.chapter) return a.chapter< b.chapter;
-    return a.verse <= b.verse;
-}
-
 static ptrdiff_t bidx_iter_ref(const bidx_file* f, bidx_ref r) {
     if (!f || r.book <= 0 || r.chapter <= 0) return -1;
     size_t base = f->start_index[r.book][r.chapter];
@@ -242,35 +236,6 @@ static ptrdiff_t bidx_iter_ref(const bidx_file* f, bidx_ref r) {
     if (base == SIZE_MAX || nvs == 0) return -1;
     if (r.verse == 0 || r.verse > nvs) return -1;
     return (ptrdiff_t)(base + (size_t)(r.verse - 1));
-}
-
-bidx_rc bidx_iter_init(bidx_iter* it, const bidx_file* f,
-                       bidx_ref from, bidx_ref to)
-{
-    if (!it || !f || !bidx_iter_ref_check(from, to)) return BIDX_ERR;
-
-    ptrdiff_t i0 = bidx_iter_ref(f, from);
-    ptrdiff_t i1 = bidx_iter_ref(f, to);
-
-    if (i0 < 0 || i1 < 0 || i0 > i1) return BIDX_ERR;
-
-    it->f = f;
-
-    it->start = f->records_base + i0 * BIDX_RECORD_SIZE;
-    it->end   = it->start + (size_t)(i1 - i0 + 1) * BIDX_RECORD_SIZE;
-
-    it->ptr = it->start;
-
-    return BIDX_OK;
-}
-
-bidx_rc bidx_iter_init_reverse(bidx_iter* it, const bidx_file* f,
-                               bidx_ref from, bidx_ref to)
-{
-    if (bidx_iter_init(it, f, from, to) != BIDX_OK) return BIDX_ERR;
-
-    it->ptr = it->end;
-    return BIDX_OK;
 }
 
 bidx_iter_rc bidx_iter_previous(bidx_iter* it, bidx_record_view* v) {
@@ -294,49 +259,72 @@ bidx_iter_rc bidx_iter_next(bidx_iter* it, bidx_record_view* v) {
 }
 
 bidx_rc bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book) {
-    if (!it || !f || book == 0) return BIDX_ERR;
+    if (!it || !f || book == 0 || book > BIDX_MAX_BOOKS) return BIDX_ERR;
 
-    size_t first = 0, last = f->max_chapter[book];
-    if (last == 0) return BIDX_ERR;
+    size_t last = f->max_chapter[book];
+    if (last == 0)
+        return BIDX_ERR;
+
+    size_t first_chapter = 0;
 
     for (size_t ch = 1; ch <= last; ++ch) {
-        if (f->start_index[book][ch] != SIZE_MAX) { 
-            first = ch; 
-            break; 
+        if (f->start_index[book][ch] != SIZE_MAX) {
+            first_chapter = ch;
+            break;
         }
     }
-    if (first == 0) return BIDX_ERR;
 
-    bidx_ref from = { book, first, 1 };
-    bidx_ref to   = { book, last, f->verse_count[book][last] };
+    if (first_chapter == 0)
+        return BIDX_ERR;
 
-    return bidx_iter_init(it, f, from, to);
+    size_t start_idx = f->start_index[book][first_chapter];
+    size_t end_idx =
+        f->start_index[book][last] + f->verse_count[book][last];
+
+    it->f = f;
+
+    it->start = f->records_base + start_idx * BIDX_RECORD_SIZE;
+    it->end   = f->records_base + end_idx * BIDX_RECORD_SIZE;
+
+    it->ptr = it->start;
+
+    return BIDX_OK;
 }
 
-bidx_rc bidx_iter_init_chapter(bidx_iter* it, const bidx_file* f, uint8_t book, uint8_t chapter) {
-    if (!it || !f || book == 0 || chapter == 0) return BIDX_ERR;
+bidx_rc bidx_iter_init_chapter(bidx_iter* it, const bidx_file* f,
+                               uint8_t book, uint8_t chapter)
+{
+    if (!it || !f || book == 0 || chapter == 0)
+        return BIDX_ERR;
 
     size_t base = f->start_index[book][chapter];
     size_t nvs  = f->verse_count[book][chapter];
-    if (base == SIZE_MAX || nvs == 0) return BIDX_ERR;
 
-    bidx_ref from = { book, chapter, 1 };
-    bidx_ref to   = { book, chapter, (uint8_t)nvs };
+    if (base == SIZE_MAX || nvs == 0)
+        return BIDX_ERR;
 
-    return bidx_iter_init(it, f, from, to);
+    it->f = f;
+
+    it->start = f->records_base + base * BIDX_RECORD_SIZE;
+    it->end   = it->start + nvs * BIDX_RECORD_SIZE;
+
+    it->ptr = it->start;
+
+    return BIDX_OK;
 }
 
-bidx_rc bidx_iter_init_from(bidx_iter* it, const bidx_file* f, bidx_ref from) {
+bidx_rc bidx_iter_init(bidx_iter* it, const bidx_file* f, bidx_ref from) {
     if (!it || !f) return BIDX_ERR;
 
     ptrdiff_t index = bidx_iter_ref(f, from);
     if (index < 0) return BIDX_ERR;
 
-    it->f = f;
+    const uint8_t* start = f->records_base + (size_t)index * BIDX_RECORD_SIZE;
 
-    it->start = f->records_base + (size_t)index * BIDX_RECORD_SIZE;
+    it->f = f;
+    it->start = f->records_base;
     it->end   = f->records_end;
-    it->ptr = it->start;
+    it->ptr   = start;
 
     return BIDX_OK;
 }

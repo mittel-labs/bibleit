@@ -30,38 +30,44 @@ static void single_ref(const bidx_file* f, const bt_file* ft)
 }
 
 static void iter_range(const bidx_file* f, const bt_file* ft) {
-    test_header("example lookup iter: Psalms 119:1-5");
+    test_header("example cursor: Psalms 119:1-5");
 
-    bidx_ref r_start = {19, 119, 1}, r_end = {19, 119, 5};
     bidx_iter it;
-    bidx_iter_init(&it, f, r_start, r_end);
+    if (bidx_iter_init(&it, f, (bidx_ref){19, 119, 1}) != BIDX_OK)
+        return;
 
     bidx_record_view v;
-    while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
+    for (int i = 0; i < 5; ++i) {
+        if (bidx_iter_next(&it, &v) != BIDX_ITER_YIELD)
+            break;
+
         print_verse(ft, bidx_view_offset(v));
     }
 }
 
 static void iter_range_reverse(const bidx_file* f, const bt_file* ft) {
-    test_header("example lookup iter: Psalms 119:1-5 (reverse order)");
+    test_header("example cursor reverse: Psalms 119:5-1");
 
-    bidx_ref r_start = {19, 119, 1}, r_end = {19, 119, 5};
     bidx_iter it;
-    bidx_iter_init_reverse(&it, f, r_start, r_end);
+    if (bidx_iter_init(&it, f, (bidx_ref){19, 119, 5}) != BIDX_OK)
+        return;
 
     bidx_record_view v;
-    while (bidx_iter_previous(&it, &v) == BIDX_ITER_YIELD) {
+    for (int i = 0; i < 5; ++i) {
+        if (bidx_iter_previous(&it, &v) != BIDX_ITER_YIELD)
+            break;
+
         print_verse(ft, bidx_view_offset(v));
     }
 }
 
 static void iter_from(const bidx_file* f, const bt_file* ft) {
-    test_header("example lookup from: Psalms 119:1 + 2 verses");
+    test_header("example cursor from: Psalms 119:1 + 2 verses");
 
     bidx_iter it;
-    if (bidx_iter_init_from(&it, f, (bidx_ref){19, 119, 1}) == BIDX_OK) {
+    if (bidx_iter_init(&it, f, (bidx_ref){19, 119, 1}) == BIDX_OK) {
         bidx_record_view v;
-        for (int i = 0; i <= 2; i++) {
+        for (int i = 0; i < 3; i++) {
             if (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
                 print_verse(ft, bidx_view_offset(v));
             }
@@ -89,26 +95,34 @@ static void invalid_ref(const bidx_file* f) {
 }
 
 static void iter_book(const bidx_file* f, const bt_file* ft) {
-    test_header("example lookup iter book: Obadiah");
+    test_header("example cursor book: Obadiah");
 
     bidx_iter it;
-    if (bidx_iter_init_book(&it, f, 31) == BIDX_OK) {
-        bidx_record_view v;
-        while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
-            print_verse(ft, bidx_view_offset(v));
-        }
+    if (bidx_iter_init_book(&it, f, 31) != BIDX_OK)
+        return;
+
+    bidx_record_view v;
+    while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
+        if (bidx_view_book(v) != 31)
+            break;  // manual stop
+
+        print_verse(ft, bidx_view_offset(v));
     }
 }
 
 static void iter_chapter(const bidx_file* f, const bt_file* ft) {
-    test_header("example lookup iter chapter: Psalms 23");
+    test_header("example cursor chapter: Psalms 23");
 
     bidx_iter it;
-    if (bidx_iter_init_chapter(&it, f, 19, 23) == BIDX_OK) {
-        bidx_record_view v;
-        while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
-            print_verse(ft, bidx_view_offset(v));
-        }
+    if (bidx_iter_init_chapter(&it, f, 19, 23) != BIDX_OK)
+        return;
+
+    bidx_record_view v;
+    while (bidx_iter_next(&it, &v) == BIDX_ITER_YIELD) {
+        if (bidx_view_book(v) != 19 || bidx_view_chapter(v) != 23)
+            break;  // manual stop
+
+        print_verse(ft, bidx_view_offset(v));
     }
 }
 
@@ -141,7 +155,7 @@ int main(void) {
 
     test_header("bidx dump file");
     bidx_dump(f, stdout, 0);
-    
+
     bidx_close(f);
     bt_close(ft);
 

@@ -72,7 +72,7 @@ bidx_file*     bidx_open(const char* path);
 void           bidx_close(bidx_file* f);
 bidx_rc        bidx_dump(const bidx_file* f, FILE* out, size_t limit);
 
-int            bidx_create(const char* bidx_path, const char* translation_path);
+bidx_create_rc bidx_create(const char* bidx_path, const char* translation_path);
 int            bidx_version(const bidx_file* f);
 size_t         bidx_count(const bidx_file* f);
 bidx_lookup_rc bidx_read(const bidx_file* f, bidx_ref r, uint32_t* offset);

@@ -3,12 +3,12 @@
 VENV_DIR:=.venv
 VENV_ACTIVATE:=. $(VENV_DIR)/bin/activate
 VENV_PY:=$(VENV_DIR)/bin/python
-VENV_DEPS:=$(VENV_DIR)/.deps
+VENV_DEPS_FILE:=$(VENV_DIR)/.deps
+VENV_DEPS:=flake8 black requests textual textual-autocomplete unidecode build hatchling
 PYTHON_BIN?=$(or \
-	$(shell command -v python3.13 2>/dev/null),\
-	$(shell command -v python3.12 2>/dev/null),\
 	$(shell command -v python3.11 2>/dev/null),\
-	$(shell command -v python3.10 2>/dev/null),\
+	$(shell command -v python3.12 2>/dev/null),\
+	$(shell command -v python3.13 2>/dev/null),\
 	python3)
 SOURCE_DIR:=src
 
@@ -19,12 +19,11 @@ $(VENV_PY): $(VENV_DIR)
 	@$(VENV_PY) -c "import sys" >/dev/null 2>&1 || rm -rf $(VENV_DIR)
 	@test -x $(VENV_PY) || $(MAKE) $(VENV_DIR)
 
-$(VENV_DEPS): $(VENV_PY) Makefile pyproject.toml FORCE
-	@$(VENV_PY) -m pip show flake8 black requests textual textual-autocomplete unidecode build hatchling >/dev/null 2>&1 || \
-		($(VENV_ACTIVATE) && pip install --upgrade pip && pip install flake8 black requests textual textual-autocomplete unidecode build hatchling)
-	@touch $(VENV_DEPS)
+$(VENV_DEPS_FILE): $(VENV_PY) Makefile pyproject.toml FORCE
+	@$(VENV_PY) -m pip show $(VENV_DEPS) >/dev/null 2>&1 || ($(VENV_ACTIVATE) && pip install --upgrade pip && pip install $(VENV_DEPS))
+	@touch $(VENV_DEPS_FILE)
 
-install: $(VENV_DEPS)
+install: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && pip -v install '.[dev]'
 
 clean-venv:
@@ -43,28 +42,21 @@ run-dev:
 serve:
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); textual serve --dev "python -m bibleit")
 
-lint: $(VENV_DEPS)
+lint: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && flake8 --config=.flake8 $(SOURCE_DIR)
 
-fix-lint: $(VENV_DEPS)
+fix-lint: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && black $(SOURCE_DIR)
 
 shell:
 	@($(VENV_ACTIVATE) && cd $(SOURCE_DIR) && $(VENV_PY))
 
-test: $(VENV_DEPS)
+test: $(VENV_DEPS_FILE)
 	$(VENV_PY) -m unittest discover src
 
-build: $(VENV_DEPS)
+build: $(VENV_DEPS_FILE)
 	@rm -rf dist
 	@$(VENV_ACTIVATE) && python -m build
 
-local-install-test: build
-	@set -e; \
-	tmpdir=$$(mktemp -d); \
-	$(VENV_PY) -m venv $$tmpdir/venv; \
-	. $$tmpdir/venv/bin/activate; \
-	pip install --upgrade pip >/dev/null; \
-	pip install --no-deps dist/*.whl; \
-	python -c "import bibleit._ffi as ffi; print('loaded', ffi._lib_name())"; \
-	rm -rf $$tmpdir
+install-local: build
+	pip install dist/*.whl

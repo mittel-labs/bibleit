@@ -3,7 +3,7 @@ import requests
 import json
 from pathlib import Path
 from operator import attrgetter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import cached_property
 from typing import Optional
 
@@ -25,8 +25,12 @@ from bibleit._ffi import (
 
 TIMEOUTS = (3, 10)
 TRANSLATIONS_DIR = Path.home() / ".bibleit"
-TRANSLATION_LANGUAGES_CONFIG_FILE_URI = "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/translations/languages.json"
-TRANSLATION_BOOKS_CONFIG_FILE_URI = "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/translations/translations_books.json"
+TRANSLATION_LANGUAGES_CONFIG_FILE_URI = (
+    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/translations/languages.json"
+)
+TRANSLATION_BOOKS_CONFIG_FILE_URI = (
+    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/translations/translations_books.json"
+)
 TRANSLATION_URIS = [
     "https://bolls.life/static/translations/{translation}.json",
     "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/translations/{translation}.json",

@@ -1,5 +1,6 @@
 from __future__ import annotations
-import os, platform
+import os
+import platform
 from importlib.resources import files
 
 from ctypes import (

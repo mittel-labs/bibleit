@@ -14,7 +14,6 @@ from textual_autocomplete import AutoComplete, DropdownItem
 from typing import Iterable, Sequence
 from html import unescape
 
-from typing import Sequence
 from bibleit import translation
 from unidecode import unidecode
 
@@ -234,9 +233,9 @@ class Translations(Screen):
                 active_node = node
         installed.expand_all()
 
-        for l in translation.get_languages():
-            language = available.add(l.name)
-            for t in l.translations:
+        for lang in translation.get_languages():
+            language = available.add(lang.name)
+            for t in lang.translations:
                 if not translation.is_installed(t.slug):
                     language.add_leaf(str(t), t)
             if not language.children:

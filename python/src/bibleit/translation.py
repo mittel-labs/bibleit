@@ -6,6 +6,7 @@ from operator import attrgetter
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Optional
+from functools import cache
 
 from unidecode import unidecode
 
@@ -25,15 +26,11 @@ from bibleit._ffi import (
 
 TIMEOUTS = (3, 10)
 TRANSLATIONS_DIR = Path.home() / ".bibleit"
-TRANSLATION_LANGUAGES_CONFIG_FILE_URI = (
-    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/translations/languages.json"
-)
-TRANSLATION_BOOKS_CONFIG_FILE_URI = (
-    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/translations/translations_books.json"
-)
+TRANSLATION_LANGUAGES_CONFIG_FILE_URI = "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/languages.json"
+TRANSLATION_BOOKS_CONFIG_FILE_URI = "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/translations_books.json"
 TRANSLATION_URIS = [
     "https://bolls.life/static/translations/{translation}.json",
-    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/translations/{translation}.json",
+    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/{translation}.json",
 ]
 TRANSLATION_LINE = "{book} {chapter}:{verse} {text}\n"
 TRANSLATION_FILE = "{name}.bt"
@@ -43,7 +40,7 @@ TRANSLATION_CONFIG_FILE = "{name}.json"
 
 TRANSLATIONS_DIR.mkdir(parents=True, exist_ok=True)
 
-DICTIONARIES_URI = "https://bolls.life/static/bolls/app/views/dictionaries.json"
+DICTIONARIES_URI = "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/dictionaries.json"
 DICTIONARY_URI = "https://bolls.life/static/dictionaries/{name}.json"
 DICTIONARY_FILE = "{name}.dictionary.json"
 
@@ -155,33 +152,35 @@ def install_dictionary(name: str) -> Path:
     return path
 
 
-TRANSLATIONS_AVAILABLE = {
-    t["short_name"]: _map_to_translation(t)
-    for language in get_languages_config()
-    for t in language["translations"]
-}
-
-LANGUAGES_AVAILABLE = [
-    TranslationLanguage(
-        name=language["language"],
-        translations=[
-            TRANSLATIONS_AVAILABLE.get(t["short_name"])
-            for t in language["translations"]
-        ],
-    )
-    for language in get_languages_config()
-]
+@cache
+def get_translations_available():
+    return {
+        t["short_name"]: _map_to_translation(t)
+        for language in get_languages_config()
+        for t in language["translations"]
+    }
 
 
-def get_languages():
-    return LANGUAGES_AVAILABLE
+@cache
+def get_languages_available():
+    translations = get_translations_available()
+
+    return [
+        TranslationLanguage(
+            name=language["language"],
+            translations=[
+                translations.get(t["short_name"]) for t in language["translations"]
+            ],
+        )
+        for language in get_languages_config()
+    ]
 
 
 def get_installed() -> dict[str, TranslationHeader]:
     translations = map(
         attrgetter("stem"), TRANSLATIONS_DIR.glob(TRANSLATION_FILE.format(name="*"))
     )
-    return {slug: TRANSLATIONS_AVAILABLE.get(slug) for slug in translations}
+    return {slug: get_translations_available().get(slug) for slug in translations}
 
 
 def is_installed(slug: str) -> bool:
@@ -249,9 +248,9 @@ def get(slug: str) -> Path:
 
 
 def open(slug: str) -> Translation:
-    if slug not in TRANSLATIONS_AVAILABLE:
+    if slug not in get_translations_available():
         raise ValueError("open failure: translation not found: {slug}")
-    header = TRANSLATIONS_AVAILABLE.get(slug)
+    header = get_translations_available().get(slug)
     return Translation(header)
 
 

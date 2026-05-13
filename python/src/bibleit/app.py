@@ -233,7 +233,7 @@ class Translations(Screen):
                 active_node = node
         installed.expand_all()
 
-        for lang in translation.get_languages():
+        for lang in translation.get_languages_available():
             language = available.add(lang.name)
             for t in lang.translations:
                 if not translation.is_installed(t.slug):

@@ -6,13 +6,69 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from bibleit import translation
+MOCK_LANGUAGES = [
+    {
+        "language": "English",
+        "translations": [
+            {
+                "short_name": "TEST",
+                "full_name": "Test Translation",
+            }
+        ],
+    }
+]
+
+MOCK_BOOKS = {
+    "TEST": [
+        {
+            "bookid": 1,
+            "name": "Genesis",
+            "chronorder": 1,
+            "chapters": 2,
+        },
+        {
+            "bookid": 2,
+            "name": "Exodus",
+            "chronorder": 2,
+            "chapters": 1,
+        },
+    ]
+}
+
+with (
+    patch("bibleit.translation.get_languages_config", return_value=MOCK_LANGUAGES),
+    patch("bibleit.translation.get_translations_books", return_value=MOCK_BOOKS),
+):
+    from bibleit import translation
 
 
 class TranslationNativeTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
+
+        translation.get_translations_available.cache_clear()
+        translation.get_languages_available.cache_clear()
+
+        self.patches = [
+            patch.object(translation, "TRANSLATIONS_DIR", self.root),
+            patch.object(
+                translation,
+                "get_languages_config",
+                return_value=MOCK_LANGUAGES,
+            ),
+            patch.object(
+                translation,
+                "get_translations_books",
+                side_effect=lambda slug=None: (
+                    MOCK_BOOKS.get(slug) if slug is not None else MOCK_BOOKS
+                ),
+            ),
+        ]
+
+        for patcher in self.patches:
+            patcher.start()
+
         self.header = translation.TranslationHeader(
             name="Test Translation",
             slug="TEST",
@@ -34,12 +90,6 @@ class TranslationNativeTests(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
-        self.patches = [
-            patch.object(translation, "TRANSLATIONS_DIR", self.root),
-            patch.object(translation, "TRANSLATIONS_AVAILABLE", {"TEST": self.header}),
-        ]
-        for patcher in self.patches:
-            patcher.start()
 
     def tearDown(self):
         for patcher in reversed(self.patches):

@@ -1,0 +1,14 @@
+.git
+.github
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/dist
+**/build
+**/*.egg-info
+libbibleit/libbibleit.a
+libbibleit/libbibleit.dylib
+libbibleit/libbibleit.so*

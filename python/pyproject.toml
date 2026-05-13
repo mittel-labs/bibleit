@@ -1,13 +1,13 @@
 [project]
 name = "bibleit"
-version = "0.0.26"
+version = "0.1.0"
 authors = [
   { name="Felipe Mamud", email="trovatti@gmail.com" },
 ]
 description = "Interactive bible reading"
 readme = "README.md"
-license = { file="LICENSE" }
-requires-python = ">=3.10"
+license = { text = "MIT" }
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -15,13 +15,17 @@ classifiers = [
 ]
 dependencies = [
   "gnureadline; platform_system == 'Darwin'",
+  "requests",
+  "textual",
+  "textual-autocomplete",
+  "unidecode"
 ]
 
 [project.optional-dependencies]
 dev = [
   "black",
   "flake8",
-  "requests"
+  "textual-dev"
 ]
 
 [project.urls]
@@ -31,3 +35,18 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.envs.default]
+python = "3.11"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bibleit"]
+
+[tool.hatch.build.targets.sdist.force-include]
+"../libbibleit/Makefile" = "native/libbibleit/Makefile"
+"../libbibleit/README.md" = "native/libbibleit/README.md"
+"../libbibleit/include" = "native/libbibleit/include"
+"../libbibleit/src" = "native/libbibleit/src"
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"

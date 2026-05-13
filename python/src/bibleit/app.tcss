@@ -1,0 +1,194 @@
+Screen {
+  layout: vertical;
+  background: #f3f1ed;
+}
+
+Tree {
+  background: #f3f1ed;
+  color: #2a2a2a;
+  scrollbar-size: 0 0;
+
+  &:focus {
+    & > .tree--cursor {
+      background: #d8c3a5;
+      color: #1f1f1f;
+      text-style: bold;
+    }
+  }
+}
+
+ListView {
+  height: 1fr;
+  background: #f3f1ed;
+  scrollbar-size: 0 0;
+}
+
+ListItem {
+  height: auto;
+  color: #2a2a2a;
+
+  &.-highlight {
+    background: #e7c878;
+    color: #1f1f1f;
+    text-style: italic bold;
+  }
+
+  & > Label {
+    width: 100%;
+    height: auto;
+    padding: 1 2;
+    text-wrap: wrap;
+    text-overflow: fold;
+  }
+}
+
+Footer {
+  background: #ece8e1;
+  color: #2a2a2a;
+  text-style: bold;
+}
+
+FooterKey {
+  background: transparent;
+
+  .footer-key--description {
+    color: #444444;
+  }
+}
+
+Search {
+  layer: overlay;
+  align: center middle;
+  background: #00000055;
+}
+
+Search > Center > Middle {
+  width: 42;
+  height: auto;
+  background: transparent;
+}
+
+Search Input {
+  width: 100%;
+  height: 3;
+  background: #f8f5ef;
+  color: #202020;
+  border: tall #b98b4d;
+  padding: 0 1;
+}
+
+Search Input:focus {
+  border: tall #9f6d2f;
+}
+
+AutoComplete {
+  width: 100%;
+  margin-top: 1;
+  background: transparent;
+}
+
+AutoCompleteList {
+  width: 100%;
+  background: #f7f3ec;
+  color: #2a2a2a;
+  border: tall #b98b4d;
+  max-height: 10;
+  scrollbar-size: 0 0;
+}
+
+AutoCompleteList > .option-list--option {
+  width: 100%;
+  height: 1;
+  padding: 0 1;
+  background: transparent;
+  color: #2a2a2a;
+}
+
+AutoCompleteList > .option-list--option-highlighted {
+  background: #d7b46a;
+  color: #161616;
+  text-style: bold;
+}
+
+.autocomplete--highlight-match {
+  color: #9f6d2f;
+  text-style: bold;
+}
+
+StrongScreen {
+  layer: overlay;
+  align: center middle;
+  background: #00000099;
+}
+
+StrongScreen > Container {
+  width: 72;
+  max-width: 80%;
+  height: auto;
+  max-height: 80%;
+  background: #181818;
+  border: round #c89b5d;
+  padding: 1 2;
+  color: #f3f0ea;
+}
+
+StrongScreen Label {
+  width: 100%;
+  height: auto;
+  background: transparent;
+  color: #f3f0ea;
+  text-wrap: wrap;
+  text-overflow: fold;
+}
+
+.strong-link {
+  color: #d9a441;
+  text-style: bold underline;
+}
+
+.strong-ref {
+  color: #e7c878;
+  text-style: underline;
+}
+
+.sup-note {
+  color: #7c7468;
+  text-style: italic;
+}
+
+StatusBar {
+  dock: bottom;
+  height: 2;
+  background: #ece8e1;
+  border-top: solid #d6cfc5;
+  padding: 0 2;
+}
+
+#status-left {
+  width: 1fr;
+  color: #2a2a2a;
+  overflow: hidden hidden;
+  text-overflow: ellipsis;
+}
+
+#status-right {
+  width: auto;
+  min-width: 32;
+  color: #6b655d;
+}
+
+BibleView {
+  width: 100%;
+  height: 1fr;
+  background: #f3f1ed;
+}
+
+View {
+  width: 1fr;
+  height: 100%;
+  border-right: solid #ddd4c8;
+}
+
+View:last-child {
+  border-right: none;
+}

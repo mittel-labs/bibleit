@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 import platform
-from importlib.resources import files
+from importlib.resources import files, as_file
 
 from ctypes import (
     CDLL,
@@ -25,12 +25,13 @@ def _lib_name() -> str:
 
 
 def _load_lib():
-    libpath = files(__package__).joinpath("_native").joinpath(_lib_name())
-    override = os.getenv("BIBLEIT_LIB")
-    path = override or os.fspath(libpath)
-    if not os.path.exists(path):
-        raise OSError(f"libbibleit not found at {path}")
-    return CDLL(path)
+    if override := os.getenv("BIBLEIT_LIB"):
+        return CDLL(override)
+
+    libpath = files("bibleit._native").joinpath(_lib_name())
+
+    with as_file(libpath) as path:
+        return CDLL(os.fspath(path))
 
 
 libbibleit = _load_lib()

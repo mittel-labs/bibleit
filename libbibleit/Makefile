@@ -6,12 +6,15 @@ CFLAGS  ?= -O2 -g -std=c99 -Wall -Wextra -pedantic
 CPPFLAGS:= -Iinclude
 LDFLAGS ?=
 
+CFLAGS  += $(ARCHFLAGS)
+LDFLAGS += $(ARCHFLAGS)
+
 SRCS := src/bidx.c src/translation.c
 OBJS := $(SRCS:src/%.c=build/%.o)
 
 ifeq ($(UNAME_S),Darwin)
   SHLIB := libbibleit.dylib
-  SHLIB_BUILD = $(CC) -dynamiclib -install_name @rpath/$(SHLIB) -o $(SHLIB) $(OBJS) $(LDFLAGS)
+  SHLIB_BUILD = $(CC) $(CPPFLAGS) $(CFLAGS) -dynamiclib $(LDFLAGS) -install_name @rpath/$(SHLIB) -o $(SHLIB) $(OBJS)
 else
   SHLIB := libbibleit.so
   SOV   ?= 1

@@ -27,9 +27,14 @@ class CustomBuildHook(BuildHookInterface):
         output_dir = root / "src" / "bibleit" / "_native"
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        (output_dir / "__init__.py").touch(exist_ok=True)
+
         source_lib = source_dir / lib_name
         target_lib = output_dir / lib_name
         shutil.copy2(source_lib, target_lib)
+
+        build_data.setdefault("force_include", {})
+        build_data["force_include"][os.fspath(target_lib)] = f"bibleit/_native/{lib_name}"
 
         if platform.system() == "Darwin":
             self._codesign(target_lib)

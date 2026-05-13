@@ -84,12 +84,14 @@ jobs:
         env:
           CIBW_BUILD: cp311-*
           CIBW_SKIP: "*-win32 *-win_amd64 *-manylinux_i686 *-musllinux_*"
+          CIBW_BEFORE_TEST: 'find . -name "*.dylib" -o -name "*.so"'
           CIBW_TEST_COMMAND: 'python -c "import bibleit._ffi as ffi; print(ffi._lib_name())"'
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
 
       - name: Upload distributions
         uses: actions/upload-artifact@v7
         with:
-          name: dist-${{ matrix.os }}
+          name: dist-${{ matrix.os }}-${{ github.run_id }}
           path: python/dist/*
 
   publish:
@@ -97,14 +99,26 @@ jobs:
     if: github.ref_type == 'tag'
     needs: build
     runs-on: ubuntu-latest
+
     steps:
+      - name: Clean dist
+        run: rm -rf dist
+
       - name: Download distributions
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           pattern: dist-*
           path: dist
           merge-multiple: true
 
+      - name: Inspect distributions
+        run: |
+          find dist -type f
+
+          for whl in dist/*.whl; do
+            echo "=== $whl ==="
+            python -m zipfile -l "$whl"
+          done
       - name: Publish distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

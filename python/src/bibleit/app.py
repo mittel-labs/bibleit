@@ -179,7 +179,7 @@ class Search(Screen):
             [
                 DropdownItem(
                     c.name,
-                    Content.from_markup(f"[bold white on #444444] {t.slug} [/] "),
+                    Content.from_markup(f"[bold #f3f0ea on #6b655d] {t.slug} [/] "),
                 )
                 for t in self.translations
                 for c in t.header.chapters.values()

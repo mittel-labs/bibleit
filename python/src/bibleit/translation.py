@@ -26,8 +26,12 @@ from bibleit._ffi import (
 
 TIMEOUTS = (3, 10)
 TRANSLATIONS_DIR = Path.home() / ".bibleit"
-TRANSLATION_LANGUAGES_CONFIG_FILE_URI = "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/languages.json"
-TRANSLATION_BOOKS_CONFIG_FILE_URI = "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/translations_books.json"
+TRANSLATION_LANGUAGES_CONFIG_FILE_URI = (
+    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/languages.json"
+)
+TRANSLATION_BOOKS_CONFIG_FILE_URI = (
+    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/translations_books.json"
+)
 TRANSLATION_URIS = [
     "https://bolls.life/static/translations/{translation}.json",
     "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/{translation}.json",
@@ -96,9 +100,7 @@ def get_config(name: str, uri: str) -> dict:
     if not cf.exists():
         if r := requests.get(uri, timeout=TIMEOUTS):
             if r.status_code != 200:
-                raise LookupError(
-                    f"failed to fetch config {name}: ({r.status_code} {r.text})"
-                )
+                raise LookupError(f"failed to fetch config {name}: ({r.status_code} {r.text})")
             cf.write_bytes(r.content)
     with cf.open() as f:
         return json.load(f)
@@ -127,10 +129,7 @@ def _map_to_translation(translation: dict) -> TranslationHeader:
     return TranslationHeader(
         name=translation["full_name"],
         slug=translation["short_name"],
-        chapters={
-            unidecode(b["name"]): TranslationChapter(**b)
-            for b in _resolve_book_order(tb)
-        },
+        chapters={unidecode(b["name"]): TranslationChapter(**b) for b in _resolve_book_order(tb)},
     )
 
 
@@ -155,9 +154,7 @@ def install_dictionary(name: str) -> Path:
 @cache
 def get_translations_available():
     return {
-        t["short_name"]: _map_to_translation(t)
-        for language in get_languages_config()
-        for t in language["translations"]
+        t["short_name"]: _map_to_translation(t) for language in get_languages_config() for t in language["translations"]
     }
 
 
@@ -168,18 +165,14 @@ def get_languages_available():
     return [
         TranslationLanguage(
             name=language["language"],
-            translations=[
-                translations.get(t["short_name"]) for t in language["translations"]
-            ],
+            translations=[translations.get(t["short_name"]) for t in language["translations"]],
         )
         for language in get_languages_config()
     ]
 
 
 def get_installed() -> dict[str, TranslationHeader]:
-    translations = map(
-        attrgetter("stem"), TRANSLATIONS_DIR.glob(TRANSLATION_FILE.format(name="*"))
-    )
+    translations = map(attrgetter("stem"), TRANSLATIONS_DIR.glob(TRANSLATION_FILE.format(name="*")))
     return {slug: get_translations_available().get(slug) for slug in translations}
 
 
@@ -207,9 +200,7 @@ def install(slug: str) -> Path:
                 err.add_note(e)
             raise err
         translation_book = {t["bookid"]: t["name"] for t in translations_books[slug]}
-        translation_lines = {
-            (t["book"], t["chapter"], t["verse"]): t["text"] for t in translation_bolls
-        }
+        translation_lines = {(t["book"], t["chapter"], t["verse"]): t["text"] for t in translation_bolls}
         lines = (
             f"{translation_book[book]} {chapter}:{verse} {translation_lines[(book, chapter, verse)]}\n"
             for book, chapter, verse in translation_lines
@@ -232,9 +223,7 @@ def get_index(slug: str) -> Path:
     translation = get(slug)
     index = TRANSLATIONS_DIR / TRANSLATION_INDEX_FILE.format(name=slug)
     if not index.exists():
-        rc = libbibleit.bidx_create(
-            index.as_posix().encode(), translation.as_posix().encode()
-        )
+        rc = libbibleit.bidx_create(index.as_posix().encode(), translation.as_posix().encode())
         if rc == -1 or rc == 2:
             raise RuntimeError(f"failed to create index ({slug=}, {rc=})")
     return index
@@ -469,12 +458,7 @@ class Index:
     def cursor_chapter(self, ref: TranslationRef):
         it = BidxIter()
 
-        if (
-            libbibleit.bidx_iter_init_chapter(
-                byref(it), self._h, c_uint8(ref.bookid), c_uint8(ref.chapter)
-            )
-            != 0
-        ):
+        if libbibleit.bidx_iter_init_chapter(byref(it), self._h, c_uint8(ref.bookid), c_uint8(ref.chapter)) != 0:
             raise RuntimeError("failed to init chapter cursor")
 
         return IndexCursor(self, it)

@@ -48,7 +48,7 @@ serve-dev: $(VENV_DEPS_FILE)
 lint: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && flake8 --config=.flake8 $(SOURCE_DIR)
 
-fix-lint: $(VENV_DEPS_FILE)
+lint-fix: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && black $(SOURCE_DIR)
 
 shell:

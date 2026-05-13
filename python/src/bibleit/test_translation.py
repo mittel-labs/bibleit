@@ -60,9 +60,7 @@ class TranslationNativeTests(unittest.TestCase):
             patch.object(
                 translation,
                 "get_translations_books",
-                side_effect=lambda slug=None: (
-                    MOCK_BOOKS.get(slug) if slug is not None else MOCK_BOOKS
-                ),
+                side_effect=lambda slug=None: (MOCK_BOOKS.get(slug) if slug is not None else MOCK_BOOKS),
             ),
         ]
 
@@ -98,10 +96,7 @@ class TranslationNativeTests(unittest.TestCase):
 
     def test_read_range_stops_at_end_verse(self):
         with translation.open("TEST") as bible:
-            rows = [
-                verse.decode()
-                for verse in bible.read(translation.TranslationRef(1, 1, 1, 2))
-            ]
+            rows = [verse.decode() for verse in bible.read(translation.TranslationRef(1, 1, 1, 2))]
 
         self.assertEqual(
             rows,

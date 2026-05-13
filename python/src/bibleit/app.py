@@ -115,17 +115,13 @@ class Search(Screen):
 
             if m := self.BIBLE_REF_RE.match(value):
                 gd = m.groupdict()
-                self.book_name: str = (
-                    gd.get("book_dq") or gd.get("book_sq") or gd["book"]
-                ).strip()
+                self.book_name: str = (gd.get("book_dq") or gd.get("book_sq") or gd["book"]).strip()
                 self.chapter = int(gd["chapter"]) if gd["chapter"] else None
                 self.verse_start = int(gd["verse_start"]) if gd["verse_start"] else None
                 self.verse_end = int(gd["verse_end"]) if gd["verse_end"] else None
 
         def __repr__(self):
-            return (
-                f"{self.book_name} {self.chapter} {self.verse_start} {self.verse_end}"
-            )
+            return f"{self.book_name} {self.chapter} {self.verse_start} {self.verse_end}"
 
     class Response(Message):
         def __init__(
@@ -306,9 +302,7 @@ class Translations(Screen):
             )
             return
 
-        self.app.query_exactly_one(BibleView).post_message(
-            Translations.Open(translation.open(data.slug))
-        )
+        self.app.query_exactly_one(BibleView).post_message(Translations.Open(translation.open(data.slug)))
 
         self.app.pop_screen()
 
@@ -401,12 +395,7 @@ class StrongScreen(Screen):
             exists = code in self.translation.strongs
 
             if exists:
-                return (
-                    f"[bold underline #ffb347]"
-                    f"[@click=app.open_strong('{code}')]"
-                    f"{inner}"
-                    f"[/][/]"
-                )
+                return f"[bold underline #ffb347]" f"[@click=app.open_strong('{code}')]" f"{inner}" f"[/][/]"
 
             return f"[dim]{inner}[/]"
 
@@ -565,9 +554,7 @@ class View(ListView):
         ref = self._row_ref(row)
         if ref is None or self.translation is None:
             return None
-        return self.translation.cursor_from(
-            translation.TranslationRef(ref.bookid, ref.chapter, ref.verse)
-        )
+        return self.translation.cursor_from(translation.TranslationRef(ref.bookid, ref.chapter, ref.verse))
 
     def _previous_row(self) -> ListItem | None:
         if not self.children:
@@ -654,9 +641,7 @@ class View(ListView):
         self.clear()
         self.translation = event.translation
 
-        self._load_cursor_rows(
-            self.translation.read(translation.TranslationRef(bookid=1))
-        )
+        self._load_cursor_rows(self.translation.read(translation.TranslationRef(bookid=1)))
 
         self.call_after_refresh(self._select_first)
 
@@ -664,9 +649,7 @@ class View(ListView):
         if event.book_name:
             if bookid := self.translation.resolve_bookid(event.book_name):
                 target = [self.translation]
-                ref = translation.TranslationRef(
-                    bookid, event.chapter, event.verse_start, event.verse_end
-                )
+                ref = translation.TranslationRef(bookid, event.chapter, event.verse_start, event.verse_end)
                 try:
                     results = ((t.slug, t.read(ref)) for t in target)
                     self.post_message(Search.Response(event, results))

@@ -28,14 +28,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install flake8 black requests textual textual-autocomplete unidecode build hatchling
 
+      - name: Build and test local wheel install
+        run: make install-local
+
       - name: Lint
         run: make lint
 
       - name: Test
         run: make test
-
-      - name: Build and test local wheel install
-        run: make install-local
 
   build:
     name: Build distributions
@@ -80,7 +80,7 @@ jobs:
         env:
           CIBW_BUILD: cp311-*
           CIBW_SKIP: "*-win32 *-win_amd64 *-manylinux_i686 *-musllinux_*"
-          CIBW_TEST_COMMAND: "python -c \"import bibleit._ffi as ffi; print(ffi._lib_name())\""
+          CIBW_TEST_COMMAND: 'python -c "import bibleit._ffi as ffi; print(ffi._lib_name())"'
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4

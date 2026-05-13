@@ -18,9 +18,8 @@ function bump() {
   	sed -i '' 's/version = ".*"/version = "'${NEW_VERSION}'"/' "$1"
 }
 
-bump src/bibleit/config.py
 bump pyproject.toml
-git add src/bibleit/config.py pyproject.toml
+git add pyproject.toml
 git commit -m "version $(get-version)"
 git tag v$(get-version)
 git push --tags

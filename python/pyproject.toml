@@ -1,6 +1,6 @@
 [project]
 name = "bibleit"
-version = "0.1.1"
+version = "0.1.2"
 authors = [{ name = "Felipe Mamud", email = "trovatti@gmail.com" }]
 description = "Interactive bible reading"
 readme = "README.md"
@@ -12,6 +12,7 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
+  "aiohttp",
   "gnureadline; platform_system == 'Darwin'",
   "requests",
   "textual",

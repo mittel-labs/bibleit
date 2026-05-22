@@ -4,7 +4,7 @@ VENV_DIR:=.venv
 VENV_ACTIVATE:=. $(VENV_DIR)/bin/activate
 VENV_PY:=$(VENV_DIR)/bin/python
 VENV_DEPS_FILE:=$(VENV_DIR)/.deps
-VENV_DEPS:=flake8 black requests textual textual-autocomplete textual-dev unidecode build hatchling
+VENV_DEPS:=aiohttp flake8 black requests textual textual-autocomplete textual-dev unidecode build hatchling
 PYTHON_BIN?=$(or \
 	$(shell command -v python3.11 2>/dev/null),\
 	$(shell command -v python3.12 2>/dev/null),\
@@ -34,6 +34,9 @@ run: $(VENV_DEPS_FILE)
 
 serve: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit.serve)
+
+live: $(VENV_DEPS_FILE)
+	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit.live)
 
 bump-version:
 	@./bump-version.sh

@@ -1,9 +1,10 @@
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1
-ENV BIBLEIT_SERVE_HOST=0.0.0.0
-ENV BIBLEIT_SERVE_PORT=8000
-ENV BIBLEIT_SERVE_PUBLIC_URL=http://localhost:8000
+ENV BIBLEIT_LIVE_HOST=0.0.0.0
+ENV BIBLEIT_LIVE_PORT=8000
+ENV BIBLEIT_SERVE_COMMAND="cd /app/python && /app/python/.venv/bin/python -m bibleit"
+ENV BIBLEIT_SERVE_PUBLIC_URL=http://127.0.0.1:8000
 
 WORKDIR /app
 
@@ -18,11 +19,7 @@ WORKDIR /app/python
 
 RUN make install-local
 
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
 EXPOSE 8000
 
-ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["run"]
+ENTRYPOINT ["make"]
+CMD ["live"]

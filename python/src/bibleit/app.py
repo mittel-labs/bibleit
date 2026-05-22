@@ -15,10 +15,35 @@ from typing import Iterable, Sequence
 from html import unescape
 
 from bibleit import translation
+from bibleit.serve import host, port
+from bibleit.live import parse_verse_line
 from unidecode import unidecode
 
 
+import atexit
+import json
+import os
 import re
+import asyncio
+import uuid
+import urllib.error
+import urllib.request
+import aiohttp
+
+
+WEB_DRIVER = "textual.drivers.web_driver:WebDriver"
+
+
+def running_in_browser() -> bool:
+    return os.getenv("TEXTUAL_DRIVER") == WEB_DRIVER
+
+
+def live_publish_url() -> str:
+    return (
+        os.getenv("BIBLEIT_LIVE_URL")
+        or os.getenv("BIBLEIT_SERVE_PUBLIC_URL")
+        or f"http://{host}:{port}"
+    ).rstrip("/")
 
 
 @dataclass(frozen=True)
@@ -33,12 +58,92 @@ class NavigationState:
     bookid: int = 1
     chapter: int = 1
     verse: int = 1
+    live: bool = False
+
+
+class LivePublisher:
+    def __init__(self):
+        self.url = live_publish_url()
+        self.timeout = float(os.getenv("BIBLEIT_LIVE_TIMEOUT", "0.5"))
+        self.token = os.getenv("BIBLEIT_LIVE_TOKEN")
+        self.publisher_id = uuid.uuid4().hex
+        self.sequence = 0
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.url)
+
+    def verse_payload(self, value: str, translation_slug: str) -> dict | None:
+        if not self.enabled:
+            return None
+
+        verse = parse_verse_line(translation_slug, value)
+        if verse is None:
+            return None
+
+        self.sequence += 1
+        return verse.to_payload() | {
+            "publisher_id": self.publisher_id,
+            "sequence": self.sequence,
+        }
+
+    async def publish_payload(self, payload: dict) -> bool:
+        if not self.enabled:
+            return False
+
+        return await self._post("/api/publish", payload)
+
+    async def set_live(self, live: bool) -> None:
+        if not self.enabled:
+            return
+
+        await self._post("/api/live", {"live": live})
+
+    def set_live_blocking(self, live: bool) -> bool:
+        if not self.enabled:
+            return False
+
+        payload = json.dumps({"live": live}).encode("utf-8")
+        request = urllib.request.Request(
+            f"{self.url}/api/live",
+            data=payload,
+            headers=self._headers(),
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                return 200 <= response.status < 300
+        except (OSError, TimeoutError, urllib.error.URLError):
+            return False
+
+    async def _post(self, path: str, payload: dict) -> bool:
+        try:
+            timeout = aiohttp.ClientTimeout(total=self.timeout)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    f"{self.url}{path}",
+                    json=payload,
+                    headers=self._headers(),
+                ) as response:
+                    return 200 <= response.status < 300
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            return False
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+
+        return headers
 
 
 class StatusBar(Horizontal):
     can_focus = False
     translations = reactive(list)
     strongs = reactive(False)
+    live = reactive(False)
 
     def compose(self):
         yield Static(id="status-left")
@@ -48,6 +153,9 @@ class StatusBar(Horizontal):
         self._refresh()
 
     def watch_strongs(self):
+        self._refresh()
+
+    def watch_live(self):
         self._refresh()
 
     def on_mount(self):
@@ -67,11 +175,12 @@ class StatusBar(Horizontal):
                     "[bold]bibleit[/]",
                     translation_text,
                     "[#d97706]STRONGS[/]" if self.strongs else None,
+                    "[#d97706]LIVE[/]" if self.live else None,
                 ],
             )
         )
 
-        right = "[#7a756e]" "^S Search   " "^T Translations   " "^G Strongs" "[/]"
+        right = "[#7a756e]" "^S Search   " "^T Translations   " "^G Strongs   "
 
         self.query_one("#status-left", Static).update(left)
         self.query_one("#status-right", Static).update(right)
@@ -461,11 +570,100 @@ class View(ListView):
         self.cursor = None
         self.show_strongs = False
         self.syncing = False
+        self.live = LivePublisher()
+        self._live_publish_group = f"live-publish-{id(self)}"
+        self._live_mode_group = f"live-mode-{id(self)}"
+        self._pending_live_publish: dict | None = None
+        self._live_publish_running = False
 
     def _select_first(self):
         if self.children:
             self.focus()
             self.index = 0
+            self.publish_current()
+
+    def publish_current(self):
+        if not self.state.live:
+            return
+
+        if self.index is None:
+            return
+
+        if 0 <= self.index < len(self.children):
+            row = self.children[self.index]
+
+            if isinstance(row, ListItem):
+                self._publish_row(row)
+
+    def set_live_mode(self, live: bool) -> None:
+        self.run_worker(
+            self.live.set_live(live),
+            group=self._live_mode_group,
+            exclusive=True,
+            exit_on_error=False,
+        )
+
+    def _publish_row(self, row: ListItem) -> None:
+        payload = self.live.verse_payload(row.data, self.translation.slug)
+
+        if payload is None:
+            return
+
+        self._pending_live_publish = payload
+
+        if self._live_publish_running:
+            return
+
+        self._start_live_publish_worker()
+
+    def _start_live_publish_worker(self) -> None:
+        self._live_publish_running = True
+        self.run_worker(
+            self._drain_live_publish(),
+            group=self._live_publish_group,
+            exit_on_error=False,
+        )
+
+    async def _drain_live_publish(self) -> None:
+        try:
+            while self._pending_live_publish is not None:
+                await asyncio.sleep(0.05)
+                payload = self._pending_live_publish
+                self._pending_live_publish = None
+                published = await self.live.publish_payload(payload)
+
+                if not published and self._pending_live_publish is None:
+                    self._pending_live_publish = payload
+                    await asyncio.sleep(0.25)
+        finally:
+            self._live_publish_running = False
+
+            if self._pending_live_publish is not None and self.is_attached:
+                self._start_live_publish_worker()
+
+    def _sync_state_from_row(self, row: ListItem, publish: bool = True) -> bool:
+        ref = self._row_ref(row)
+
+        if not ref:
+            return False
+
+        self.state.bookid = ref.bookid
+        self.state.chapter = ref.chapter
+        self.state.verse = ref.verse
+
+        if publish:
+            self._publish_row(row)
+
+        return True
+
+    def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+        if event.list_view is not self:
+            return
+
+        if event.item is None:
+            return
+
+        self._sync_state_from_row(event.item, publish=self.state.live and not self.syncing)
 
     def _style_row(self, text: str) -> str:
         text = re.sub(r"(.* \d+:\d+)", r"[bold]\1 [/]", text)
@@ -606,23 +804,7 @@ class View(ListView):
                     force=True,
                 )
 
-                ref = self._row_ref(row)
-
-                if ref:
-                    self.state.bookid = ref.bookid
-                    self.state.chapter = ref.chapter
-                    self.state.verse = ref.verse
-
-                    if not self.syncing:
-                        self.post_message(
-                            self.Navigate(
-                                translation.TranslationRef(
-                                    ref.bookid,
-                                    ref.chapter,
-                                    ref.verse,
-                                )
-                            )
-                        )
+                self._sync_state_from_row(row, publish=self.state.live and not self.syncing)
 
     def _force_highlight_row(self, row: ListItem) -> None:
         try:
@@ -695,6 +877,9 @@ class View(ListView):
             self._force_highlight_row_after_refresh(row)
 
     def sync_to_state(self):
+        if not self.is_attached:
+            return
+
         ref = translation.TranslationRef(
             self.state.bookid,
             self.state.chapter,
@@ -705,11 +890,21 @@ class View(ListView):
             cursor = self.translation.cursor_from(ref)
             self.syncing = True
             self.clear()
+
+            if not self.is_attached:
+                self.syncing = False
+                return
+
             self._load_cursor_rows(cursor)
 
             def restore():
+                if not self.is_attached:
+                    self.syncing = False
+                    return
+
                 self._select_first()
                 self.syncing = False
+                self.publish_current()
 
             self.call_after_refresh(restore)
         except RuntimeError as e:
@@ -780,6 +975,7 @@ class View(ListView):
             def restore():
                 self._select_first()
                 self.syncing = False
+                self.publish_current()
 
             self.call_after_refresh(restore)
         except RuntimeError as e:
@@ -798,6 +994,7 @@ class BibleView(Horizontal):
         ("ctrl+t", "open_translations", "Translations"),
         ("ctrl+s", "open_search", "Search"),
         ("ctrl+g", "toggle_strongs", "Strongs"),
+        ("ctrl+l", "toggle_live", "Live"),
         ("ctrl+w", "close_pane", "Close Pane"),
         ("ctrl+shift+h", "split_horizontal", "Split Horizontal"),
         ("ctrl+shift+v", "split_vertical", "Split Vertical"),
@@ -830,6 +1027,9 @@ class BibleView(Horizontal):
     def on_view_navigate(self, event: View.Navigate):
         for view in self.views:
             if view is event.control:
+                continue
+
+            if not view.is_attached:
                 continue
 
             view.sync_to_state()
@@ -870,9 +1070,46 @@ class BibleView(Horizontal):
 
         view.action_toggle_strongs()
 
+    def action_toggle_live(self):
+        if running_in_browser():
+            return
+
+        self.state.live = not self.state.live
+        self.refresh_status()
+
+        if self.state.live:
+            view = self.focused_view() or (self.views[0] if self.views else None)
+
+            if view:
+                view.set_live_mode(True)
+                view.publish_current()
+        else:
+            view = self.focused_view() or (self.views[0] if self.views else None)
+
+            if view:
+                view.set_live_mode(False)
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "toggle_live" and running_in_browser():
+            return False
+        return True
+
+    def disable_live_now(self) -> None:
+        if not self.state.live:
+            return
+
+        self.state.live = False
+
+        if self.views:
+            self.views[0].live.set_live_blocking(False)
+
+        if self.is_attached:
+            self.refresh_status()
+
     def refresh_status(self):
         status = self.app.query_exactly_one(StatusBar)
         status.translations = [view.translation.slug for view in self.views]
+        status.live = self.state.live
 
     def action_close_pane(self):
         view = self.focused_view()
@@ -898,6 +1135,25 @@ class BibleView(Horizontal):
 class Bibleit(App):
     ENABLE_COMMAND_PALETTE = False
     CSS_PATH = "app.tcss"
+
+    def __init__(self):
+        super().__init__()
+        atexit.register(self._disable_live_on_shutdown)
+
+    def exit(self, *args, **kwargs) -> None:
+        self._disable_live_on_shutdown()
+        super().exit(*args, **kwargs)
+
+    def on_unmount(self, event: events.Unmount) -> None:
+        self._disable_live_on_shutdown()
+
+    def _disable_live_on_shutdown(self) -> None:
+        try:
+            bible_view = self.query_exactly_one(BibleView)
+        except Exception:
+            return
+
+        bible_view.disable_live_now()
 
     def action_open_strong(self, code: str):
         focused = self.focused

@@ -1,0 +1,26 @@
+app = "bibleit"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  BIBLEIT_LIVE_HOST = "0.0.0.0"
+  BIBLEIT_LIVE_PORT = "8000"
+  BIBLEIT_LIVE_TITLE = "bibleit live"
+  BIBLEIT_SERVE_COMMAND = "cd /app/python && /app/python/.venv/bin/python -m bibleit"
+  BIBLEIT_SERVE_PUBLIC_URL = "https://bibleit.mittel.site"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/current"

@@ -8,6 +8,7 @@ public_url = os.getenv("BIBLEIT_SERVE_PUBLIC_URL") or "http://localhost:8000"
 
 server = Server(
     f"{sys.executable} -m bibleit",
+    title="bibleit",
     host=host,
     port=int(port),
     public_url=public_url,

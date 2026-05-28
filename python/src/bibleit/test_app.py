@@ -120,6 +120,21 @@ class LivePublisherTests(unittest.TestCase):
         self.assertEqual(first["sequence"], 1)
         self.assertEqual(second["sequence"], 2)
         self.assertEqual(first["publisher_id"], second["publisher_id"])
+        self.assertEqual(first["translations"][0]["translation"], "KJV")
+
+    def test_bundle_payload_includes_multiple_translations(self):
+        publisher = LivePublisher()
+
+        payload = publisher.bundle_payload(
+            [
+                ("KJV", "Psalms 119:25 My soul cleaveth unto the dust."),
+                ("NVIPT", "Salmos 119:25 Agora estou prostrado no pó."),
+            ]
+        )
+
+        self.assertEqual(payload["reference"], "Psalms 119:25")
+        self.assertEqual([v["translation"] for v in payload["translations"]], ["KJV", "NVIPT"])
+        self.assertEqual(payload["sequence"], 1)
 
     def test_verse_payload_returns_none_for_invalid_row(self):
         publisher = LivePublisher()

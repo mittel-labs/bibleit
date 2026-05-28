@@ -13,6 +13,7 @@ from bibleit.live import (
     create_app,
     parse_verse_line,
     request_is_authorized,
+    viewer_html,
 )
 
 
@@ -41,6 +42,17 @@ class LiveVerseTest(unittest.TestCase):
 
         self.assertEqual(app[TITLE_KEY], "test live")
         self.assertIsNone(app[HUB_KEY].current)
+
+    def test_viewer_html_renders_template_with_escaped_title(self):
+        rendered = viewer_html("bibleit <live>")
+
+        self.assertIn("<title>bibleit &lt;live&gt;</title>", rendered)
+        self.assertIn('id="live"', rendered)
+        self.assertIn('id="textual"', rendered)
+        self.assertIn('id="translation-filter"', rendered)
+        self.assertIn("bibleit-selected-translations", rendered)
+        self.assertNotIn("__all__", rendered)
+        self.assertNotIn("requestFullscreen", rendered)
 
     def test_control_requests_are_open_without_token(self):
         app = create_app("test live")

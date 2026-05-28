@@ -58,6 +58,7 @@ class NavigationState:
     bookid: int = 1
     chapter: int = 1
     verse: int = 1
+    index: int = 0
     live: bool = False
 
 
@@ -77,15 +78,46 @@ class LivePublisher:
         if not self.enabled:
             return None
 
-        verse = parse_verse_line(translation_slug, value)
-        if verse is None:
+        verses = self._parse_verses([(translation_slug, value)])
+
+        if not verses:
             return None
 
         self.sequence += 1
-        return verse.to_payload() | {
+        primary = verses[0]
+        return primary | {
+            "translations": verses,
             "publisher_id": self.publisher_id,
             "sequence": self.sequence,
         }
+
+    def bundle_payload(self, values: Sequence[tuple[str, str]]) -> dict | None:
+        if not self.enabled:
+            return None
+
+        verses = self._parse_verses(values)
+
+        if not verses:
+            return None
+
+        self.sequence += 1
+        primary = verses[0]
+        return primary | {
+            "translations": verses,
+            "publisher_id": self.publisher_id,
+            "sequence": self.sequence,
+        }
+
+    def _parse_verses(self, values: Sequence[tuple[str, str]]) -> list[dict]:
+        verses = []
+
+        for translation_slug, value in values:
+            verse = parse_verse_line(translation_slug, value)
+
+            if verse is not None:
+                verses.append(verse.to_payload())
+
+        return verses
 
     async def publish_payload(self, payload: dict) -> bool:
         if not self.enabled:
@@ -609,6 +641,9 @@ class View(ListView):
         if payload is None:
             return
 
+        self._publish_payload(payload)
+
+    def _publish_payload(self, payload: dict) -> None:
         self._pending_live_publish = payload
 
         if self._live_publish_running:
@@ -650,11 +685,40 @@ class View(ListView):
         self.state.bookid = ref.bookid
         self.state.chapter = ref.chapter
         self.state.verse = ref.verse
+        self.state.index = self.children.index(row) if row in self.children else 0
 
         if publish:
             self._publish_row(row)
 
         return True
+
+    def value_for_ref(self, ref: translation.TranslationRef) -> str | None:
+        try:
+            cursor = self.translation.cursor_from(ref)
+        except RuntimeError:
+            return None
+
+        value = cursor.next()
+
+        if value is None:
+            return None
+
+        return self._decode_row(value)
+
+    def _is_highlighting_state(self) -> bool:
+        if self.index is None or not 0 <= self.index < len(self.children):
+            return False
+
+        row = self.children[self.index]
+
+        if not isinstance(row, ListItem):
+            return False
+
+        return self._row_ref(row) == RowRef(
+            self.state.bookid,
+            self.state.chapter,
+            self.state.verse,
+        )
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if event.list_view is not self:
@@ -663,7 +727,19 @@ class View(ListView):
         if event.item is None:
             return
 
-        self._sync_state_from_row(event.item, publish=self.state.live and not self.syncing)
+        if self._sync_state_from_row(event.item, publish=False) and not self.syncing:
+            self._post_navigate()
+
+    def _post_navigate(self) -> None:
+        self.post_message(
+            View.Navigate(
+                translation.TranslationRef(
+                    self.state.bookid,
+                    self.state.chapter,
+                    self.state.verse,
+                )
+            )
+        )
 
     def _style_row(self, text: str) -> str:
         text = re.sub(r"(.* \d+:\d+)", r"[bold]\1 [/]", text)
@@ -731,6 +807,32 @@ class View(ListView):
         for _ in range(count):
             if not self._append_cursor_row():
                 break
+
+    def _load_cursor_rows_around(self, ref: translation.TranslationRef, index: int) -> int:
+        previous_rows: list[ListItem] = []
+        previous_cursor = self.translation.cursor_from(ref)
+
+        for _ in range(max(0, index)):
+            value = previous_cursor.previous()
+
+            if value is None:
+                break
+
+            previous_rows.insert(0, self._make_row(self._decode_row(value)))
+
+        cursor = self.translation.cursor_from(ref)
+        self.cursor = cursor
+
+        for row in previous_rows:
+            self.append(row)
+
+        remaining = max(1, self.INITIAL_ROWS - len(previous_rows))
+
+        for _ in range(remaining):
+            if not self._append_cursor_row():
+                break
+
+        return len(previous_rows)
 
     def _row_ref(self, row: ListItem) -> RowRef | None:
         if not self.translation:
@@ -804,7 +906,8 @@ class View(ListView):
                     force=True,
                 )
 
-                self._sync_state_from_row(row, publish=self.state.live and not self.syncing)
+                if self._sync_state_from_row(row, publish=False) and not self.syncing:
+                    self._post_navigate()
 
     def _force_highlight_row(self, row: ListItem) -> None:
         try:
@@ -876,8 +979,13 @@ class View(ListView):
             await self.insert(0, [row])
             self._force_highlight_row_after_refresh(row)
 
-    def sync_to_state(self):
+    def sync_to_state(self, focus: bool = False):
         if not self.is_attached:
+            return
+
+        if self._is_highlighting_state():
+            if focus:
+                self.focus()
             return
 
         ref = translation.TranslationRef(
@@ -887,7 +995,6 @@ class View(ListView):
         )
 
         try:
-            cursor = self.translation.cursor_from(ref)
             self.syncing = True
             self.clear()
 
@@ -895,16 +1002,17 @@ class View(ListView):
                 self.syncing = False
                 return
 
-            self._load_cursor_rows(cursor)
+            index = self._load_cursor_rows_around(ref, self.state.index)
 
             def restore():
                 if not self.is_attached:
                     self.syncing = False
                     return
 
-                self._select_first()
+                self._force_highlight(index)
+                if focus:
+                    self.focus()
                 self.syncing = False
-                self.publish_current()
 
             self.call_after_refresh(restore)
         except RuntimeError as e:
@@ -1005,24 +1113,27 @@ class BibleView(Horizontal):
         self.state = NavigationState()
         self.views: list[View] = []
 
-    def add_translation(
+    async def add_translation(
         self,
         translation: translation.Translation,
-    ):
+    ) -> None:
         view = View(self.state, translation)
         self.views.append(view)
-        self.mount(view)
-        view.sync_to_state()
+        await self.mount(view)
+        view.sync_to_state(focus=True)
         self.refresh_status()
 
-    def on_translations_open(
+        if self.state.live:
+            self.publish_live_state()
+
+    async def on_translations_open(
         self,
         event: Translations.Open,
-    ):
+    ) -> None:
         for view in self.views:
             if view.translation.slug == event.translation.slug:
                 return
-        self.add_translation(event.translation)
+        await self.add_translation(event.translation)
 
     def on_view_navigate(self, event: View.Navigate):
         for view in self.views:
@@ -1033,6 +1144,8 @@ class BibleView(Horizontal):
                 continue
 
             view.sync_to_state()
+
+        self.publish_live_state()
 
     def on_mount(self):
         self.app.install_screen(Translations(), name="translations")
@@ -1082,7 +1195,7 @@ class BibleView(Horizontal):
 
             if view:
                 view.set_live_mode(True)
-                view.publish_current()
+                self.publish_live_state()
         else:
             view = self.focused_view() or (self.views[0] if self.views else None)
 
@@ -1111,17 +1224,47 @@ class BibleView(Horizontal):
         status.translations = [view.translation.slug for view in self.views]
         status.live = self.state.live
 
-    def action_close_pane(self):
+    def publish_live_state(self):
+        if not self.state.live or not self.views:
+            return
+
+        ref = translation.TranslationRef(
+            self.state.bookid,
+            self.state.chapter,
+            self.state.verse,
+        )
+        values = []
+
+        for view in self.views:
+            value = view.value_for_ref(ref)
+
+            if value is not None:
+                values.append((view.translation.slug, value))
+
+        payload = self.views[0].live.bundle_payload(values)
+
+        if payload is not None:
+            self.views[0]._publish_payload(payload)
+
+    async def action_close_pane(self):
         view = self.focused_view()
         if not view:
             return
 
         if len(self.views) <= 1:
             return
+
+        index = self.views.index(view)
         self.views.remove(view)
-        view.remove()
+        await view.remove()
         self.refresh_status()
-        self.views[0].focus()
+
+        next_view = self.views[min(index, len(self.views) - 1)]
+        next_view.focus()
+        next_view.sync_to_state(focus=True)
+
+        if self.state.live:
+            self.publish_live_state()
 
     def focused_view(self) -> View | None:
         focused = self.app.focused

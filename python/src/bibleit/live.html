@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{{ title }}</title>
+  <style>
+    html {
+      touch-action: manipulation;
+    }
+
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f3ea;
+      --fg: #201c18;
+      --muted: #756c61;
+      --accent: #bf6b21;
+      --button-bg: rgba(255, 255, 255, 0.7);
+      --button-border: rgba(32, 28, 24, 0.16);
+      --verse-scale: 1;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151311;
+        --fg: #f5efe6;
+        --muted: #b7ab9e;
+        --accent: #f3a65d;
+        --button-bg: rgba(255, 255, 255, 0.08);
+        --button-border: rgba(245, 239, 230, 0.18);
+      }
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #f7f3ea;
+      --fg: #201c18;
+      --muted: #756c61;
+      --accent: #bf6b21;
+      --button-bg: rgba(255, 255, 255, 0.7);
+      --button-border: rgba(32, 28, 24, 0.16);
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #151311;
+      --fg: #f5efe6;
+      --muted: #b7ab9e;
+      --accent: #f3a65d;
+      --button-bg: rgba(255, 255, 255, 0.08);
+      --button-border: rgba(245, 239, 230, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      touch-action: manipulation;
+    }
+
+    :root[data-presentation="true"] body {
+      overflow: hidden;
+    }
+
+    iframe {
+      width: 100vw;
+      height: 100vh;
+      border: 0;
+      display: block;
+      background: var(--bg);
+    }
+
+    main {
+      min-height: 100vh;
+      width: min(100%, 82rem);
+      padding: clamp(1.5rem, 7vw, 4rem);
+      display: grid;
+      align-content: center;
+      margin: 0 auto;
+    }
+
+    :root[data-presentation="true"] main {
+      width: min(100%, 110rem);
+      height: 100dvh;
+      min-height: 100vh;
+      padding: clamp(1.5rem, 7vw, 4rem);
+      align-content: center;
+      overflow: hidden;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    button {
+      position: fixed;
+      top: max(1rem, env(safe-area-inset-top));
+      min-width: 2.75rem;
+      height: 2.75rem;
+      border: 1px solid var(--button-border);
+      border-radius: 999px;
+      background: var(--button-bg);
+      color: var(--fg);
+      font: 700 1rem/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    #theme {
+      right: max(1rem, env(safe-area-inset-right));
+    }
+
+    #font-decrease {
+      right: calc(max(1rem, env(safe-area-inset-right)) + 3.25rem);
+    }
+
+    #font-increase {
+      right: calc(max(1rem, env(safe-area-inset-right)) + 6.5rem);
+    }
+
+    #presentation {
+      left: calc(max(1rem, env(safe-area-inset-left)) + 3rem);
+      right: auto;
+    }
+
+    .translation-filter {
+      position: fixed;
+      top: max(1rem, env(safe-area-inset-top));
+      right: calc(max(1rem, env(safe-area-inset-right)) + 9.75rem);
+      width: 2.75rem;
+      color: var(--fg);
+      font: 700 0.85rem/1.2 ui-sans-serif, system-ui, sans-serif;
+      z-index: 2;
+    }
+
+    .translation-filter summary {
+      width: 2.75rem;
+      min-height: 2.75rem;
+      border: 1px solid var(--button-border);
+      border-radius: 999px;
+      background: var(--button-bg);
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      list-style: none;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .translation-filter summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .translation-filter summary::after {
+      content: none;
+    }
+
+    .translation-filter[open] summary {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 0.2rem rgba(191, 107, 33, 0.12);
+    }
+
+    .translation-options {
+      position: absolute;
+      top: calc(100% + 0.7rem);
+      right: 0;
+      width: 11rem;
+      border: 1px solid var(--button-border);
+      border-radius: 1rem;
+      background: color-mix(in srgb, var(--bg) 92%, white);
+      box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.14);
+      padding: 0.45rem;
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    .translation-options label {
+    min-height: 2.4rem;
+    padding: 0.45rem 0.8rem;
+    border-radius: 0.75rem;
+  }
+
+    .translation-options label:hover {
+      background: rgba(191, 107, 33, 0.12);
+    }
+
+    .translation-options input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .translation-options label:has(input:checked) {
+      background: rgba(191, 107, 33, 0.16);
+      color: var(--accent);
+    }
+
+    :root[data-presentation="true"] #presentation {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    :root[data-filtered="true"] .translation-filter summary {
+      border-color: var(--accent);
+    }
+
+    .translation {
+      color: var(--accent);
+      font: 700 0.78rem/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .reference {
+      margin-top: 0.6rem;
+      color: var(--muted);
+      font: 700 clamp(1rem, 4vw, 1.35rem)/1.2 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .verse {
+      margin-top: 1.2rem;
+      font-size: clamp(2rem, 10vw, 4.5rem);
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .verses {
+      margin-top: 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+      gap: clamp(1.5rem, 4vw, 3rem);
+      align-items: start;
+    }
+
+    :root[data-presentation="true"] #font-increase,
+    :root[data-presentation="true"] #font-decrease {
+      display: none;
+    }
+
+    :root[data-presentation="true"] .translation-filter {
+      right: calc(max(1rem, env(safe-area-inset-right)) + 3.25rem);
+    }
+
+    :root[data-presentation="true"] #theme {
+      right: max(1rem, env(safe-area-inset-right));
+    }
+
+    :root[data-presentation="true"] .verses {
+      margin-top: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: repeat(var(--visible-count), minmax(0, 1fr));
+      gap: clamp(1rem, 2vh, 2rem);
+      height: calc(100dvh - 8rem);
+      overflow: hidden;
+      align-items: stretch;
+    }
+
+    .verse-card {
+      min-width: 0;
+    }
+
+    :root[data-presentation="true"] .verse-card {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .verse-card .reference {
+      margin-top: 0.5rem;
+      font-size: clamp(1rem, 3vw, 1.25rem);
+    }
+
+    .verse-card .verse {
+      font-size: clamp(
+        calc(2rem * var(--verse-scale)),
+        calc(7vw * var(--verse-scale)),
+        calc(4.25rem * var(--verse-scale))
+      );
+    }
+
+    :root[data-presentation="true"] .verse-card .verse {
+      margin-top: 0.6rem;
+      line-height: 1.04;
+      overflow-wrap: break-word;
+    }
+
+    .status {
+      margin-top: 2rem;
+      color: var(--muted);
+      font: 500 0.92rem/1.4 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .brand {
+      position: fixed;
+      left: max(1rem, env(safe-area-inset-left));
+      bottom: max(1rem, env(safe-area-inset-bottom));
+      color: var(--muted);
+      font: 700 0.9rem/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    :root[data-presentation="true"] .status {
+      display: none;
+    }
+
+    @media (max-width: 52rem) {
+      #presentation {
+        left: max(0.75rem, env(safe-area-inset-left));
+        right: auto;
+      }
+
+      .translation-filter {
+        right: calc(max(0.75rem, env(safe-area-inset-right)) + 9.75rem);
+      }
+
+      main {
+        padding: 5.25rem 1rem 2.75rem;
+      }
+
+     :root[data-presentation="true"] main {
+        height: 100svh;
+        min-height: 100svh;
+        padding:
+          max(5.25rem, env(safe-area-inset-top))
+          1rem
+          max(5.5rem, env(safe-area-inset-bottom));
+      }
+
+     :root[data-presentation="true"] .verses {
+        height: calc(100svh - 11rem);
+        overflow: hidden;
+      }
+
+      :root[data-presentation="true"] .verse-card {
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      :root[data-presentation="true"] .verse-card .verse {
+        margin-top: 0.35rem;
+        font-size: 1rem;
+        line-height: 1.03;
+        overflow-wrap: break-word;
+      }
+
+      :root[data-presentation="true"] .brand {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <iframe id="textual" src="/textual/" title="bibleit"></iframe>
+  <main id="live" hidden>
+    <button id="font-increase" type="button" aria-label="Increase verse font size">A+</button>
+    <button id="font-decrease" type="button" aria-label="Decrease verse font size">A-</button>
+    <button id="presentation" type="button" aria-label="Toggle presentation mode">⛶</button>
+    <details id="translation-filter" class="translation-filter">
+      <summary id="translation-filter-label" aria-label="All translations">文</summary>
+      <div id="translation-filter-options" class="translation-options"></div>
+    </details>
+    <button id="theme" type="button" aria-label="Toggle color theme">◐</button>
+    <div class="verses" id="verses"></div>
+    <div class="status" id="status">Connected viewers follow the active verse automatically.</div>
+    <div class="brand">bibleit</div>
+  </main>
+  <script>
+    const verses = document.getElementById("verses");
+    const status = document.getElementById("status");
+    const fontIncrease = document.getElementById("font-increase");
+    const fontDecrease = document.getElementById("font-decrease");
+    const presentation = document.getElementById("presentation");
+    const translationFilter = document.getElementById("translation-filter");
+    const translationFilterLabel = document.getElementById("translation-filter-label");
+    const translationFilterOptions = document.getElementById("translation-filter-options");
+    const theme = document.getElementById("theme");
+    const live = document.getElementById("live");
+    const textual = document.getElementById("textual");
+    let lastVerseData = null;
+    let selectedTranslations = loadSelectedTranslations();
+    let presentationPreviousScaleIndex = null;
+
+    function applyMode(isLive) {
+      live.hidden = !isLive;
+      textual.hidden = isLive;
+      if (!isLive) status.textContent = "Normal mode";
+    }
+
+    function setTheme(value) {
+      document.documentElement.dataset.theme = value;
+      localStorage.setItem("bibleit-theme", value);
+      theme.textContent = value === "dark" ? "☀" : "☾";
+    }
+
+    function setPresentationMode(enabled) {
+      const value = enabled ? "true" : "false";
+      document.documentElement.dataset.presentation = value;
+      localStorage.setItem("bibleit-presentation", value);
+      presentation.textContent = "▤";
+
+      if (enabled) {
+        if (presentationPreviousScaleIndex === null) {
+          presentationPreviousScaleIndex = currentVerseScaleIndex();
+        }
+        setVerseScaleIndex(verseScales.length - 1, { persist: false });
+      } else if (presentationPreviousScaleIndex !== null) {
+        setVerseScaleIndex(presentationPreviousScaleIndex, { persist: false });
+        presentationPreviousScaleIndex = null;
+      }
+
+      fitPresentationText();
+    }
+
+    function loadSelectedTranslations() {
+      const stored = localStorage.getItem("bibleit-selected-translations");
+      if (!stored) return null;
+
+      try {
+        const values = JSON.parse(stored);
+        if (!Array.isArray(values) || !values.length) return null;
+        return new Set(values.filter((value) => typeof value === "string" && value));
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    function saveSelectedTranslations(values, available) {
+      if (!values.length || values.length === available.length) {
+        selectedTranslations = null;
+        localStorage.removeItem("bibleit-selected-translations");
+      } else {
+        selectedTranslations = new Set(values);
+        localStorage.setItem("bibleit-selected-translations", JSON.stringify(values));
+      }
+
+      document.documentElement.dataset.filtered = selectedTranslations ? "true" : "false";
+    }
+
+    function availableTranslations(data) {
+      return [...new Set(normalizeVerses(data).map((verse) => verse.translation || "bibleit"))];
+    }
+
+    function renderTranslationOption(value, label, checked) {
+      const wrapper = document.createElement("label");
+      const input = document.createElement("input");
+      const text = document.createElement("span");
+
+      input.type = "checkbox";
+      input.value = value;
+      input.checked = checked;
+      text.textContent = label;
+
+      wrapper.append(input, text);
+      return wrapper;
+    }
+
+    function selectedTranslationValues() {
+      return [...translationFilterOptions.querySelectorAll("input:checked")].map((input) => input.value);
+    }
+
+    function updateTranslationFilterLabel(available) {
+      if (!selectedTranslations) {
+        translationFilterLabel.textContent = "文";
+        translationFilterLabel.ariaLabel = "All translations";
+        return;
+      }
+
+      const selected = available.filter((translation) => selectedTranslations.has(translation));
+      translationFilterLabel.textContent = "文";
+      translationFilterLabel.ariaLabel = selected.length ? `Selected translations: ${selected.join(", ")}` : "All translations";
+    }
+
+    function updateTranslationFilterOptions(data) {
+      const available = availableTranslations(data);
+      const stillAvailable = selectedTranslations
+        ? available.filter((translation) => selectedTranslations.has(translation))
+        : available;
+
+      if (selectedTranslations && !stillAvailable.length) {
+        selectedTranslations = null;
+        localStorage.removeItem("bibleit-selected-translations");
+      }
+
+      if (selectedTranslations && stillAvailable.length === available.length) {
+        selectedTranslations = null;
+        localStorage.removeItem("bibleit-selected-translations");
+      }
+
+      translationFilterOptions.replaceChildren(
+        ...available.map((translation) =>
+          renderTranslationOption(translation, translation, !selectedTranslations || selectedTranslations.has(translation))
+        )
+      );
+
+      updateTranslationFilterLabel(available);
+      translationFilter.hidden = available.length <= 1;
+      document.documentElement.dataset.filtered = selectedTranslations ? "true" : "false";
+    }
+
+    const verseScales = [0.85, 1, 1.2, 1.4];
+
+    function closestVerseScaleIndex(value) {
+      const scale = Number.parseFloat(value);
+      const safeScale = Number.isFinite(scale) ? scale : 1;
+      return verseScales.reduce((bestIndex, candidate, index) => {
+        const bestDistance = Math.abs(verseScales[bestIndex] - safeScale);
+        const candidateDistance = Math.abs(candidate - safeScale);
+        return candidateDistance < bestDistance ? index : bestIndex;
+      }, 1);
+    }
+
+    function currentVerseScaleIndex() {
+      const current = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--verse-scale")
+      );
+      return closestVerseScaleIndex(current);
+    }
+
+    function setVerseScaleIndex(index, options = {}) {
+      const persist = options.persist !== false;
+      const clampedIndex = Math.max(0, Math.min(index, verseScales.length - 1));
+      const safeScale = verseScales[clampedIndex];
+      document.documentElement.style.setProperty("--verse-scale", safeScale.toString());
+      if (persist) localStorage.setItem("bibleit-verse-scale", safeScale.toString());
+      fontDecrease.disabled = clampedIndex === 0;
+      fontIncrease.disabled = clampedIndex === verseScales.length - 1;
+      fitPresentationText();
+    }
+
+    function setVerseScale(value) {
+      setVerseScaleIndex(closestVerseScaleIndex(value));
+    }
+
+    const savedTheme = localStorage.getItem("bibleit-theme");
+    setTheme(savedTheme || "light");
+
+    const savedVerseScale = localStorage.getItem("bibleit-verse-scale");
+    setVerseScale(savedVerseScale || "1");
+
+    const savedPresentation = localStorage.getItem("bibleit-presentation");
+    setPresentationMode(savedPresentation === "true");
+    document.documentElement.dataset.filtered = selectedTranslations ? "true" : "false";
+
+    theme.addEventListener("click", () => {
+      setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    });
+
+    presentation.addEventListener("click", () => {
+      const enabled = document.documentElement.dataset.presentation !== "true";
+      setPresentationMode(enabled);
+    });
+
+    fontDecrease.addEventListener("click", () => {
+      setVerseScaleIndex(currentVerseScaleIndex() - 1);
+    });
+
+    fontIncrease.addEventListener("click", () => {
+      setVerseScaleIndex(currentVerseScaleIndex() + 1);
+    });
+
+    translationFilterOptions.addEventListener("change", () => {
+      const available = availableTranslations(lastVerseData || {});
+      const values = selectedTranslationValues();
+      saveSelectedTranslations(values, available);
+      updateTranslationFilterLabel(available);
+      renderLiveVerses();
+    });
+
+    function normalizeVerses(data) {
+      if (Array.isArray(data.translations) && data.translations.length) return data.translations;
+      return data.text ? [data] : [];
+    }
+
+    function visibleVerses(data) {
+      const normalized = normalizeVerses(data);
+      updateTranslationFilterOptions(data);
+
+      if (!selectedTranslations) return normalized;
+
+      const filtered = normalized.filter((verse) => selectedTranslations.has(verse.translation || "bibleit"));
+
+      if (filtered.length) return filtered;
+
+      selectedTranslations = null;
+      localStorage.removeItem("bibleit-selected-translations");
+      return normalized;
+    }
+
+    function renderVerseCard(data) {
+      const card = document.createElement("section");
+      card.className = "verse-card";
+
+      const translation = document.createElement("div");
+      translation.className = "translation";
+      translation.textContent = data.translation || "bibleit";
+
+      const reference = document.createElement("div");
+      reference.className = "reference";
+      reference.textContent = data.reference || "";
+
+      const verse = document.createElement("div");
+      verse.className = "verse";
+      verse.textContent = data.text || "";
+
+      card.append(translation, reference, verse);
+      return card;
+    }
+
+    function fitPresentationText() {
+      const verseText = [...document.querySelectorAll(".verse-card .verse")];
+
+      verseText.forEach((element) => {
+        element.style.fontSize = "";
+      });
+
+      if (document.documentElement.dataset.presentation !== "true") return;
+
+      requestAnimationFrame(() => {
+        const cards = [...document.querySelectorAll(".verse-card")];
+
+        cards.forEach((card) => {
+          const verse = card.querySelector(".verse");
+          if (!verse) return;
+
+          let low = 6;
+          let high = window.innerWidth <= 600 ? 42 : 120;
+
+          const fits = () =>
+            card.scrollHeight <= card.clientHeight + 1 &&
+            verses.scrollHeight <= verses.clientHeight + 1;
+
+          for (let i = 0; i < 24; i += 1) {
+            const mid = (low + high) / 2;
+            verse.style.fontSize = `${mid}px`;
+
+            if (fits()) {
+              low = mid;
+            } else {
+              high = mid;
+            }
+          }
+
+          verse.style.fontSize = `${low}px`;
+        });
+      });
+    }
+
+    function applyVerse(data) {
+      lastVerseData = data;
+      renderLiveVerses();
+      status.textContent = "Live";
+    }
+
+    function renderLiveVerses() {
+      const renderedVerses = visibleVerses(lastVerseData || {});
+      document.documentElement.style.setProperty("--visible-count", Math.max(renderedVerses.length, 1).toString());
+      verses.replaceChildren(...renderedVerses.map(renderVerseCard));
+      fitPresentationText();
+      setTimeout(fitPresentationText, 80);
+      setTimeout(fitPresentationText, 250);
+    }
+
+    window.addEventListener("resize", fitPresentationText);
+
+    if (document.fonts) {
+      document.fonts.ready.then(fitPresentationText);
+    }
+
+    function connect() {
+      const scheme = location.protocol === "https:" ? "wss" : "ws";
+      const socket = new WebSocket(`${scheme}://${location.host}/ws`);
+
+      socket.addEventListener("open", () => {
+        status.textContent = "Connected";
+      });
+
+      socket.addEventListener("message", (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === "mode") applyMode(message.live);
+        if (message.type === "verse") applyVerse(message.verse);
+      });
+
+      socket.addEventListener("close", () => {
+        status.textContent = "Reconnecting...";
+        setTimeout(connect, 1000);
+      });
+    }
+
+    connect();
+    
+    document.addEventListener("click", (event) => {
+      if (!translationFilter.contains(event.target)) {
+        translationFilter.removeAttribute("open");
+      }
+    });
+  </script>
+</body>
+</html>

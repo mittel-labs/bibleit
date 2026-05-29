@@ -300,9 +300,7 @@
     }
 
     .brand {
-      position: fixed;
-      left: max(1rem, env(safe-area-inset-left));
-      bottom: max(1rem, env(safe-area-inset-bottom));
+      margin-top: 0.6rem;
       color: var(--muted);
       font: 700 0.9rem/1 ui-sans-serif, system-ui, sans-serif;
       letter-spacing: 0.08em;
@@ -311,6 +309,13 @@
 
     :root[data-presentation="true"] .status {
       display: none;
+    }
+
+    :root[data-presentation="true"] .brand {
+      position: fixed;
+      left: max(1rem, env(safe-area-inset-left));
+      bottom: max(1rem, env(safe-area-inset-bottom));
+      margin-top: 0;
     }
 
     @media (max-width: 52rem) {
@@ -354,7 +359,10 @@
       }
 
       :root[data-presentation="true"] .brand {
-        display: none;
+        display: block;
+        left: max(1rem, env(safe-area-inset-left));
+        bottom: max(1rem, env(safe-area-inset-bottom));
+        font-size: 0.8rem;
       }
     }
   </style>

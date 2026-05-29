@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from textual.app import App
 from textual.containers import Container, Horizontal
 from textual.binding import Binding
-from textual.widgets import ListView, ListItem, Input, Tree, Footer, Label, Static
+from textual.widgets import ListView, ListItem, Input, Tree, Footer, Label, Static, Button
 from textual.screen import Screen
 from textual.content import Content
 from textual.message import Message
@@ -21,6 +21,7 @@ from unidecode import unidecode
 
 
 import atexit
+import inspect
 import json
 import os
 import re
@@ -176,10 +177,17 @@ class StatusBar(Horizontal):
     translations = reactive(list)
     strongs = reactive(False)
     live = reactive(False)
+    compact = reactive(False)
+    menu_open = reactive(False)
 
     def compose(self):
+        yield Button("☰", id="action-menu")
         yield Static(id="status-left")
-        yield Static(id="status-right")
+        with Container(id="status-actions"):
+            yield Button("Search", id="action-search")
+            yield Button("Translations", id="action-translations")
+            yield Button("Strongs", id="action-strongs")
+            yield Button("Live", id="action-live")
 
     def watch_translations(self):
         self._refresh()
@@ -190,8 +198,21 @@ class StatusBar(Horizontal):
     def watch_live(self):
         self._refresh()
 
+    def watch_compact(self):
+        self.set_class(self.compact, "compact")
+
+        if not self.compact:
+            self.menu_open = False
+
+    def watch_menu_open(self):
+        self.set_class(self.menu_open, "open")
+
     def on_mount(self):
+        self.set_class(running_in_browser(), "browser")
         self._refresh()
+
+    def on_resize(self, event: events.Resize) -> None:
+        self.compact = event.size.width < 72
 
     def _refresh(self):
         translation_text = (
@@ -207,15 +228,41 @@ class StatusBar(Horizontal):
                     "[bold]bibleit[/]",
                     translation_text,
                     "[#d97706]STRONGS[/]" if self.strongs else None,
-                    "[#d97706]LIVE[/]" if self.live else None,
                 ],
             )
         )
 
-        right = "[#7a756e]" "^S Search   " "^T Translations   " "^G Strongs   "
-
         self.query_one("#status-left", Static).update(left)
-        self.query_one("#status-right", Static).update(right)
+
+        strongs_button = self.query_one("#action-strongs", Button)
+        live_button = self.query_one("#action-live", Button)
+        strongs_button.set_class(self.strongs, "active")
+        live_button.set_class(self.live, "active")
+        live_button.disabled = running_in_browser()
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        bible_view = self.app.query_exactly_one(BibleView)
+
+        actions = {
+            "action-menu": self.action_toggle_menu,
+            "action-search": bible_view.action_open_search,
+            "action-translations": bible_view.action_open_translations,
+            "action-strongs": bible_view.action_toggle_strongs,
+            "action-live": bible_view.action_toggle_live,
+        }
+
+        if event.button.id in actions:
+            event.stop()
+            result = actions[event.button.id]()
+
+            if inspect.isawaitable(result):
+                await result
+
+            if self.compact and event.button.id != "action-menu":
+                self.menu_open = False
+
+    def action_toggle_menu(self) -> None:
+        self.menu_open = not self.menu_open
 
 
 class Search(Screen):
@@ -383,8 +430,7 @@ class Translations(Screen):
 
         self.call_after_refresh(select_active)
 
-    def action_install(self):
-        node = self.query_exactly_one(Tree).cursor_node
+    def _install_node(self, node) -> None:
         data = node.data
         if data and not translation.is_installed(data.slug):
             try:
@@ -406,6 +452,9 @@ class Translations(Screen):
                 severity="warning",
                 timeout=3,
             )
+
+    def action_install(self):
+        self._install_node(self.query_exactly_one(Tree).cursor_node)
 
     def action_uninstall(self):
         node = self.query_exactly_one(Tree).cursor_node
@@ -431,8 +480,11 @@ class Translations(Screen):
                 timeout=3,
             )
 
-    def action_open(self):
-        data = self.query_exactly_one(Tree).cursor_node.data
+    def _open_node(self, node) -> None:
+        data = node.data
+
+        if not data:
+            return
 
         if not translation.is_installed(data.slug):
             self.notify(
@@ -447,20 +499,30 @@ class Translations(Screen):
 
         self.app.pop_screen()
 
+    def action_open(self):
+        self._open_node(self.query_exactly_one(Tree).cursor_node)
+
+    def _activate_node(self, node) -> None:
+        if node.children:
+            if node.is_expanded:
+                node.collapse()
+            else:
+                node.expand()
+        elif node.data and node.parent:
+            if node.parent.label.plain == self.INSTALLED_NODE_LABEL:
+                self._open_node(node)
+            else:
+                self._install_node(node)
+
     def action_activate(self):
         node = self.query_exactly_one(Tree).cursor_node
 
         if node:
-            if node.children:
-                if node.is_expanded:
-                    node.collapse()
-                else:
-                    node.expand()
-            elif node.data and node.parent:
-                if node.parent.label.plain == self.INSTALLED_NODE_LABEL:
-                    self.action_open()
-                else:
-                    self.action_install()
+            self._activate_node(node)
+
+    def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
+        event.stop()
+        self._activate_node(event.node)
 
 
 class StrongScreen(Screen):
@@ -607,6 +669,7 @@ class View(ListView):
         self._live_mode_group = f"live-mode-{id(self)}"
         self._pending_live_publish: dict | None = None
         self._live_publish_running = False
+        self._pointer_down_y: int | None = None
 
     def _select_first(self):
         if self.children:
@@ -728,6 +791,12 @@ class View(ListView):
             return
 
         if self._sync_state_from_row(event.item, publish=False) and not self.syncing:
+            self.scroll_to_widget(
+                event.item,
+                animate=False,
+                immediate=True,
+                force=False,
+            )
             self._post_navigate()
 
     def _post_navigate(self) -> None:
@@ -962,22 +1031,93 @@ class View(ListView):
         self._load_cursor_rows(event.value)
         self.call_after_refresh(self._select_first)
 
-    async def on_key(self, event: events.Key):
-        if event.key == "down" and self.index == len(self.children) - 1:
+    async def _move_cursor_down(self) -> None:
+        if not self.children:
+            return
+
+        self.focus()
+
+        if self.index is None:
+            self.index = 0
+            return
+
+        if self.index == len(self.children) - 1:
             row = self._next_row()
             if row is None:
                 return
-            event.stop()
             await self.append(row)
             self._force_highlight_row_after_refresh(row)
+            return
 
-        elif event.key == "up" and self.index == 0:
+        self.action_cursor_down()
+
+    async def _move_cursor_up(self) -> None:
+        if not self.children:
+            return
+
+        self.focus()
+
+        if self.index is None:
+            self.index = len(self.children) - 1
+            return
+
+        if self.index == 0:
             row = self._previous_row()
             if row is None:
                 return
-            event.stop()
             await self.insert(0, [row])
             self._force_highlight_row_after_refresh(row)
+            return
+
+        self.action_cursor_up()
+
+    async def on_key(self, event: events.Key):
+        if event.key == "down":
+            event.stop()
+            await self._move_cursor_down()
+
+        elif event.key == "up":
+            event.stop()
+            await self._move_cursor_up()
+
+    async def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
+        event.stop()
+        await self._move_cursor_down()
+
+    async def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
+        event.stop()
+        await self._move_cursor_up()
+
+    def on_mouse_down(self, event: events.MouseDown) -> None:
+        if not running_in_browser():
+            self.focus()
+        self._pointer_down_y = event.screen_y
+
+    def _on_list_item__child_clicked(self, event: ListItem._ChildClicked) -> None:
+        event.stop()
+
+        if not running_in_browser():
+            self.focus()
+
+        self.index = self._nodes.index(event.item)
+        self.post_message(self.Selected(self, event.item, self.index))
+
+    async def on_mouse_up(self, event: events.MouseUp) -> None:
+        if self._pointer_down_y is None:
+            return
+
+        delta_y = self._pointer_down_y - event.screen_y
+        self._pointer_down_y = None
+
+        if abs(delta_y) < 2:
+            return
+
+        event.stop()
+        steps = min(5, max(1, abs(delta_y) // 3))
+        move = self._move_cursor_down if delta_y > 0 else self._move_cursor_up
+
+        for _ in range(steps):
+            await move()
 
     def sync_to_state(self, focus: bool = False):
         if not self.is_attached:
@@ -1106,12 +1246,18 @@ class BibleView(Horizontal):
         ("ctrl+w", "close_pane", "Close Pane"),
         ("ctrl+shift+h", "split_horizontal", "Split Horizontal"),
         ("ctrl+shift+v", "split_vertical", "Split Vertical"),
+        ("f2", "toggle_layout", "Toggle Layout"),
     ]
 
     def __init__(self):
         super().__init__()
         self.state = NavigationState()
         self.views: list[View] = []
+        self.vertical_layout = False
+
+    def compose(self):
+        yield Button("↑", id="nav-previous", classes="verse-nav")
+        yield Button("↓", id="nav-next", classes="verse-nav")
 
     async def add_translation(
         self,
@@ -1149,7 +1295,16 @@ class BibleView(Horizontal):
 
     def on_mount(self):
         self.app.install_screen(Translations(), name="translations")
+        self.set_class(running_in_browser(), "browser")
         self.focus()
+
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "nav-previous":
+            event.stop()
+            await self.action_previous_verse()
+        elif event.button.id == "nav-next":
+            event.stop()
+            await self.action_next_verse()
 
     def action_open_translations(self):
         if isinstance(self.screen, Translations):
@@ -1171,6 +1326,22 @@ class BibleView(Horizontal):
             view = self.views[0]
 
         self.app.push_screen(Search(view))
+
+    async def action_previous_verse(self):
+        view = self.focused_view() or (self.views[0] if self.views else None)
+
+        if view:
+            await view._move_cursor_up()
+
+    async def action_next_verse(self):
+        view = self.focused_view() or (self.views[0] if self.views else None)
+
+        if view:
+            await view._move_cursor_down()
+
+    def action_toggle_layout(self):
+        self.vertical_layout = not self.vertical_layout
+        self.set_class(self.vertical_layout, "vertical")
 
     def action_toggle_strongs(self):
         view = self.focused_view()

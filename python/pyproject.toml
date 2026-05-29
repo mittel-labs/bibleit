@@ -1,8 +1,8 @@
 [project]
 name = "bibleit"
-version = "0.1.3"
+version = "0.2.0"
 authors = [{ name = "Felipe Mamud", email = "trovatti@gmail.com" }]
-description = "Interactive bible reading"
+description = "Interactive Bible Reading"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"

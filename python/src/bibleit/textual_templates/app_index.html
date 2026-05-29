@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3f1ed">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="bibleit">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>{{ application.name or 'bibleit' }}</title>
+
+  <link rel="stylesheet" href="{{ config.static.url }}css/xterm.css">
+  <script src="{{ config.static.url }}js/textual.js"></script>
+
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #171717;
+      --surface: #f3f1ed;
+      --surface-strong: #ece8e1;
+      --fg: #24211d;
+      --muted: #756c61;
+      --accent: #d97706;
+      --line: rgba(36, 33, 29, 0.14);
+      --shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      width: 100%;
+      height: 100%;
+      background: var(--page);
+      touch-action: manipulation;
+    }
+
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: var(--page);
+      color: var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--fg);
+      font: 700 0.9rem/1 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }
+
+    .app-shell {
+      width: 100vw;
+      height: 100dvh;
+      padding:
+        max(0.75rem, env(safe-area-inset-top))
+        max(0.75rem, env(safe-area-inset-right))
+        max(0.75rem, env(safe-area-inset-bottom))
+        max(0.75rem, env(safe-area-inset-left));
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 0.75rem;
+      background: var(--page);
+    }
+
+    .topbar {
+      min-height: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      color: #f4eee6;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.09);
+      color: #f3a65d;
+      font: 900 1rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .title {
+      display: grid;
+      gap: 0.18rem;
+      min-width: 0;
+    }
+
+    .title strong {
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .title span {
+      color: rgba(244, 238, 230, 0.64);
+      font-size: 0.78rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pill {
+      min-width: 2.6rem;
+      height: 2.6rem;
+      padding: 0 0.8rem;
+      border-radius: 999px;
+    }
+
+    .control-rail {
+      position: absolute;
+      right: max(0.8rem, env(safe-area-inset-right));
+      z-index: 4;
+      top: 50%;
+      transform: translateY(-50%);
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .rail-button {
+      width: 3.75rem;
+      height: 3.75rem;
+      border-radius: 999px;
+      background: rgba(243, 241, 237, 0.9);
+      border-color: rgba(36, 33, 29, 0.16);
+      color: var(--accent);
+      box-shadow: 0 0.55rem 1.4rem rgba(0, 0, 0, 0.12);
+      font-size: 1.35rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .rail-button:active {
+      transform: scale(0.96);
+      background: rgba(217, 119, 6, 0.14);
+      border-color: rgba(217, 119, 6, 0.45);
+    }
+
+    .action-button {
+      color: var(--fg);
+      font-size: 1.1rem;
+    }
+
+    .rail-icon {
+      width: 1.35rem;
+      height: 1.35rem;
+      display: block;
+      margin: 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .book-icon {
+      stroke-width: 16;
+    }
+
+    .nav-button {
+      font-size: 1.65rem;
+    }
+
+    body:not(.-first-byte) .control-rail,
+    body.-closed .control-rail {
+      display: none;
+    }
+
+    #keyboard-toggle {
+      display: none;
+    }
+
+    body.touch #keyboard-toggle {
+      display: block;
+    }
+
+    body.keyboard-enabled #keyboard-toggle {
+      border-color: rgba(217, 119, 6, 0.78);
+      color: var(--accent);
+      background: rgba(217, 119, 6, 0.14);
+    }
+
+    .terminal-frame {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 1.25rem;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .textual-terminal {
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      background: var(--surface);
+      transition: opacity 0.18s ease-out;
+    }
+
+    body.-first-byte .textual-terminal {
+      opacity: 1;
+    }
+
+    .dialog {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 10;
+      background: var(--surface);
+      color: var(--fg);
+      transition: opacity 0.18s ease-out;
+    }
+
+    body.-first-byte .intro-dialog {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    body.-closed .intro-dialog {
+      display: none;
+    }
+
+    .closed-dialog {
+      display: none;
+    }
+
+    body.-closed .closed-dialog {
+      display: grid;
+    }
+
+    .card {
+      width: min(34rem, calc(100% - 2rem));
+      min-height: 12rem;
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      background: color-mix(in srgb, var(--surface) 86%, white);
+      padding: clamp(1.5rem, 5vw, 2rem);
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 1rem;
+      text-align: center;
+    }
+
+    .card-logo {
+      color: var(--accent);
+      font: 900 1.25rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .card-title {
+      font-size: clamp(1.35rem, 4vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .card-text {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.45;
+      max-width: 24rem;
+    }
+
+    .primary {
+      min-height: 2.75rem;
+      border-radius: 999px;
+      padding: 0 1.25rem;
+      background: var(--accent);
+      color: #fff7ed;
+      border-color: transparent;
+    }
+
+    #start {
+      display: none;
+    }
+
+    #start.-delay {
+      display: inline-grid;
+      place-items: center;
+    }
+
+    .xterm {
+      padding: 0;
+    }
+
+    .xterm,
+    .xterm-viewport,
+    .xterm-screen {
+      background: var(--surface) !important;
+    }
+
+    .xterm .xterm-helper-textarea {
+      font-size: 16px !important;
+    }
+
+    @media (max-width: 46rem) {
+      .app-shell {
+        height: 100svh;
+        padding:
+          max(0.45rem, env(safe-area-inset-top))
+          max(0.45rem, env(safe-area-inset-right))
+          max(0.45rem, env(safe-area-inset-bottom))
+          max(0.45rem, env(safe-area-inset-left));
+        gap: 0.45rem;
+      }
+
+      .topbar {
+        min-height: 2.6rem;
+      }
+
+      .mark {
+        width: 2rem;
+        height: 2rem;
+      }
+
+      .title strong {
+        font-size: 0.92rem;
+      }
+
+      .title span {
+        display: none;
+      }
+
+      .pill {
+        min-width: 2.25rem;
+        height: 2.25rem;
+        padding: 0 0.7rem;
+      }
+
+      .terminal-frame {
+        border-radius: 0.9rem;
+      }
+
+      .control-rail {
+        right: max(0.55rem, env(safe-area-inset-right));
+        gap: 0.42rem;
+      }
+
+      .rail-button {
+        width: 3.05rem;
+        height: 3.05rem;
+        font-size: 1.2rem;
+      }
+
+      .action-button {
+        font-size: 0.94rem;
+      }
+
+      .control-rail .label {
+        display: none;
+      }
+
+      .nav-button {
+        font-size: 1.4rem;
+      }
+    }
+
+    @media (max-width: 28rem) {
+      .brand {
+        gap: 0.45rem;
+      }
+
+      .title strong {
+        display: none;
+      }
+
+      .mark {
+        width: 2.25rem;
+        height: 2.25rem;
+      }
+
+      #keyboard-toggle {
+        min-width: 4.4rem;
+      }
+    }
+
+    @media (display-mode: standalone) {
+      .app-shell {
+        padding-top: max(0.75rem, env(safe-area-inset-top));
+      }
+    }
+  </style>
+
+  <script>
+    function getStartUrl() {
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams(url.search);
+      params.delete("delay");
+      const query = params.toString();
+      return query ? `${url.pathname}?${query}` : url.pathname;
+    }
+
+    async function refresh() {
+      const pingUrl = document.body.dataset.pingurl;
+      if (pingUrl) {
+        await fetch(pingUrl, { method: "GET", mode: "no-cors" });
+      }
+      window.location.href = getStartUrl();
+    }
+
+    let setKeyboardEnabled = () => {};
+
+    function setupMobileKeyboardControl() {
+      const isTouchBrowser =
+        "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
+      document.body.classList.toggle("touch", isTouchBrowser);
+      if (!isTouchBrowser) return;
+
+      const toggle = document.getElementById("keyboard-toggle");
+      const terminal = document.getElementById("terminal");
+
+      const isKeyboardEnabled = () =>
+        document.body.classList.contains("keyboard-enabled");
+
+      const textareas = () =>
+        document.querySelectorAll(".xterm-helper-textarea");
+
+      const configureTextarea = () => {
+        textareas().forEach((textarea) => {
+          textarea.setAttribute("autocomplete", "off");
+          textarea.setAttribute("autocorrect", "off");
+          textarea.setAttribute("autocapitalize", "off");
+          textarea.setAttribute("spellcheck", "false");
+
+          if (isKeyboardEnabled()) {
+            textarea.removeAttribute("readonly");
+            textarea.setAttribute("inputmode", "text");
+            textarea.style.caretColor = "";
+          } else {
+            textarea.setAttribute("readonly", "readonly");
+            textarea.setAttribute("inputmode", "none");
+            textarea.style.caretColor = "transparent";
+
+            if (document.activeElement === textarea) {
+              textarea.blur();
+            }
+          }
+        });
+      };
+
+      setKeyboardEnabled = (enabled) => {
+        document.body.classList.toggle("keyboard-enabled", enabled);
+        toggle.setAttribute("aria-pressed", enabled ? "true" : "false");
+        toggle.textContent = enabled ? "Keys on" : "Keys";
+        configureTextarea();
+
+        if (enabled) {
+          const textarea = document.querySelector(".xterm-helper-textarea");
+          if (textarea) textarea.focus({ preventScroll: true });
+        }
+      };
+
+      toggle.addEventListener("click", () => {
+        setKeyboardEnabled(!isKeyboardEnabled());
+      });
+
+      terminal.addEventListener(
+        "touchstart",
+        () => {
+          if (!isKeyboardEnabled()) {
+            requestAnimationFrame(configureTextarea);
+          }
+        },
+        { passive: true }
+      );
+
+      const observer = new MutationObserver(configureTextarea);
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+
+      window.addEventListener("load", configureTextarea);
+      setKeyboardEnabled(false);
+    }
+
+    const nativeWebSocket = window.WebSocket;
+    let sessionSocket = null;
+
+    window.WebSocket = function(url, protocols) {
+      const socket = protocols === undefined
+        ? new nativeWebSocket(url)
+        : new nativeWebSocket(url, protocols);
+
+      if (String(url).includes("/ws")) {
+        sessionSocket = socket;
+        socket.addEventListener("close", () => {
+          if (sessionSocket === socket) sessionSocket = null;
+        });
+      }
+
+      return socket;
+    };
+    window.WebSocket.prototype = nativeWebSocket.prototype;
+    window.WebSocket.CONNECTING = nativeWebSocket.CONNECTING;
+    window.WebSocket.OPEN = nativeWebSocket.OPEN;
+    window.WebSocket.CLOSING = nativeWebSocket.CLOSING;
+    window.WebSocket.CLOSED = nativeWebSocket.CLOSED;
+
+    function sendTerminalInput(value) {
+      if (sessionSocket && sessionSocket.readyState === nativeWebSocket.OPEN) {
+        sessionSocket.send(JSON.stringify(["stdin", value]));
+        return true;
+      }
+
+      const textarea = document.querySelector(".xterm-helper-textarea");
+      if (textarea) {
+        textarea.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: value === "\x1b[A" ? "ArrowUp" : "ArrowDown",
+            code: value === "\x1b[A" ? "ArrowUp" : "ArrowDown",
+            bubbles: true,
+          })
+        );
+      }
+
+      return false;
+    }
+
+    function moveVerse(direction, count = 1) {
+      const code = direction === "up" ? "\x1b[A" : "\x1b[B";
+      for (let index = 0; index < count; index += 1) {
+        sendTerminalInput(code);
+      }
+    }
+
+    function setupActionButtons() {
+      const inputs = {
+        search: "\x13",
+        translations: "\x14",
+        strongs: "\x07",
+        layout: "\x1bOQ",
+        close: "\x17",
+      };
+
+      document.querySelectorAll("[data-terminal-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const action = button.dataset.terminalAction;
+          if (!inputs[action]) return;
+
+          sendTerminalInput(inputs[action]);
+
+          if (action === "search") {
+            window.setTimeout(() => {
+              setKeyboardEnabled(true);
+            }, 180);
+          }
+        });
+      });
+    }
+
+    function setupTerminalNavigation() {
+      const terminal = document.getElementById("terminal");
+      let touchY = null;
+      let wheelRemainder = 0;
+      let lastMoveAt = 0;
+
+      document.getElementById("nav-up").addEventListener("click", () => {
+        moveVerse("up");
+      });
+
+      document.getElementById("nav-down").addEventListener("click", () => {
+        moveVerse("down");
+      });
+
+      terminal.addEventListener(
+        "wheel",
+        (event) => {
+          event.preventDefault();
+          wheelRemainder += event.deltaY;
+
+          const steps = Math.min(5, Math.floor(Math.abs(wheelRemainder) / 45));
+          if (!steps) return;
+
+          moveVerse(wheelRemainder > 0 ? "down" : "up", steps);
+          wheelRemainder = 0;
+        },
+        { passive: false }
+      );
+
+      terminal.addEventListener(
+        "touchstart",
+        (event) => {
+          touchY = event.touches[0]?.clientY ?? null;
+        },
+        { passive: true }
+      );
+
+      terminal.addEventListener(
+        "touchmove",
+        (event) => {
+          if (touchY === null) return;
+          const nextY = event.touches[0]?.clientY ?? touchY;
+          const delta = touchY - nextY;
+          const now = Date.now();
+
+          if (Math.abs(delta) < 34 || now - lastMoveAt < 90) return;
+
+          event.preventDefault();
+          moveVerse(delta > 0 ? "down" : "up");
+          touchY = nextY;
+          lastMoveAt = now;
+        },
+        { passive: false }
+      );
+
+      terminal.addEventListener("touchend", () => {
+        touchY = null;
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", setupTerminalNavigation);
+    window.addEventListener("DOMContentLoaded", setupActionButtons);
+    window.addEventListener("DOMContentLoaded", setupMobileKeyboardControl);
+  </script>
+</head>
+<body data-pingurl="{{ ping_url }}">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">b</div>
+        <div class="title">
+          <strong>bibleit</strong>
+          <span>Interactive Bible Reading</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button
+          id="keyboard-toggle"
+          class="pill"
+          type="button"
+          aria-label="Toggle mobile keyboard"
+          aria-pressed="false"
+          title="Toggle mobile keyboard"
+        >Keys</button>
+      </div>
+    </header>
+
+    <main class="terminal-frame">
+      <div class="dialog intro-dialog">
+        <section class="card">
+          <div class="card-logo">bibleit</div>
+          <div class="card-title">Loading reader</div>
+          <div class="card-text">Connecting to the interactive Bible session.</div>
+          <button type="button" onClick="refresh()" id="start" class="primary">Start</button>
+        </section>
+      </div>
+
+      <div class="dialog closed-dialog">
+        <section class="card">
+          <div class="card-logo">bibleit</div>
+          <div class="card-title">Session ended</div>
+          <div class="card-text">Restart the reader to open a fresh session.</div>
+          <button type="button" onClick="refresh()" class="primary">Restart</button>
+        </section>
+      </div>
+
+      <div
+        id="terminal"
+        class="textual-terminal"
+        data-session-websocket-url="{{ app_websocket_url }}"
+        data-font-size="{{ font_size }}"
+      ></div>
+      <nav class="control-rail" aria-label="Bible controls">
+        <button class="rail-button action-button" type="button" data-terminal-action="search" aria-label="Search" title="Search">
+          <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="m16 16 4.5 4.5"></path>
+          </svg>
+        </button>
+        <button class="rail-button action-button" type="button" data-terminal-action="translations" aria-label="Translations" title="Translations">
+          <svg class="rail-icon book-icon" viewBox="0 0 256 256" aria-hidden="true">
+            <path d="M128,88a32,32,0,0,1,32-32h72V200H160a32,32,0,0,0-32,32"></path>
+            <path d="M24,200H96a32,32,0,0,1,32,32V88A32,32,0,0,0,96,56H24Z"></path>
+            <line x1="160" y1="96" x2="200" y2="96"></line>
+            <line x1="160" y1="128" x2="200" y2="128"></line>
+            <line x1="160" y1="160" x2="200" y2="160"></line>
+          </svg>
+        </button>
+        <button class="rail-button action-button" type="button" data-terminal-action="strongs" aria-label="Strongs" title="Strongs">
+          <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 9h14"></path>
+            <path d="M5 15h14"></path>
+            <path d="m10 4-2 16"></path>
+            <path d="m16 4-2 16"></path>
+          </svg>
+        </button>
+        <button class="rail-button action-button" type="button" data-terminal-action="layout" aria-label="Toggle layout" title="Toggle layout">↕</button>
+        <button class="rail-button action-button" type="button" data-terminal-action="close" aria-label="Close translation" title="Close translation">×</button>
+        <button id="nav-up" class="rail-button nav-button" type="button" aria-label="Previous verse" title="Previous verse">↑</button>
+        <button id="nav-down" class="rail-button nav-button" type="button" aria-label="Next verse" title="Next verse">↓</button>
+      </nav>
+    </main>
+  </div>
+</body>
+</html>

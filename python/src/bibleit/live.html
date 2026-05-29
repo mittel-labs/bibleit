@@ -161,6 +161,17 @@
       content: none;
     }
 
+    .translation-icon {
+      width: 1.3rem;
+      height: 1.3rem;
+      display: block;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 16;
+    }
+
     .translation-filter[open] summary {
       border-color: var(--accent);
       box-shadow: 0 0 0 0.2rem rgba(191, 107, 33, 0.12);
@@ -370,14 +381,22 @@
 <body>
   <iframe id="textual" src="/textual/" title="bibleit"></iframe>
   <main id="live" hidden>
-    <button id="font-increase" type="button" aria-label="Increase verse font size">A+</button>
-    <button id="font-decrease" type="button" aria-label="Decrease verse font size">A-</button>
-    <button id="presentation" type="button" aria-label="Toggle presentation mode">⛶</button>
+    <button id="font-increase" type="button" aria-label="Increase verse font size" title="Increase verse font size">A+</button>
+    <button id="font-decrease" type="button" aria-label="Decrease verse font size" title="Decrease verse font size">A-</button>
+    <button id="presentation" type="button" aria-label="Toggle presentation mode" title="Toggle presentation mode">⛶</button>
     <details id="translation-filter" class="translation-filter">
-      <summary id="translation-filter-label" aria-label="All translations">文</summary>
+      <summary id="translation-filter-label" aria-label="All translations" title="All translations">
+        <svg class="translation-icon" viewBox="0 0 256 256" aria-hidden="true">
+          <path d="M128,88a32,32,0,0,1,32-32h72V200H160a32,32,0,0,0-32,32"></path>
+          <path d="M24,200H96a32,32,0,0,1,32,32V88A32,32,0,0,0,96,56H24Z"></path>
+          <line x1="160" y1="96" x2="200" y2="96"></line>
+          <line x1="160" y1="128" x2="200" y2="128"></line>
+          <line x1="160" y1="160" x2="200" y2="160"></line>
+        </svg>
+      </summary>
       <div id="translation-filter-options" class="translation-options"></div>
     </details>
-    <button id="theme" type="button" aria-label="Toggle color theme">◐</button>
+    <button id="theme" type="button" aria-label="Toggle color theme" title="Toggle color theme">◐</button>
     <div class="verses" id="verses"></div>
     <div class="status" id="status">Connected viewers follow the active verse automatically.</div>
     <div class="brand">bibleit</div>
@@ -490,14 +509,15 @@
 
     function updateTranslationFilterLabel(available) {
       if (!selectedTranslations) {
-        translationFilterLabel.textContent = "文";
         translationFilterLabel.ariaLabel = "All translations";
+        translationFilterLabel.title = "All translations";
         return;
       }
 
       const selected = available.filter((translation) => selectedTranslations.has(translation));
-      translationFilterLabel.textContent = "文";
-      translationFilterLabel.ariaLabel = selected.length ? `Selected translations: ${selected.join(", ")}` : "All translations";
+      const label = selected.length ? `Selected translations: ${selected.join(", ")}` : "All translations";
+      translationFilterLabel.ariaLabel = label;
+      translationFilterLabel.title = label;
     }
 
     function updateTranslationFilterOptions(data) {

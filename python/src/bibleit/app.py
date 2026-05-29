@@ -15,7 +15,6 @@ from typing import Iterable, Sequence
 from html import unescape
 
 from bibleit import translation
-from bibleit.serve import host, port
 from bibleit.live import parse_verse_line
 from unidecode import unidecode
 
@@ -40,6 +39,8 @@ def running_in_browser() -> bool:
 
 
 def live_publish_url() -> str:
+    host = os.getenv("BIBLEIT_SERVE_HOST") or "0.0.0.0"
+    port = os.getenv("BIBLEIT_SERVE_PORT") or "8000"
     return (
         os.getenv("BIBLEIT_LIVE_URL")
         or os.getenv("BIBLEIT_SERVE_PUBLIC_URL")

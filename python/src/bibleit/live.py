@@ -10,8 +10,6 @@ from importlib.resources import files
 
 from aiohttp import web
 
-from bibleit.serve import server
-
 LIVE_APP_TITLE = "bibleit live"
 HTML_TAG_RE = re.compile(r"<[^>]+>")
 
@@ -193,6 +191,8 @@ def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
 
 
 async def create_live_app(title: str = LIVE_APP_TITLE) -> web.Application:
+    from bibleit.serve import server
+
     app = create_app(title)
     server.title = "bibleit"
     server.public_url = os.getenv("BIBLEIT_SERVE_PUBLIC_URL", "http://127.0.0.1:8000")

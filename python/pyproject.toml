@@ -1,6 +1,6 @@
 [project]
 name = "bibleit"
-version = "0.2.0"
+version = "0.2.1"
 authors = [{ name = "Felipe Mamud", email = "trovatti@gmail.com" }]
 description = "Interactive Bible Reading"
 readme = "README.md"
@@ -17,6 +17,7 @@ dependencies = [
   "requests",
   "textual",
   "textual-autocomplete",
+  "textual-serve",
   "unidecode",
 ]
 

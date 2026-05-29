@@ -402,11 +402,23 @@
       theme.textContent = value === "dark" ? "☀" : "☾";
     }
 
-    function setPresentationMode(enabled) {
+    async function setPresentationMode(enabled) {
       const value = enabled ? "true" : "false";
       document.documentElement.dataset.presentation = value;
       localStorage.setItem("bibleit-presentation", value);
       presentation.textContent = "▤";
+
+      try {
+        if (enabled && !document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+        }
+
+        if (!enabled && document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+      } catch (_error) {
+        // Fullscreen is best-effort. Some mobile browsers may block it.
+      }
 
       if (enabled) {
         if (presentationPreviousScaleIndex === null) {

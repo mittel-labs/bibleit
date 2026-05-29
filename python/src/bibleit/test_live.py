@@ -52,16 +52,17 @@ class LiveVerseTest(unittest.TestCase):
         self.assertIn('id="translation-filter"', rendered)
         self.assertIn("bibleit-selected-translations", rendered)
         self.assertNotIn("__all__", rendered)
-        self.assertNotIn("requestFullscreen", rendered)
 
     def test_control_requests_are_open_without_token(self):
-        app = create_app("test live")
+        with patch.dict("os.environ", {}, clear=True):
+            app = create_app("test live")
+
         request = make_mocked_request("POST", "/api/publish", app=app)
 
         self.assertTrue(request_is_authorized(request))
 
     def test_control_requests_require_matching_bearer_token(self):
-        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}, clear=True):
             app = create_app("test live")
 
         request = make_mocked_request(
@@ -75,7 +76,7 @@ class LiveVerseTest(unittest.TestCase):
         self.assertTrue(request_is_authorized(request))
 
     def test_control_requests_reject_missing_token(self):
-        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}, clear=True):
             app = create_app("test live")
 
         request = make_mocked_request("POST", "/api/publish", app=app)

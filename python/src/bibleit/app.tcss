@@ -569,10 +569,72 @@ StatusBar.browser.compact.open {
   height: 2;
 }
 
-BibleView {
+#workspace {
   width: 100%;
   height: 1fr;
+}
+
+BibleView {
+  width: 1fr;
+  height: 100%;
   background: #f3f1ed;
+}
+
+HistoryPane {
+  display: none;
+  width: 30;
+  height: 100%;
+  layout: vertical;
+  background: #ece8e1;
+  border-left: solid #ddd4c8;
+  padding: 0 1;
+}
+
+HistoryPane.open {
+  display: block;
+}
+
+#history-title {
+  width: 100%;
+  height: 1;
+  padding: 1 0 0 0;
+  color: #2a2a2a;
+  text-style: bold;
+}
+
+#history-filter {
+  width: 100%;
+  height: 3;
+  margin: 1 0;
+  background: #f8f5ef;
+  color: #202020;
+  border: tall #b98b4d;
+  padding: 0 1;
+}
+
+#history-filter:focus {
+  border: tall #9f6d2f;
+}
+
+#history-list {
+  height: 1fr;
+  background: #ece8e1;
+  scrollbar-size-vertical: 1;
+}
+
+#history-list > ListItem {
+  height: 1;
+}
+
+#history-list > ListItem.-highlight {
+  background: #e7c878;
+  color: #1f1f1f;
+  text-style: bold;
+}
+
+#history-list > ListItem > Label {
+  padding: 0 1;
+  text-overflow: ellipsis;
 }
 
 BibleView.vertical {

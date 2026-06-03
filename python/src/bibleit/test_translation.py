@@ -115,6 +115,10 @@ class TranslationNativeTests(unittest.TestCase):
             self.assertEqual(cursor.next().decode(), "Genesis 1:2 And the earth")
             self.assertEqual(cursor.next().decode(), "Genesis 1:3 Let there be light")
 
+    def test_header_resolves_case_insensitive_unique_prefix(self):
+        self.assertEqual(self.header.resolve_bookid("gen"), 1)
+        self.assertEqual(self.header.resolve_bookid("EXO"), 2)
+
     def test_dictionary_cache_loads_strong_entries(self):
         (self.root / "SCGES.dictionary.json").write_text(
             json.dumps(

@@ -68,8 +68,25 @@ class TranslationHeader:
         return f"({self.slug}) {self.name}"
 
     def resolve_bookid(self, book_name: str):
-        if found := self.chapters.get(unidecode(book_name)):
-            return found.bookid
+        normalized = unidecode(book_name).strip().lower()
+        if not normalized:
+            return None
+
+        matches = [chapter for name, chapter in self.chapters.items() if unidecode(name).strip().lower() == normalized]
+        if len(matches) == 1:
+            return matches[0].bookid
+
+        matches = [
+            chapter for name, chapter in self.chapters.items() if unidecode(name).strip().lower().startswith(normalized)
+        ]
+        if len(matches) == 1:
+            return matches[0].bookid
+
+        matches = [chapter for name, chapter in self.chapters.items() if normalized in unidecode(name).strip().lower()]
+        if len(matches) == 1:
+            return matches[0].bookid
+
+        return None
 
 
 @dataclass(frozen=True)

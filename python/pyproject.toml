@@ -14,9 +14,9 @@ classifiers = [
 dependencies = [
   "aiohttp",
   "gnureadline; platform_system == 'Darwin'",
+  "rapidfuzz",
   "requests",
   "textual",
-  "textual-autocomplete",
   "textual-serve",
   "unidecode",
 ]

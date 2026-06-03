@@ -42,6 +42,45 @@ ListItem {
   }
 }
 
+#workspace {
+  width: 100%;
+  height: 1fr;
+}
+
+HistoryPane {
+  display: none;
+  width: 42%;
+  max-width: 48;
+  height: 100%;
+  padding: 1;
+  background: #ece8e1;
+  border-left: solid #d6cfc5;
+}
+
+HistoryPane.open {
+  display: block;
+}
+
+#history-title {
+  width: 100%;
+  height: 2;
+  text-style: bold;
+}
+
+#history-filter {
+  width: 100%;
+  height: 3;
+  margin-bottom: 1;
+  background: #f8f5ef;
+  color: #202020;
+  border: tall #b98b4d;
+}
+
+#history-list {
+  width: 100%;
+  height: 1fr;
+}
+
 Footer {
   background: #ece8e1;
   color: #2a2a2a;
@@ -58,70 +97,90 @@ FooterKey {
 
 Search {
   layer: overlay;
-  align: center middle;
+  align: center top;
   background: #00000055;
 }
 
-Search > Center > Middle {
-  width: 42;
-  height: auto;
-  background: transparent;
+#search-panel {
+  width: 76;
+  max-width: 90%;
+  height: 80%;
+  margin-top: 2;
+  padding: 1 2;
+  background: #181818;
+  border: round #c89b5d;
+  color: #f3f0ea;
+}
+
+#search-title {
+  width: 100%;
+  height: 1;
+  color: #ffb347;
+  text-style: bold;
+}
+
+#search-caption {
+  width: 100%;
+  height: 1;
+  color: #a9a29a;
 }
 
 Search Input {
   width: 100%;
   height: 3;
-  background: #f8f5ef;
-  color: #202020;
-  border: tall #b98b4d;
+  margin: 1 0 0 0;
+  background: #202020;
+  color: #f3f0ea;
+  border: tall #6b655d;
   padding: 0 1;
 }
 
 Search Input:focus {
-  border: tall #9f6d2f;
+  border: tall #d97706;
 }
 
-AutoComplete {
+#search-summary {
   width: 100%;
-  margin-top: 1;
+  height: 2;
+  color: #a9a29a;
+}
+
+#text-search-results {
+  width: 100%;
+  height: 1fr;
   background: transparent;
-}
-
-AutoCompleteList {
-  width: 100%;
-  background: #f7f3ec;
-  color: #2a2a2a;
-  border: tall #b98b4d;
-  max-height: 10;
   scrollbar-size: 0 0;
 }
 
-AutoCompleteList > .option-list--option {
-  width: 100%;
-  height: 1;
-  padding: 0 1;
+#text-search-results ListItem {
   background: transparent;
-  color: #2a2a2a;
+  color: #f3f0ea;
 }
 
-AutoCompleteList > .option-list--option-highlighted {
+#text-search-results ListItem.-highlight {
+  background: #2e2e2e;
+  color: #f8f5ef;
+  text-style: none;
+}
+
+#text-search-results ListItem > Label {
+  padding: 0 1;
+}
+
+#text-search-results:focus ListItem.-highlight {
   background: #d7b46a;
   color: #161616;
-  text-style: bold;
 }
 
-.autocomplete--highlight-match {
-  color: #9f6d2f;
-  text-style: bold;
-}
-
-StrongScreen {
+StrongScreen,
+ShortcutsScreen {
   layer: overlay;
   align: center middle;
   background: #00000099;
 }
 
-StrongScreen > Container {
+StrongScreen > Container,
+ShortcutsScreen > Container {
   width: 72;
   max-width: 80%;
   height: auto;
@@ -132,13 +191,40 @@ StrongScreen > Container {
   color: #f3f0ea;
 }
 
-StrongScreen Label {
+StrongScreen Label,
+ShortcutsScreen Label {
   width: 100%;
   height: auto;
   background: transparent;
   color: #f3f0ea;
   text-wrap: wrap;
   text-overflow: fold;
+}
+
+#shortcuts-title {
+  width: 100%;
+  height: 2;
+  margin-bottom: 1;
+  color: #ffb347;
+  text-style: bold;
+  content-align: center middle;
+}
+
+.shortcut-row {
+  width: 100%;
+  height: auto;
+}
+
+.shortcut-key {
+  width: 14;
+  min-width: 14;
+  color: #ffb347;
+  text-style: bold;
+}
+
+.shortcut-description {
+  width: 1fr;
+  color: #f3f0ea;
 }
 
 .strong-link {
@@ -177,11 +263,64 @@ StatusBar {
   content-align: left middle;
 }
 
+#status-command {
+  display: none;
+  width: 1fr;
+  height: 1;
+  padding: 0;
+  background: transparent;
+  color: #2a2a2a;
+  border: none;
+}
+
+#status-command-completions {
+  display: none;
+  width: 100%;
+  height: 5;
+  padding: 0 0 0 1;
+  background: #f3f1ed;
+  color: #2a2a2a;
+  text-wrap: wrap;
+  text-overflow: fold;
+}
+
+StatusBar.command-mode #action-menu,
+StatusBar.command-mode #status-left,
+StatusBar.command-mode #status-help,
+StatusBar.command-mode #status-actions {
+  display: none;
+}
+
+StatusBar.command-mode #status-command {
+  display: block;
+}
+
+StatusBar.command-mode {
+  layout: vertical;
+}
+
+StatusBar.command-mode.completions-open {
+  height: 7;
+}
+
+StatusBar.command-mode.completions-open #status-command-completions {
+  display: block;
+}
+
 #status-actions {
+  display: none;
   width: auto;
   height: 1;
   layout: horizontal;
   align: right middle;
+}
+
+#status-help {
+  width: auto;
+  height: 1;
+  margin-left: 1;
+  color: #8d8478;
+  content-align: right middle;
 }
 
 #status-actions Button {
@@ -231,6 +370,7 @@ StatusBar.compact #action-menu {
 }
 
 StatusBar.compact #status-left,
+StatusBar.compact #status-help,
 StatusBar.compact #status-actions {
   display: none;
 }

@@ -152,6 +152,10 @@
       -webkit-backdrop-filter: blur(12px);
     }
 
+    .rail-button[hidden] {
+      display: none;
+    }
+
     .rail-button:active {
       transform: scale(0.96);
       background: rgba(217, 119, 6, 0.14);
@@ -444,7 +448,6 @@
 
       const configureTextarea = () => {
         textareas().forEach((textarea) => {
-          textarea.setAttribute("autocomplete", "off");
           textarea.setAttribute("autocorrect", "off");
           textarea.setAttribute("autocapitalize", "off");
           textarea.setAttribute("spellcheck", "false");
@@ -566,6 +569,8 @@
           if (!inputs[action]) return;
 
           sendTerminalInput(inputs[action]);
+          window.setTimeout(updateCloseButtonVisibility, 120);
+          window.setTimeout(updateCloseButtonVisibility, 420);
 
           if (action === "search") {
             window.setTimeout(() => {
@@ -574,6 +579,61 @@
           }
         });
       });
+    }
+
+    function getTranslationCount() {
+      const terminal = document.getElementById("terminal");
+      const text = terminal?.innerText || terminal?.textContent || "";
+      const statusLine = text
+        .split(/\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .reverse()
+        .find((line) => line.includes("bibleit"));
+
+      if (!statusLine || /No translation selected/i.test(statusLine)) {
+        return 0;
+      }
+
+      const parts = statusLine
+        .split("·")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      const bibleitIndex = parts.findIndex((part) => /^bibleit\b/i.test(part));
+
+      if (bibleitIndex === -1) {
+        return 0;
+      }
+
+      return parts
+        .slice(bibleitIndex + 1)
+        .filter((part) => !/^(LIVE|STRONGS)$/i.test(part))
+        .length;
+    }
+
+    function updateCloseButtonVisibility() {
+      const closeButton = document.querySelector('[data-terminal-action="close"]');
+      if (!closeButton) return;
+
+      closeButton.hidden = getTranslationCount() <= 1;
+    }
+
+    function setupCloseButtonVisibility() {
+      const terminal = document.getElementById("terminal");
+
+      const update = () => {
+        window.requestAnimationFrame(updateCloseButtonVisibility);
+      };
+
+      updateCloseButtonVisibility();
+
+      if (terminal) {
+        new MutationObserver(update).observe(terminal, {
+          childList: true,
+          characterData: true,
+          subtree: true,
+        });
+      }
     }
 
     function setupTerminalNavigation() {
@@ -638,6 +698,7 @@
 
     window.addEventListener("DOMContentLoaded", setupTerminalNavigation);
     window.addEventListener("DOMContentLoaded", setupActionButtons);
+    window.addEventListener("DOMContentLoaded", setupCloseButtonVisibility);
     window.addEventListener("DOMContentLoaded", setupMobileKeyboardControl);
   </script>
 </head>
@@ -713,7 +774,7 @@
           </svg>
         </button>
         <button class="rail-button action-button" type="button" data-terminal-action="layout" aria-label="Toggle layout" title="Toggle layout">↕</button>
-        <button class="rail-button action-button" type="button" data-terminal-action="close" aria-label="Close translation" title="Close translation">×</button>
+        <button class="rail-button action-button" type="button" data-terminal-action="close" aria-label="Close translation" title="Close translation" hidden>×</button>
         <button id="nav-up" class="rail-button nav-button" type="button" aria-label="Previous verse" title="Previous verse">↑</button>
         <button id="nav-down" class="rail-button nav-button" type="button" aria-label="Next verse" title="Next verse">↓</button>
       </nav>

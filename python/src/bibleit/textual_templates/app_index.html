@@ -556,7 +556,7 @@
 
     function setupActionButtons() {
       const inputs = {
-        search: "\x13",
+        find: "\x06",
         translations: "\x14",
         strongs: "\x07",
         layout: "\x1bOQ",
@@ -572,7 +572,7 @@
           window.setTimeout(updateCloseButtonVisibility, 120);
           window.setTimeout(updateCloseButtonVisibility, 420);
 
-          if (action === "search") {
+          if (action === "find") {
             window.setTimeout(() => {
               setKeyboardEnabled(true);
             }, 180);
@@ -750,7 +750,7 @@
         data-font-size="{{ font_size }}"
       ></div>
       <nav class="control-rail" aria-label="Bible controls">
-        <button class="rail-button action-button" type="button" data-terminal-action="search" aria-label="Search" title="Search">
+        <button class="rail-button action-button" type="button" data-terminal-action="find" aria-label="Find" title="Find">
           <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="10.5" cy="10.5" r="6.5"></circle>
             <path d="m16 16 4.5 4.5"></path>

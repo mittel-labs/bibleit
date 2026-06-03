@@ -25,7 +25,7 @@ from bibleit.navigation import (
     select_navigation_completion,
     verse_reference_label,
 )
-from bibleit.text_search import TextSearchResult, search_translation_text
+from bibleit.text_find import TextFindIndex, TextFindResult
 
 
 import atexit
@@ -235,13 +235,13 @@ class StatusBar(Horizontal):
         yield Static(id="status-left")
         yield Static("[#8d8478]?[/] Help", id="status-help")
         yield Input(
-            placeholder="Go to",
+            placeholder=">",
             suggester=NavigationSuggester(self._active_translation),
             id="status-command",
         )
         yield Static(id="status-command-completions")
         with Container(id="status-actions"):
-            yield Button("Search", id="action-search")
+            yield Button("Find", id="action-find")
             yield Button("Translations", id="action-translations")
             yield Button("Strongs", id="action-strongs")
             yield Button("Live", id="action-live")
@@ -311,7 +311,7 @@ class StatusBar(Horizontal):
 
         actions = {
             "action-menu": self.action_toggle_menu,
-            "action-search": bible_view.action_open_search,
+            "action-find": bible_view.action_open_find,
             "action-translations": bible_view.action_open_translations,
             "action-strongs": bible_view.action_toggle_strongs,
             "action-live": bible_view.action_toggle_live,
@@ -452,67 +452,113 @@ class StatusBar(Horizontal):
             self._hide_completions()
 
 
-class Search(Screen):
+class Find(Screen):
     BINDINGS = [
         ("escape", "app.pop_screen", "Close"),
         Binding("enter", "open_selected", "Open", priority=True),
+        Binding("down", "focus_results", "Results", priority=True, show=False),
+        Binding("up", "focus_input_from_results", "Find", priority=True, show=False),
         Binding("tab", "focus_results", "Results", show=True),
-        Binding("shift+tab", "focus_input", "Search", show=True),
+        Binding("shift+tab", "focus_input", "Find", show=True),
+        Binding("ctrl+tab", "next_translation", "Toggle Translation", show=True),
+        Binding("ctrl+n", "next_translation", "Toggle Translation", show=True),
     ]
 
     def __init__(
         self,
         view: View,
+        views: Sequence[View] = (),
     ):
         super().__init__()
 
+        self.views = list(views) or [view]
         self.view = view
-        self.input = Input(placeholder="Search words or phrases…", id="text-search-input")
-        self.results: list[TextSearchResult] = []
+        if self.view not in self.views:
+            self.views.insert(0, self.view)
+        self.view_index = self.views.index(self.view)
+        self.input = Input(placeholder="Find words or phrases…", id="text-find-input")
+        self.indexes: dict[str, TextFindIndex] = {}
+        self.index = self._index_for(self.view)
+        self.results: list[TextFindResult] = []
 
     def on_mount(self):
         self.input.focus()
 
     def compose(self):
-        with Container(id="search-panel"):
-            yield Label("Search", id="search-title")
+        with Container(id="find-panel"):
+            yield Label("Find", id="find-title")
             yield Label(
-                f"Find text in [bold #d97706]{self.view.translation.slug}[/]",
-                id="search-caption",
+                self._caption(),
+                id="find-caption",
                 markup=True,
             )
             yield self.input
-            yield Static("Type a word or phrase to search rendered verse text.", id="search-summary")
-            yield ListView(id="text-search-results")
+            yield Static("Type a word or phrase to find verse text.", id="find-summary")
+            yield ListView(id="text-find-results")
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "focus_results":
-            return bool(self._result_list().children)
+            return self.app.focused is self.input and bool(self._result_list().children)
+        if action == "focus_input_from_results":
+            return self._result_list_focused_at_first_item()
         if action == "focus_input":
             return self.app.focused is not self.input
+        if action == "next_translation":
+            return len(self.views) > 1
         return True
 
+    def _caption(self) -> str:
+        position = f" {self.view_index + 1}/{len(self.views)}" if len(self.views) > 1 else ""
+        return f"Find text in [bold #d97706]{self.view.translation.slug}[/]{position}"
+
     def _result_list(self) -> ListView:
-        return self.query_one("#text-search-results", ListView)
+        return self.query_one("#text-find-results", ListView)
+
+    def _result_list_focused_at_first_item(self) -> bool:
+        result_list = self._result_list()
+        return self.app.focused is result_list and result_list.index in (None, 0)
+
+    def _index_for(self, view: View) -> TextFindIndex:
+        slug = view.translation.slug
+        if slug not in self.indexes:
+            self.indexes[slug] = TextFindIndex.build(view.translation)
+        return self.indexes[slug]
 
     def action_focus_results(self) -> None:
         result_list = self._result_list()
-        if result_list.children and result_list.index is None:
+        if result_list.children:
             result_list.index = 0
         result_list.focus()
 
     def action_focus_input(self) -> None:
         self.input.focus()
 
+    def action_focus_input_from_results(self) -> None:
+        self.input.focus()
+
+    def _switch_translation(self, direction: int) -> None:
+        if len(self.views) <= 1:
+            return
+
+        self.view_index = (self.view_index + direction) % len(self.views)
+        self.view = self.views[self.view_index]
+        self.index = self._index_for(self.view)
+        self.query_one("#find-caption", Label).update(self._caption())
+        self._refresh_results()
+        self.input.focus()
+
+    def action_next_translation(self) -> None:
+        self._switch_translation(1)
+
     def _refresh_results(self) -> None:
         query = self.input.value.strip()
         result_list = self._result_list()
-        summary = self.query_one("#search-summary", Static)
+        summary = self.query_one("#find-summary", Static)
         result_list.clear()
 
-        self.results = search_translation_text(self.view.translation, query)
+        self.results = self.index.find(query)
         if not query:
-            summary.update("Type a word or phrase to search rendered verse text.")
+            summary.update("Type a word or phrase to find verse text.")
             return
 
         if not self.results:
@@ -534,7 +580,7 @@ class Search(Screen):
 
         result_list.index = 0
 
-    def _open_result(self, result: TextSearchResult) -> None:
+    def _open_result(self, result: TextFindResult) -> None:
         bible_view = self.app.query_exactly_one(BibleView)
         bible_view.go_to_ref(result.ref)
         self.app.query_one(HistoryPane).record(self.view.translation, result.ref)
@@ -837,14 +883,16 @@ class ShortcutsScreen(Screen):
         ("↑ / ↓", "Previous / next verse"),
         ("Ctrl+A", "Beginning of current chapter"),
         ("Ctrl+E", "End of current chapter"),
-        ("Ctrl+<", "Previous chapter"),
-        ("Ctrl+>", "Next chapter"),
+        ("<", "Previous chapter"),
+        (">", "Next chapter"),
         ("g", "Go to"),
         ("Tab", "Cycle go-to matches"),
         ("Enter", "Select match or navigate"),
         ("Ctrl+T", "Translations"),
-        ("Ctrl+S", "Search text"),
+        ("Ctrl+F", "Find text"),
+        ("Ctrl+Tab / Ctrl+N", "Toggle find translation"),
         ("Ctrl+G", "Strongs"),
+        ("Ctrl+D", "Toggle theme"),
         ("Ctrl+W", "Close pane"),
         ("F2", "Toggle split layout"),
         ("Ctrl+L", "Live mode"),
@@ -1358,7 +1406,7 @@ class View(ListView):
         except RuntimeError as e:
             self.log.error("error on cursor_from", e)
             self.notify(
-                "Search reference not found",
+                "Reference not found",
                 severity="error",
                 timeout=3,
             )
@@ -1391,14 +1439,14 @@ class BibleView(Horizontal):
 
     BINDINGS = [
         ("ctrl+t", "open_translations", "Translations"),
-        ("ctrl+s", "open_search", "Search"),
+        ("ctrl+f", "open_find", "Find"),
         ("ctrl+g", "toggle_strongs", "Strongs"),
         ("ctrl+l", "toggle_live", "Live"),
         ("ctrl+w", "close_pane", "Close Pane"),
         ("ctrl+a", "chapter_start", "Chapter Start"),
         ("ctrl+e", "chapter_end", "Chapter End"),
-        ("ctrl+<", "previous_chapter", "Previous Chapter"),
-        ("ctrl+>", "next_chapter", "Next Chapter"),
+        ("<", "previous_chapter", "Previous Chapter"),
+        (">", "next_chapter", "Next Chapter"),
         ("g", "open_reference", "Go To"),
         (":", "open_reference", "Go To"),
         ("?", "show_shortcuts", "Shortcuts"),
@@ -1512,7 +1560,7 @@ class BibleView(Horizontal):
         else:
             self.app.push_screen("translations")
 
-    def action_open_search(self):
+    def action_open_find(self):
         if not self.views:
             self.notify(
                 "Please open a translation first",
@@ -1525,7 +1573,7 @@ class BibleView(Horizontal):
         if not view:
             view = self.views[0]
 
-        self.app.push_screen(Search(view))
+        self.app.push_screen(Find(view, self.views))
 
     async def action_previous_verse(self):
         view = self.focused_view() or (self.views[0] if self.views else None)
@@ -1583,7 +1631,6 @@ class BibleView(Horizontal):
 
         ref = next_chapter_ref(view.translation, self.state)
         if ref is None:
-            self.notify("Already at the last chapter", severity="warning", timeout=3)
             return
 
         self.go_to_ref(ref)
@@ -1595,7 +1642,6 @@ class BibleView(Horizontal):
 
         ref = previous_chapter_ref(view.translation, self.state)
         if ref is None:
-            self.notify("Already at the first chapter", severity="warning", timeout=3)
             return
 
         self.go_to_ref(ref)
@@ -1713,9 +1759,13 @@ class BibleView(Horizontal):
 class Bibleit(App):
     ENABLE_COMMAND_PALETTE = False
     CSS_PATH = "app.tcss"
+    BINDINGS = [
+        ("ctrl+d", "toggle_theme", "Theme"),
+    ]
 
     def __init__(self):
         super().__init__()
+        self.dark_theme = False
         atexit.register(self._disable_live_on_shutdown)
 
     def exit(self, *args, **kwargs) -> None:
@@ -1762,6 +1812,10 @@ class Bibleit(App):
                 entry,
             )
         )
+
+    def action_toggle_theme(self):
+        self.dark_theme = not self.dark_theme
+        self.set_class(self.dark_theme, "dark")
 
     def compose(self):
         with Horizontal(id="workspace"):

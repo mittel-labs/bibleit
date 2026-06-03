@@ -24,7 +24,7 @@ try:
         previous_chapter_ref,
         select_navigation_completion,
     )
-    from bibleit.text_search import clean_verse_text, search_translation_text
+    from bibleit.text_find import TextFindIndex, clean_verse_text, find_translation_text
 except ModuleNotFoundError:
     raise
 
@@ -81,11 +81,13 @@ class FakeTranslation:
                 "First Letter of Paul to the Corinthians 13:5 It does not dishonor others.",
             ],
         }
+        self.read_calls = 0
 
     def resolve_bookid(self, book_name: str):
         return self.header.resolve_bookid(book_name)
 
     def read(self, ref: translation.TranslationRef):
+        self.read_calls += 1
         return FakeCursor(self.rows_by_book.get(ref.bookid, []))
 
 
@@ -175,7 +177,7 @@ class SessionHistoryTests(unittest.TestCase):
         self.assertEqual([entry.label for entry in filtered], ["John 3:16"])
 
 
-class TextSearchTests(unittest.TestCase):
+class TextFindTests(unittest.TestCase):
     def setUp(self):
         self.translation = FakeTranslation()
 
@@ -185,17 +187,28 @@ class TextSearchTests(unittest.TestCase):
             "Genesis 1:1 Love is patient",
         )
 
-    def test_search_translation_finds_phrase_in_verse_text(self):
-        results = search_translation_text(self.translation, "love is patient")
+    def test_find_translation_finds_phrase_in_verse_text(self):
+        results = find_translation_text(self.translation, "love is patient")
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].label, "First Letter of Paul to the Corinthians 13:4")
         self.assertEqual(results[0].ref, translation.TranslationRef(46, 13, 4))
 
-    def test_search_translation_searches_rendered_text_not_only_labels(self):
-        results = search_translation_text(self.translation, "formless")
+    def test_find_translation_checks_rendered_text_not_only_labels(self):
+        results = find_translation_text(self.translation, "formless")
 
         self.assertEqual([result.label for result in results], ["Genesis 1:2"])
+
+    def test_find_index_builds_once_and_reuses_results(self):
+        index = TextFindIndex.build(self.translation)
+        read_calls = self.translation.read_calls
+
+        self.assertEqual(
+            [result.label for result in index.find("love")],
+            ["First Letter of Paul to the Corinthians 13:4"],
+        )
+        self.assertEqual([result.label for result in index.find("formless")], ["Genesis 1:2"])
+        self.assertEqual(self.translation.read_calls, read_calls)
 
 
 class NavigationCommandTests(unittest.TestCase):

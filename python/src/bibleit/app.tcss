@@ -3,6 +3,12 @@ Screen {
   background: #f3f1ed;
 }
 
+#workspace {
+  width: 100%;
+  height: 1fr;
+  background: #f3f1ed;
+}
+
 Tree {
   background: #f3f1ed;
   color: #2a2a2a;
@@ -25,6 +31,7 @@ ListView {
 
 ListItem {
   height: auto;
+  background: #f3f1ed;
   color: #2a2a2a;
 
   &.-highlight {
@@ -36,15 +43,11 @@ ListItem {
   & > Label {
     width: 100%;
     height: auto;
+    background: transparent;
     padding: 1 2;
     text-wrap: wrap;
     text-overflow: fold;
   }
-}
-
-#workspace {
-  width: 100%;
-  height: 1fr;
 }
 
 HistoryPane {
@@ -95,13 +98,13 @@ FooterKey {
   }
 }
 
-Search {
+Find {
   layer: overlay;
   align: center top;
   background: #00000055;
 }
 
-#search-panel {
+#find-panel {
   width: 76;
   max-width: 90%;
   height: 80%;
@@ -112,20 +115,20 @@ Search {
   color: #f3f0ea;
 }
 
-#search-title {
+#find-title {
   width: 100%;
   height: 1;
   color: #ffb347;
   text-style: bold;
 }
 
-#search-caption {
+#find-caption {
   width: 100%;
   height: 1;
   color: #a9a29a;
 }
 
-Search Input {
+Find Input {
   width: 100%;
   height: 3;
   margin: 1 0 0 0;
@@ -135,39 +138,39 @@ Search Input {
   padding: 0 1;
 }
 
-Search Input:focus {
+Find Input:focus {
   border: tall #d97706;
 }
 
-#search-summary {
+#find-summary {
   width: 100%;
   height: 2;
   color: #a9a29a;
 }
 
-#text-search-results {
+#text-find-results {
   width: 100%;
   height: 1fr;
   background: transparent;
   scrollbar-size: 0 0;
 }
 
-#text-search-results ListItem {
+#text-find-results ListItem {
   background: transparent;
   color: #f3f0ea;
 }
 
-#text-search-results ListItem.-highlight {
+#text-find-results ListItem.-highlight {
   background: #2e2e2e;
   color: #f8f5ef;
   text-style: none;
 }
 
-#text-search-results ListItem > Label {
+#text-find-results ListItem > Label {
   padding: 0 1;
 }
 
-#text-search-results:focus ListItem.-highlight {
+#text-find-results:focus ListItem.-highlight {
   background: #d7b46a;
   color: #161616;
 }
@@ -434,7 +437,9 @@ BibleView.vertical {
 View {
   width: 1fr;
   height: 100%;
+  background: #f3f1ed;
   border-right: solid #ddd4c8;
+  scrollbar-size: 0 0;
 }
 
 BibleView.vertical View {
@@ -450,4 +455,116 @@ View:last-child {
 
 BibleView.vertical View:last-child {
   border-bottom: none;
+}
+
+Bibleit.dark Screen {
+  background: #101112;
+}
+
+Bibleit.dark #workspace,
+Bibleit.dark BibleView,
+Bibleit.dark View,
+Bibleit.dark ListView,
+Bibleit.dark ListItem,
+Bibleit.dark Tree {
+  background: #101112;
+  color: #e8e2d9;
+}
+
+Bibleit.dark ListItem.-highlight,
+Bibleit.dark Tree:focus > .tree--cursor {
+  background: #c4933e;
+  color: #15120e;
+  text-style: italic bold;
+}
+
+Bibleit.dark View {
+  border-right: solid #2a2724;
+}
+
+Bibleit.dark BibleView.vertical View {
+  border-bottom: solid #2a2724;
+}
+
+Bibleit.dark HistoryPane {
+  background: #171717;
+  border-left: solid #2c2926;
+}
+
+Bibleit.dark #history-filter,
+Bibleit.dark Find Input {
+  background: #202020;
+  color: #f1ede6;
+  border: tall #5f564d;
+}
+
+Bibleit.dark Footer,
+Bibleit.dark StatusBar {
+  background: #171717;
+  color: #e8e2d9;
+}
+
+Bibleit.dark StatusBar {
+  border-top: solid #2c2926;
+}
+
+Bibleit.dark StatusBar.compact {
+  border-bottom: solid #2c2926;
+}
+
+Bibleit.dark StatusBar.browser.compact {
+  border-top: solid #2c2926;
+}
+
+Bibleit.dark #status-left,
+Bibleit.dark #status-command,
+Bibleit.dark StatusBar.compact #action-menu {
+  color: #e8e2d9;
+}
+
+Bibleit.dark #status-command-completions {
+  background: #101112;
+  color: #e8e2d9;
+}
+
+Bibleit.dark #status-help,
+Bibleit.dark #status-actions Button {
+  color: #a9a198;
+}
+
+Bibleit.dark #status-actions Button:hover,
+Bibleit.dark #status-actions Button:focus {
+  background: #282521;
+  color: #f6efe6;
+}
+
+Bibleit.dark #status-actions Button:disabled {
+  color: #5f5850;
+}
+
+Bibleit.dark Find {
+  background: #000000aa;
+}
+
+Bibleit.dark #find-panel,
+Bibleit.dark StrongScreen > Container,
+Bibleit.dark ShortcutsScreen > Container {
+  background: #141414;
+  color: #f1ede6;
+}
+
+Bibleit.dark #text-find-results,
+Bibleit.dark #text-find-results ListItem {
+  background: transparent;
+  color: #f1ede6;
+}
+
+Bibleit.dark #text-find-results ListItem.-highlight {
+  background: #2e2a25;
+  color: #f1ede6;
+}
+
+Bibleit.dark #text-find-results:focus ListItem.-highlight {
+  background: #c4933e;
+  color: #15120e;
 }

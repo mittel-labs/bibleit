@@ -11,10 +11,19 @@ from bibleit.navigation import book_ids_for
 
 
 @dataclass(frozen=True)
-class TextSearchResult:
+class TextFindResult:
     ref: translation.TranslationRef
     label: str
     text: str
+    findable: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.findable:
+            object.__setattr__(
+                self,
+                "findable",
+                unidecode(f"{self.label} {self.text}").casefold(),
+            )
 
 
 def decode_translation_value(value) -> str:
@@ -32,10 +41,10 @@ def clean_verse_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
-def parse_search_result(
+def parse_find_result(
     translation_: translation.Translation,
     value: str,
-) -> TextSearchResult | None:
+) -> TextFindResult | None:
     text = clean_verse_text(value)
     match = re.match(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+(?P<verse_text>.*)$", text)
     if not match:
@@ -47,37 +56,50 @@ def parse_search_result(
 
     chapter = int(match.group("chapter"))
     verse = int(match.group("verse"))
-    return TextSearchResult(
+    return TextFindResult(
         ref=translation.TranslationRef(bookid, chapter, verse),
         label=f"{match.group('book')} {chapter}:{verse}",
         text=match.group("verse_text"),
     )
 
 
-def search_translation_text(
+def find_translation_text(
     translation_: translation.Translation,
     query: str,
     *,
     limit: int = 100,
-) -> list[TextSearchResult]:
-    normalized_query = unidecode(query).casefold().strip()
-    if not normalized_query:
-        return []
+) -> list[TextFindResult]:
+    return TextFindIndex.build(translation_).find(query, limit=limit)
 
-    results: list[TextSearchResult] = []
-    for bookid in book_ids_for(translation_):
-        cursor = translation_.read(translation.TranslationRef(bookid))
 
-        while value := cursor.next():
-            result = parse_search_result(translation_, decode_translation_value(value))
-            if result is None:
-                continue
+class TextFindIndex:
+    def __init__(self, results: list[TextFindResult]):
+        self.results = results
 
-            searchable = unidecode(f"{result.label} {result.text}").casefold()
-            if normalized_query in searchable:
+    @classmethod
+    def build(cls, translation_: translation.Translation) -> TextFindIndex:
+        results: list[TextFindResult] = []
+        for bookid in book_ids_for(translation_):
+            cursor = translation_.read(translation.TranslationRef(bookid))
+
+            while value := cursor.next():
+                result = parse_find_result(translation_, decode_translation_value(value))
+                if result is not None:
+                    results.append(result)
+
+        return cls(results)
+
+    def find(self, query: str, *, limit: int = 100) -> list[TextFindResult]:
+        normalized_query = unidecode(query).casefold().strip()
+        if not normalized_query:
+            return []
+
+        results: list[TextFindResult] = []
+        for result in self.results:
+            if normalized_query in result.findable:
                 results.append(result)
 
                 if len(results) >= limit:
-                    return results
+                    break
 
-    return results
+        return results

@@ -13,17 +13,18 @@ try:
         RowRef,
         SessionHistory,
         View,
-        clean_verse_text,
-        next_chapter_ref,
+        running_in_browser,
+    )
+    from bibleit.navigation import (
         complete_navigation_value,
         navigation_completion_candidates,
         navigation_suggestion_value,
+        next_chapter_ref,
         parse_navigation_ref,
         previous_chapter_ref,
-        running_in_browser,
-        search_translation_text,
         select_navigation_completion,
     )
+    from bibleit.text_search import clean_verse_text, search_translation_text
 except ModuleNotFoundError:
     raise
 

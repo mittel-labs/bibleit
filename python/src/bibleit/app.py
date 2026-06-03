@@ -1,5 +1,4 @@
 from __future__ import annotations
-from dataclasses import dataclass
 
 from textual.app import App
 from textual.containers import Container, Horizontal, Vertical
@@ -8,447 +7,33 @@ from textual.widgets import ListView, ListItem, Input, Tree, Footer, Label, Stat
 from textual.screen import Screen
 from textual.message import Message
 from textual.reactive import reactive
-from textual.suggester import Suggester
 from textual import events
-from typing import Callable, Iterable, Sequence
+from typing import Iterable, Sequence
 from html import unescape
 
 from bibleit import translation
-from bibleit.live import parse_verse_line
-from unidecode import unidecode
-from rapidfuzz import fuzz, process
+from bibleit.history import HistoryEntry, SessionHistory
+from bibleit.live_publisher import LivePublisher, running_in_browser
+from bibleit.navigation import (
+    NavigationState,
+    NavigationSuggester,
+    RowRef,
+    complete_navigation_value,
+    next_chapter_ref,
+    parse_navigation_ref,
+    previous_chapter_ref,
+    select_navigation_completion,
+    verse_reference_label,
+)
+from bibleit.text_search import TextSearchResult, search_translation_text
 
 
 import atexit
-import collections
 import inspect
-import json
-import os
 import re
 import asyncio
-import uuid
-import urllib.error
-import urllib.request
-import aiohttp
 
 from rich.markup import escape
-
-WEB_DRIVER = "textual.drivers.web_driver:WebDriver"
-
-
-def running_in_browser() -> bool:
-    return os.getenv("TEXTUAL_DRIVER") == WEB_DRIVER
-
-
-def live_publish_url() -> str:
-    host = os.getenv("BIBLEIT_SERVE_HOST") or "0.0.0.0"
-    port = os.getenv("BIBLEIT_SERVE_PORT") or "8000"
-    return (os.getenv("BIBLEIT_LIVE_URL") or os.getenv("BIBLEIT_SERVE_PUBLIC_URL") or f"http://{host}:{port}").rstrip(
-        "/"
-    )
-
-
-@dataclass(frozen=True)
-class RowRef:
-    bookid: int
-    chapter: int
-    verse: int
-
-
-@dataclass
-class NavigationState:
-    bookid: int = 1
-    chapter: int = 1
-    verse: int = 1
-    index: int = 0
-    live: bool = False
-
-
-def book_name_for(translation_: translation.Translation, bookid: int) -> str:
-    for chapter in translation_.header.chapters.values():
-        if chapter.bookid == bookid:
-            return chapter.name
-    return f"Book {bookid}"
-
-
-def verse_reference_label(
-    translation_: translation.Translation,
-    bookid: int,
-    chapter: int,
-    verse: int,
-) -> str:
-    return f"{book_name_for(translation_, bookid)} {chapter}:{verse}"
-
-
-def book_ids_for(translation_: translation.Translation) -> list[int]:
-    return sorted({chapter.bookid for chapter in translation_.header.chapters.values()})
-
-
-def chapter_count_for(translation_: translation.Translation, bookid: int) -> int | None:
-    for chapter in translation_.header.chapters.values():
-        if chapter.bookid == bookid:
-            return chapter.chapters
-    return None
-
-
-def next_chapter_ref(
-    translation_: translation.Translation,
-    state: NavigationState,
-) -> translation.TranslationRef | None:
-    chapter_count = chapter_count_for(translation_, state.bookid)
-    if chapter_count and state.chapter < chapter_count:
-        return translation.TranslationRef(state.bookid, state.chapter + 1, 1)
-
-    book_ids = book_ids_for(translation_)
-    next_books = [bookid for bookid in book_ids if bookid > state.bookid]
-    if next_books:
-        return translation.TranslationRef(next_books[0], 1, 1)
-
-    return None
-
-
-def previous_chapter_ref(
-    translation_: translation.Translation,
-    state: NavigationState,
-) -> translation.TranslationRef | None:
-    if state.chapter > 1:
-        return translation.TranslationRef(state.bookid, state.chapter - 1, 1)
-
-    book_ids = book_ids_for(translation_)
-    previous_books = [bookid for bookid in book_ids if bookid < state.bookid]
-    if previous_books:
-        bookid = previous_books[-1]
-        chapter_count = chapter_count_for(translation_, bookid) or 1
-        return translation.TranslationRef(bookid, chapter_count, 1)
-
-    return None
-
-
-def parse_navigation_ref(
-    value: str,
-    translation_: translation.Translation,
-    state: NavigationState,
-) -> translation.TranslationRef:
-    command = value.strip()
-    if command.startswith(":"):
-        command = command[1:].strip()
-
-    if match := re.fullmatch(r"[vV]\s*(\d+)", command):
-        return translation.TranslationRef(state.bookid, state.chapter, int(match.group(1)))
-
-    if match := re.fullmatch(r"[cC]\s*(\d+)", command):
-        return translation.TranslationRef(state.bookid, int(match.group(1)), 1)
-
-    if match := re.fullmatch(r"(\d+)", command):
-        return translation.TranslationRef(state.bookid, state.chapter, int(match.group(1)))
-
-    if match := re.fullmatch(r"(\d+)\s*[:.]\s*(\d+)", command):
-        return translation.TranslationRef(state.bookid, int(match.group(1)), int(match.group(2)))
-
-    if match := re.fullmatch(r"(.+?)\s+(\d+)(?:\s*[:.]\s*(\d+))?", command):
-        book_name, chapter, verse = match.groups()
-        bookid = translation_.resolve_bookid(book_name)
-        if not bookid:
-            raise ValueError(f"Book not found: {book_name}")
-        return translation.TranslationRef(bookid, int(chapter), int(verse or 1))
-
-    bookid = translation_.resolve_bookid(command)
-    if not bookid:
-        raise ValueError(f"Reference not found: {value}")
-    return translation.TranslationRef(bookid, 1, 1)
-
-
-def navigation_book_names(translation_: translation.Translation) -> list[str]:
-    chapters = sorted(
-        translation_.header.chapters.values(),
-        key=lambda chapter: chapter.bookid,
-    )
-    names: list[str] = []
-    seen = set()
-    for chapter in chapters:
-        if chapter.bookid in seen:
-            continue
-        names.append(chapter.name)
-        seen.add(chapter.bookid)
-    return names
-
-
-def _navigation_book_part(value: str) -> tuple[str, str, str] | None:
-    command = value.strip()
-    if command.startswith(":"):
-        command = command[1:].lstrip()
-
-    if re.match(r"^([vVcC]\s*)?\d", command):
-        return None
-
-    if not command:
-        return "", "", ""
-
-    match = re.match(r"^(?P<book>.*?)(?P<tail>\s+\d.*)?$", command)
-    if not match:
-        return None
-
-    book = match.group("book").rstrip()
-    tail = command[len(book) :]
-    return "", book, tail
-
-
-def _normalized_book_name(value: str) -> str:
-    return unidecode(value).strip().lower()
-
-
-def _book_candidates(book: str, names: Sequence[str]) -> list[str]:
-    normalized = _normalized_book_name(book)
-    if not normalized:
-        return list(names)
-
-    normalized_names = [(name, _normalized_book_name(name)) for name in names]
-
-    prefix_matches = [name for name, normalized_name in normalized_names if normalized_name.startswith(normalized)]
-    if prefix_matches:
-        return prefix_matches
-
-    contains_matches = [name for name, normalized_name in normalized_names if normalized in normalized_name]
-    if contains_matches:
-        return contains_matches
-
-    scored = process.extract(
-        normalized,
-        names,
-        processor=_normalized_book_name,
-        scorer=fuzz.WRatio,
-        score_cutoff=68,
-        limit=8,
-    )
-    return [name for name, _, _ in scored]
-
-
-def navigation_completion_candidates(
-    value: str,
-    translation_: translation.Translation,
-) -> list[str]:
-    parts = _navigation_book_part(value)
-    if parts is None:
-        return []
-
-    _, book, _ = parts
-    names = navigation_book_names(translation_)
-
-    return _book_candidates(book, names)
-
-
-def navigation_suggestion_value(
-    value: str,
-    translation_: translation.Translation,
-) -> str | None:
-    parts = _navigation_book_part(value)
-    if parts is None:
-        return None
-
-    _, book, tail = parts
-    if not book.strip():
-        return None
-
-    candidates = navigation_completion_candidates(value, translation_)
-    if not candidates:
-        return None
-
-    candidate = candidates[0]
-    normalized_book = _normalized_book_name(book)
-    normalized_candidate = _normalized_book_name(candidate)
-
-    if not normalized_candidate.startswith(normalized_book):
-        return None
-
-    if tail and normalized_book != normalized_candidate:
-        return None
-
-    suffix = candidate[len(book) :]
-    separator = "" if tail else " "
-    return f"{book}{suffix}{tail}{separator}"
-
-
-def _common_prefix(values: Sequence[str]) -> str:
-    if not values:
-        return ""
-
-    prefix = values[0]
-    for value in values[1:]:
-        limit = min(len(prefix), len(value))
-        index = 0
-        while index < limit and prefix[index].lower() == value[index].lower():
-            index += 1
-        prefix = prefix[:index]
-        if not prefix:
-            break
-    return prefix
-
-
-def complete_navigation_value(
-    value: str,
-    translation_: translation.Translation,
-) -> tuple[str, list[str], bool]:
-    parts = _navigation_book_part(value)
-    if parts is None:
-        return value, [], False
-
-    _, book, tail = parts
-    candidates = navigation_completion_candidates(value, translation_)
-    if not candidates:
-        return value, [], False
-
-    if len(candidates) == 1:
-        separator = "" if tail else " "
-        return f"{candidates[0]}{tail}{separator}", candidates, True
-
-    common = _common_prefix(candidates)
-    if len(common) > len(book):
-        return f"{common}{tail}", candidates, True
-
-    return value, candidates, False
-
-
-def select_navigation_completion(value: str, completion: str) -> str:
-    parts = _navigation_book_part(value)
-    if parts is None:
-        return value
-
-    _, _, tail = parts
-    separator = "" if tail else " "
-    return f"{completion}{tail}{separator}"
-
-
-class NavigationSuggester(Suggester):
-    def __init__(self, translation_getter: Callable[[], translation.Translation | None]):
-        super().__init__(use_cache=False, case_sensitive=True)
-        self.translation_getter = translation_getter
-
-    async def get_suggestion(self, value: str) -> str | None:
-        translation_ = self.translation_getter()
-        if translation_ is None:
-            return None
-
-        return navigation_suggestion_value(value, translation_)
-
-
-@dataclass(frozen=True)
-class HistoryEntry:
-    bookid: int
-    chapter: int
-    verse: int
-    label: str
-
-    @property
-    def key(self) -> tuple[int, int, int]:
-        return (self.bookid, self.chapter, self.verse)
-
-    def as_ref(self) -> translation.TranslationRef:
-        return translation.TranslationRef(self.bookid, self.chapter, self.verse)
-
-
-@dataclass(frozen=True)
-class TextSearchResult:
-    ref: translation.TranslationRef
-    label: str
-    text: str
-
-
-def decode_translation_value(value) -> str:
-    if isinstance(value, str):
-        return value
-
-    return value.memoryview().tobytes().decode("utf-8", "replace")
-
-
-def clean_verse_text(value: str) -> str:
-    value = unescape(value)
-    value = re.sub(r"<S>.*?</S>", "", value, flags=re.IGNORECASE | re.DOTALL)
-    value = re.sub(r"<br\s*/?>", " ", value, flags=re.IGNORECASE)
-    value = re.sub(r"<[^>]+>", "", value)
-    return re.sub(r"\s+", " ", value).strip()
-
-
-def parse_search_result(
-    translation_: translation.Translation,
-    value: str,
-) -> TextSearchResult | None:
-    text = clean_verse_text(value)
-    match = re.match(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+(?P<verse_text>.*)$", text)
-    if not match:
-        return None
-
-    bookid = translation_.resolve_bookid(match.group("book"))
-    if not bookid:
-        return None
-
-    chapter = int(match.group("chapter"))
-    verse = int(match.group("verse"))
-    return TextSearchResult(
-        ref=translation.TranslationRef(bookid, chapter, verse),
-        label=f"{match.group('book')} {chapter}:{verse}",
-        text=match.group("verse_text"),
-    )
-
-
-def search_translation_text(
-    translation_: translation.Translation,
-    query: str,
-    *,
-    limit: int = 100,
-) -> list[TextSearchResult]:
-    normalized_query = unidecode(query).casefold().strip()
-    if not normalized_query:
-        return []
-
-    results: list[TextSearchResult] = []
-    for bookid in book_ids_for(translation_):
-        cursor = translation_.read(translation.TranslationRef(bookid))
-
-        while value := cursor.next():
-            result = parse_search_result(translation_, decode_translation_value(value))
-            if result is None:
-                continue
-
-            searchable = unidecode(f"{result.label} {result.text}").casefold()
-            if normalized_query in searchable:
-                results.append(result)
-
-                if len(results) >= limit:
-                    return results
-
-    return results
-
-
-class SessionHistory:
-    MAX_ENTRIES = 500
-    MIN_FUZZY_SCORE = 65
-
-    def __init__(self) -> None:
-        self._entries: collections.OrderedDict[tuple[int, int, int], HistoryEntry] = collections.OrderedDict()
-
-    def record(self, entry: HistoryEntry) -> None:
-        if entry.key in self._entries:
-            del self._entries[entry.key]
-        self._entries[entry.key] = entry
-        while len(self._entries) > self.MAX_ENTRIES:
-            self._entries.popitem(last=False)
-
-    def entries(self, query: str = "") -> list[HistoryEntry]:
-        ordered = list(reversed(self._entries.values()))
-        normalized = unidecode(query.strip().lower())
-        if not normalized:
-            return ordered
-
-        labels = [unidecode(entry.label.lower()) for entry in ordered]
-        matches = process.extract(
-            normalized,
-            labels,
-            scorer=fuzz.WRatio,
-            score_cutoff=self.MIN_FUZZY_SCORE,
-            limit=len(ordered),
-        )
-        label_to_entry = dict(zip(labels, ordered))
-        return [label_to_entry[match[0]] for match in matches]
 
 
 class HistoryPane(Vertical):
@@ -628,115 +213,6 @@ class HistoryPane(Vertical):
         self.app.query_exactly_one(BibleView).focus()
 
 
-class LivePublisher:
-    def __init__(self):
-        self.url = live_publish_url()
-        self.timeout = float(os.getenv("BIBLEIT_LIVE_TIMEOUT", "0.5"))
-        self.token = os.getenv("BIBLEIT_LIVE_TOKEN")
-        self.publisher_id = uuid.uuid4().hex
-        self.sequence = 0
-
-    @property
-    def enabled(self) -> bool:
-        return bool(self.url)
-
-    def verse_payload(self, value: str, translation_slug: str) -> dict | None:
-        if not self.enabled:
-            return None
-
-        verses = self._parse_verses([(translation_slug, value)])
-
-        if not verses:
-            return None
-
-        self.sequence += 1
-        primary = verses[0]
-        return primary | {
-            "translations": verses,
-            "publisher_id": self.publisher_id,
-            "sequence": self.sequence,
-        }
-
-    def bundle_payload(self, values: Sequence[tuple[str, str]]) -> dict | None:
-        if not self.enabled:
-            return None
-
-        verses = self._parse_verses(values)
-
-        if not verses:
-            return None
-
-        self.sequence += 1
-        primary = verses[0]
-        return primary | {
-            "translations": verses,
-            "publisher_id": self.publisher_id,
-            "sequence": self.sequence,
-        }
-
-    def _parse_verses(self, values: Sequence[tuple[str, str]]) -> list[dict]:
-        verses = []
-
-        for translation_slug, value in values:
-            verse = parse_verse_line(translation_slug, value)
-
-            if verse is not None:
-                verses.append(verse.to_payload())
-
-        return verses
-
-    async def publish_payload(self, payload: dict) -> bool:
-        if not self.enabled:
-            return False
-
-        return await self._post("/api/publish", payload)
-
-    async def set_live(self, live: bool) -> None:
-        if not self.enabled:
-            return
-
-        await self._post("/api/live", {"live": live})
-
-    def set_live_blocking(self, live: bool) -> bool:
-        if not self.enabled:
-            return False
-
-        payload = json.dumps({"live": live}).encode("utf-8")
-        request = urllib.request.Request(
-            f"{self.url}/api/live",
-            data=payload,
-            headers=self._headers(),
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                return 200 <= response.status < 300
-        except (OSError, TimeoutError, urllib.error.URLError):
-            return False
-
-    async def _post(self, path: str, payload: dict) -> bool:
-        try:
-            timeout = aiohttp.ClientTimeout(total=self.timeout)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    f"{self.url}{path}",
-                    json=payload,
-                    headers=self._headers(),
-                ) as response:
-                    return 200 <= response.status < 300
-        except (aiohttp.ClientError, asyncio.TimeoutError):
-            return False
-
-    def _headers(self) -> dict[str, str]:
-        headers = {"Content-Type": "application/json"}
-
-        if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
-
-        return headers
-
-
 class StatusBar(Horizontal):
     can_focus = False
     can_focus_children = True
@@ -759,7 +235,7 @@ class StatusBar(Horizontal):
         yield Static(id="status-left")
         yield Static("[#8d8478]?[/] Help", id="status-help")
         yield Input(
-            placeholder="Go to verse: Dan 9:2",
+            placeholder="Go to",
             suggester=NavigationSuggester(self._active_translation),
             id="status-command",
         )
@@ -1363,7 +839,7 @@ class ShortcutsScreen(Screen):
         ("Ctrl+E", "End of current chapter"),
         ("Ctrl+<", "Previous chapter"),
         ("Ctrl+>", "Next chapter"),
-        ("g", "Go to verse"),
+        ("g", "Go to"),
         ("Tab", "Cycle go-to matches"),
         ("Enter", "Select match or navigate"),
         ("Ctrl+T", "Translations"),
@@ -1923,8 +1399,8 @@ class BibleView(Horizontal):
         ("ctrl+e", "chapter_end", "Chapter End"),
         ("ctrl+<", "previous_chapter", "Previous Chapter"),
         ("ctrl+>", "next_chapter", "Next Chapter"),
-        ("g", "open_reference", "Go To Verse"),
-        (":", "open_reference", "Go To Verse"),
+        ("g", "open_reference", "Go To"),
+        (":", "open_reference", "Go To"),
         ("?", "show_shortcuts", "Shortcuts"),
         ("f2", "toggle_layout", "Toggle Layout"),
     ]

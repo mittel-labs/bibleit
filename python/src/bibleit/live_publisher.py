@@ -10,8 +10,8 @@ from typing import Sequence
 
 import aiohttp
 
+from bibleit.config import config_value
 from bibleit.live import parse_verse_line
-
 
 WEB_DRIVER = "textual.drivers.web_driver:WebDriver"
 
@@ -23,24 +23,25 @@ def running_in_browser() -> bool:
 def live_publish_url() -> str:
     host = os.getenv("BIBLEIT_SERVE_HOST") or "0.0.0.0"
     port = os.getenv("BIBLEIT_SERVE_PORT") or "8000"
-    return (
-        os.getenv("BIBLEIT_LIVE_URL")
-        or os.getenv("BIBLEIT_SERVE_PUBLIC_URL")
-        or f"http://{host}:{port}"
-    ).rstrip("/")
+    return (config_value("LIVE_URL") or os.getenv("BIBLEIT_SERVE_PUBLIC_URL") or f"http://{host}:{port}").rstrip("/")
 
 
 class LivePublisher:
     def __init__(self):
         self.url = live_publish_url()
         self.timeout = float(os.getenv("BIBLEIT_LIVE_TIMEOUT", "0.5"))
-        self.token = os.getenv("BIBLEIT_LIVE_TOKEN")
+        self.token = config_value("LIVE_TOKEN")
         self.publisher_id = uuid.uuid4().hex
         self.sequence = 0
 
     @property
     def enabled(self) -> bool:
+        self.refresh_config()
         return bool(self.url)
+
+    def refresh_config(self) -> None:
+        self.url = live_publish_url()
+        self.token = config_value("LIVE_TOKEN")
 
     def verse_payload(self, value: str, translation_slug: str) -> dict | None:
         if not self.enabled:

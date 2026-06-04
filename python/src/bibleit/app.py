@@ -3,7 +3,7 @@ from __future__ import annotations
 from textual.app import App
 from textual.containers import Container, Horizontal, Vertical
 from textual.binding import Binding
-from textual.widgets import ListView, ListItem, Input, Tree, Footer, Label, Static, Button
+from textual.widgets import ListView, ListItem, Input, Tree, Footer, Label, Static, Button, Switch
 from textual.screen import Screen
 from textual.message import Message
 from textual.reactive import reactive
@@ -12,6 +12,7 @@ from typing import Iterable, Sequence
 from html import unescape
 
 from bibleit import translation
+from bibleit.config import config_path, env_overrides, load_config, save_config, theme_is_dark
 from bibleit.history import HistoryEntry, SessionHistory
 from bibleit.live_publisher import LivePublisher, running_in_browser
 from bibleit.navigation import (
@@ -19,13 +20,14 @@ from bibleit.navigation import (
     NavigationSuggester,
     RowRef,
     complete_navigation_value,
+    navigation_completion_candidates,
     next_chapter_ref,
     parse_navigation_ref,
     previous_chapter_ref,
     select_navigation_completion,
     verse_reference_label,
 )
-from bibleit.text_find import TextFindIndex, TextFindResult
+from bibleit.text_find import TextFindResult, cached_find_index
 
 
 import atexit
@@ -244,6 +246,7 @@ class StatusBar(Horizontal):
             yield Button("Find", id="action-find")
             yield Button("Translations", id="action-translations")
             yield Button("Strongs", id="action-strongs")
+            yield Button("Config", id="action-config")
             yield Button("Live", id="action-live")
 
     def watch_translations(self):
@@ -301,8 +304,10 @@ class StatusBar(Horizontal):
         self.query_one("#status-left", Static).update(left)
 
         strongs_button = self.query_one("#action-strongs", Button)
+        config_button = self.query_one("#action-config", Button)
         live_button = self.query_one("#action-live", Button)
         strongs_button.set_class(self.strongs, "active")
+        config_button.display = not running_in_browser()
         live_button.set_class(self.live, "active")
         live_button.disabled = running_in_browser()
 
@@ -314,6 +319,7 @@ class StatusBar(Horizontal):
             "action-find": bible_view.action_open_find,
             "action-translations": bible_view.action_open_translations,
             "action-strongs": bible_view.action_toggle_strongs,
+            "action-config": bible_view.action_open_config,
             "action-live": bible_view.action_toggle_live,
         }
 
@@ -349,7 +355,7 @@ class StatusBar(Horizontal):
     def _active_translation(self) -> translation.Translation | None:
         bible_view = self.app.query_exactly_one(BibleView)
         view = bible_view.focused_view() or (bible_view.views[0] if bible_view.views else None)
-        return view.translation if view else None
+        return view.translation if view is not None else None
 
     def _set_command_value(self, value: str) -> None:
         command = self.query_one("#status-command", Input)
@@ -375,6 +381,16 @@ class StatusBar(Horizontal):
         self._completion_index = 0
         self.query_one("#status-command-completions", Static).update("")
         self.completions_open = False
+
+    def cycle_completion(self, direction: int) -> bool:
+        if not self.completions_open or not self._completion_matches:
+            return False
+
+        self._show_completions(
+            self._completion_matches,
+            self._completion_index + direction,
+        )
+        return True
 
     def clear_command_text(self) -> None:
         command = self.query_one("#status-command", Input)
@@ -420,16 +436,34 @@ class StatusBar(Horizontal):
         self._hide_completions()
         return True
 
+    def refresh_command_completions(self) -> None:
+        translation_ = self._active_translation()
+        if translation_ is None:
+            self._hide_completions()
+            return
+
+        command = self.query_one("#status-command", Input)
+        if not command.value.strip():
+            self._hide_completions()
+            return
+
+        completions = navigation_completion_candidates(command.value, translation_)
+        if completions:
+            index = self._completion_index if self._completion_matches == list(completions) else 0
+            self._show_completions(completions, index)
+        else:
+            self._hide_completions()
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id != "status-command":
             return
 
         event.stop()
-        if self.select_completion():
-            return
+        self.select_completion()
 
         bible_view = self.app.query_exactly_one(BibleView)
-        if bible_view.go_to_command(event.value):
+        command = self.query_one("#status-command", Input)
+        if bible_view.go_to_command(command.value):
             self.close_command()
 
     def on_key(self, event: events.Key) -> None:
@@ -446,10 +480,13 @@ class StatusBar(Horizontal):
         elif event.key == "tab":
             event.stop()
             self.complete_command()
+        elif event.key in ("left", "right") and self.completions_open:
+            event.stop()
+            self.cycle_completion(-1 if event.key == "left" else 1)
 
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "status-command" and not self._completing:
-            self._hide_completions()
+            self.refresh_command_completions()
 
 
 class Find(Screen):
@@ -458,10 +495,8 @@ class Find(Screen):
         Binding("enter", "open_selected", "Open", priority=True),
         Binding("down", "focus_results", "Results", priority=True, show=False),
         Binding("up", "focus_input_from_results", "Find", priority=True, show=False),
-        Binding("tab", "focus_results", "Results", show=True),
-        Binding("shift+tab", "focus_input", "Find", show=True),
-        Binding("ctrl+tab", "next_translation", "Toggle Translation", show=True),
-        Binding("ctrl+n", "next_translation", "Toggle Translation", show=True),
+        Binding("left", "previous_translation", "Previous translation", priority=True, show=False),
+        Binding("right", "next_translation", "Next translation", priority=True, show=False),
     ]
 
     def __init__(
@@ -477,11 +512,10 @@ class Find(Screen):
             self.views.insert(0, self.view)
         self.view_index = self.views.index(self.view)
         self.input = Input(placeholder="Find words or phrases…", id="text-find-input")
-        self.indexes: dict[str, TextFindIndex] = {}
-        self.index = self._index_for(self.view)
         self.results: list[TextFindResult] = []
 
     def on_mount(self):
+        self._refresh_translation_buttons()
         self.input.focus()
 
     def compose(self):
@@ -492,6 +526,13 @@ class Find(Screen):
                 id="find-caption",
                 markup=True,
             )
+            with Horizontal(id="find-translations"):
+                for view in self.views:
+                    yield Button(
+                        view.translation.slug,
+                        name=view.translation.slug,
+                        classes="find-translation",
+                    )
             yield self.input
             yield Static("Type a word or phrase to find verse text.", id="find-summary")
             yield ListView(id="text-find-results")
@@ -501,10 +542,6 @@ class Find(Screen):
             return self.app.focused is self.input and bool(self._result_list().children)
         if action == "focus_input_from_results":
             return self._result_list_focused_at_first_item()
-        if action == "focus_input":
-            return self.app.focused is not self.input
-        if action == "next_translation":
-            return len(self.views) > 1
         return True
 
     def _caption(self) -> str:
@@ -518,22 +555,40 @@ class Find(Screen):
         result_list = self._result_list()
         return self.app.focused is result_list and result_list.index in (None, 0)
 
-    def _index_for(self, view: View) -> TextFindIndex:
-        slug = view.translation.slug
-        if slug not in self.indexes:
-            self.indexes[slug] = TextFindIndex.build(view.translation)
-        return self.indexes[slug]
-
     def action_focus_results(self) -> None:
         result_list = self._result_list()
         if result_list.children:
             result_list.index = 0
         result_list.focus()
 
-    def action_focus_input(self) -> None:
+    def action_focus_input_from_results(self) -> None:
         self.input.focus()
 
-    def action_focus_input_from_results(self) -> None:
+    def action_previous_translation(self) -> None:
+        self._switch_translation(-1)
+
+    def action_next_translation(self) -> None:
+        self._switch_translation(1)
+
+    def _refresh_translation_buttons(self) -> None:
+        for button in self.query(".find-translation").results(Button):
+            button.set_class(button.name == self.view.translation.slug, "active")
+
+    def _select_translation(self, slug: str | None) -> None:
+        if not slug:
+            return
+
+        for index, view in enumerate(self.views):
+            if view.translation.slug == slug:
+                self.view_index = index
+                self.view = view
+                break
+        else:
+            return
+
+        self.query_one("#find-caption", Label).update(self._caption())
+        self._refresh_translation_buttons()
+        self._refresh_results()
         self.input.focus()
 
     def _switch_translation(self, direction: int) -> None:
@@ -542,13 +597,10 @@ class Find(Screen):
 
         self.view_index = (self.view_index + direction) % len(self.views)
         self.view = self.views[self.view_index]
-        self.index = self._index_for(self.view)
         self.query_one("#find-caption", Label).update(self._caption())
+        self._refresh_translation_buttons()
         self._refresh_results()
         self.input.focus()
-
-    def action_next_translation(self) -> None:
-        self._switch_translation(1)
 
     def _refresh_results(self) -> None:
         query = self.input.value.strip()
@@ -556,11 +608,12 @@ class Find(Screen):
         summary = self.query_one("#find-summary", Static)
         result_list.clear()
 
-        self.results = self.index.find(query)
         if not query:
+            self.results = []
             summary.update("Type a word or phrase to find verse text.")
             return
 
+        self.results = cached_find_index(self.view.translation).find(query)
         if not self.results:
             summary.update(f"No results for [bold]{escape(query)}[/]")
             return
@@ -599,6 +652,11 @@ class Find(Screen):
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input is self.input:
             self._refresh_results()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.has_class("find-translation"):
+            event.stop()
+            self._select_translation(event.button.name)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input is not self.input:
@@ -762,6 +820,84 @@ class Translations(Screen):
         self._activate_node(event.node)
 
 
+class ConfigScreen(Screen):
+    TEXT_CONFIGS = ("LIVE_TOKEN", "LIVE_URL")
+
+    BINDINGS = [
+        ("escape", "close", "Close"),
+        ("ctrl+s", "save", "Save"),
+    ]
+
+    def compose(self):
+        values = load_config()
+        overrides = env_overrides()
+
+        with Container(id="config-panel"):
+            yield Label("Config", id="config-title")
+            yield Label(f"Stored in {config_path()}", id="config-path")
+
+            yield Label("Theme", classes="config-label")
+            with Horizontal(id="config-theme-row"):
+                yield Label("Dark mode", id="config-theme-label")
+                yield Switch(value=theme_is_dark(), id="config-theme-dark")
+
+            if "THEME" in overrides:
+                yield Label(
+                    "BIBLEIT_THEME is set and will take precedence.",
+                    classes="config-note",
+                )
+
+            for name in self.TEXT_CONFIGS:
+                yield Label(name, classes="config-label")
+                input_ = Input(
+                    value=values.get(name, ""),
+                    placeholder=f"BIBLEIT_{name}",
+                    id=f"config-{name.lower().replace('_', '-')}",
+                )
+                if name == "LIVE_TOKEN":
+                    input_.password = True
+                yield input_
+
+                if name in overrides:
+                    yield Label(
+                        f"BIBLEIT_{name} is set and will take precedence.",
+                        classes="config-note",
+                    )
+
+            with Horizontal(id="config-actions"):
+                yield Button("Save", id="config-save")
+                yield Button("Close", id="config-close")
+
+    def _values(self) -> dict[str, str]:
+        values = {
+            name: self.query_one(f"#config-{name.lower().replace('_', '-')}", Input).value for name in self.TEXT_CONFIGS
+        }
+        values["THEME"] = "dark" if self.query_one("#config-theme-dark", Switch).value else "light"
+        return values
+
+    def action_save(self) -> None:
+        values = self._values()
+        save_config(values)
+        self.app.apply_theme(theme_is_dark())
+        self.notify("Config saved", title=str(config_path()), timeout=3)
+
+    def action_close(self) -> None:
+        self.app.apply_theme(theme_is_dark())
+        self.app.pop_screen()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "config-save":
+            event.stop()
+            self.action_save()
+        elif event.button.id == "config-close":
+            event.stop()
+            self.action_close()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        event.stop()
+        self.action_save()
+
+
 class StrongScreen(Screen):
     HTML_TAG_RE = re.compile(r"<[^>]+>")
     STRONG_LINK_RE = re.compile(
@@ -873,7 +1009,20 @@ class StrongScreen(Screen):
             )
 
 
-class ShortcutsScreen(Screen):
+class OverlayStatusMixin:
+    def _refresh_status(self) -> None:
+        try:
+            bible_view = self.app.query_exactly_one(BibleView)
+            status = self.query_exactly_one(StatusBar)
+        except Exception:
+            return
+
+        status.translations = [view.translation.slug for view in bible_view.views]
+        status.strongs = any(view.show_strongs for view in bible_view.views)
+        status.live = bible_view.state.live
+
+
+class ShortcutsScreen(OverlayStatusMixin, Screen):
     BINDINGS = [
         ("escape", "app.pop_screen", "Close"),
         ("?", "app.pop_screen", "Close"),
@@ -890,8 +1039,8 @@ class ShortcutsScreen(Screen):
         ("Enter", "Select match or navigate"),
         ("Ctrl+T", "Translations"),
         ("Ctrl+F", "Find text"),
-        ("Ctrl+Tab / Ctrl+N", "Toggle find translation"),
         ("Ctrl+G", "Strongs"),
+        ("Ctrl+P", "Config"),
         ("Ctrl+D", "Toggle theme"),
         ("Ctrl+W", "Close pane"),
         ("F2", "Toggle split layout"),
@@ -900,6 +1049,13 @@ class ShortcutsScreen(Screen):
         ("Esc", "Close / clear"),
     ]
 
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        self.app.pop_screen()
+
+    def on_mount(self) -> None:
+        self._refresh_status()
+
     def compose(self):
         with Container():
             yield Label("Shortcuts", id="shortcuts-title")
@@ -907,6 +1063,73 @@ class ShortcutsScreen(Screen):
                 with Horizontal(classes="shortcut-row"):
                     yield Label(key, classes="shortcut-key")
                     yield Label(description, classes="shortcut-description")
+        yield StatusBar()
+
+
+class WelcomeScreen(OverlayStatusMixin, Screen):
+    def on_click(self, event: events.Click) -> None:
+        event.stop()
+        self.app.pop_screen()
+
+    def on_key(self, event: events.Key) -> None:
+        event.stop()
+        key = event.key
+        character = event.character
+
+        self.app.pop_screen()
+
+        def dispatch(action):
+            bible_view = self.app.query_exactly_one(BibleView)
+            action(bible_view)
+
+        actions = {
+            "?": lambda view: view.action_show_shortcuts(),
+            "question_mark": lambda view: view.action_show_shortcuts(),
+            "ctrl+t": lambda view: view.action_open_translations(),
+            "ctrl+f": lambda view: view.action_open_find(),
+            "ctrl+g": lambda view: view.action_toggle_strongs(),
+            "ctrl+l": lambda view: view.action_toggle_live(),
+            "ctrl+p": lambda view: view.action_open_config(),
+            "ctrl+d": lambda view: self.app.action_toggle_theme(),
+            "g": lambda view: view.action_open_reference(),
+            "G": lambda view: view.action_open_reference(),
+            ":": lambda view: view.action_open_reference(),
+            "up": lambda view: self.app.run_worker(view.action_previous_verse(), exit_on_error=False),
+            "down": lambda view: self.app.run_worker(view.action_next_verse(), exit_on_error=False),
+            "<": lambda view: view.action_previous_chapter(),
+            ">": lambda view: view.action_next_chapter(),
+            "ctrl+a": lambda view: view.action_chapter_start(),
+            "ctrl+e": lambda view: view.action_chapter_end(),
+            "f2": lambda view: view.action_toggle_layout(),
+        }
+
+        action = actions.get(key) or actions.get(character)
+        if action is not None:
+            self.app.call_after_refresh(dispatch, action)
+
+    def on_mount(self) -> None:
+        self._refresh_status()
+
+    def compose(self):
+        with Container():
+            yield Label("bibleit", id="welcome-title")
+            yield Label("interactive Bible reading", id="welcome-subtitle")
+            yield Label(
+                "Open translations, move through Scripture, and share live verses.",
+                id="welcome-description",
+            )
+            for key, description in [
+                ("↑ / ↓", "Previous / next verse"),
+                ("g", "Go to book, chapter, or verse"),
+                ("Ctrl+F", "Find text in the current translation"),
+                ("Ctrl+T", "Open translations"),
+                ("Ctrl+L", "Toggle live mode"),
+                ("?", "Show all shortcuts"),
+            ]:
+                with Horizontal(classes="welcome-row"):
+                    yield Label(key, classes="welcome-key")
+                    yield Label(description, classes="welcome-row-description")
+        yield StatusBar()
 
 
 class View(ListView):
@@ -943,6 +1166,7 @@ class View(ListView):
         self._pending_live_publish: dict | None = None
         self._live_publish_running = False
         self._pointer_down_y: int | None = None
+        self._cursor_move_lock = asyncio.Lock()
 
     def _select_first(self):
         if self.children:
@@ -1263,6 +1487,19 @@ class View(ListView):
     def _force_highlight_row_after_refresh(self, row: ListItem) -> None:
         self.call_after_refresh(self._force_highlight_row, row)
 
+    def _valid_index(self) -> int | None:
+        if not self.children:
+            self.index = None
+            return None
+
+        if self.index is None:
+            return None
+
+        index = min(max(self.index, 0), len(self.children) - 1)
+        if index != self.index:
+            self.index = index
+        return index
+
     def _strong_prefix(self, bookid: int) -> str:
         return "H" if bookid <= 39 else "G"
 
@@ -1280,44 +1517,54 @@ class View(ListView):
         self.call_after_refresh(self._select_first)
 
     async def _move_cursor_down(self) -> None:
-        if not self.children:
-            return
-
-        self.focus()
-
-        if self.index is None:
-            self.index = 0
-            return
-
-        if self.index == len(self.children) - 1:
-            row = self._next_row()
-            if row is None:
+        async with self._cursor_move_lock:
+            if not self.children:
                 return
-            await self.append(row)
-            self._force_highlight_row_after_refresh(row)
-            return
 
-        self.action_cursor_down()
+            self.focus()
+
+            index = self._valid_index()
+            if index is None:
+                self.index = 0
+                return
+
+            if index == len(self.children) - 1:
+                row = self._next_row()
+                if row is None:
+                    return
+                await self.append(row)
+                self._force_highlight_row_after_refresh(row)
+                return
+
+            try:
+                self.action_cursor_down()
+            except IndexError:
+                self._force_highlight(min(index, len(self.children) - 1))
 
     async def _move_cursor_up(self) -> None:
-        if not self.children:
-            return
-
-        self.focus()
-
-        if self.index is None:
-            self.index = len(self.children) - 1
-            return
-
-        if self.index == 0:
-            row = self._previous_row()
-            if row is None:
+        async with self._cursor_move_lock:
+            if not self.children:
                 return
-            await self.insert(0, [row])
-            self._force_highlight_row_after_refresh(row)
-            return
 
-        self.action_cursor_up()
+            self.focus()
+
+            index = self._valid_index()
+            if index is None:
+                self.index = len(self.children) - 1
+                return
+
+            if index == 0:
+                row = self._previous_row()
+                if row is None:
+                    return
+                await self.insert(0, [row])
+                self._force_highlight_row_after_refresh(row)
+                return
+
+            try:
+                self.action_cursor_up()
+            except IndexError:
+                self._force_highlight(min(index, len(self.children) - 1))
 
     async def on_key(self, event: events.Key):
         if event.key == "down":
@@ -1347,7 +1594,11 @@ class View(ListView):
         if not running_in_browser():
             self.focus()
 
-        self.index = self._nodes.index(event.item)
+        try:
+            self.index = self._nodes.index(event.item)
+        except ValueError:
+            return
+
         self.post_message(self.Selected(self, event.item, self.index))
 
     async def on_mouse_up(self, event: events.MouseUp) -> None:
@@ -1441,6 +1692,7 @@ class BibleView(Horizontal):
         ("ctrl+t", "open_translations", "Translations"),
         ("ctrl+f", "open_find", "Find"),
         ("ctrl+g", "toggle_strongs", "Strongs"),
+        ("ctrl+p", "open_config", "Config"),
         ("ctrl+l", "toggle_live", "Live"),
         ("ctrl+w", "close_pane", "Close Pane"),
         ("ctrl+a", "chapter_start", "Chapter Start"),
@@ -1448,6 +1700,7 @@ class BibleView(Horizontal):
         ("<", "previous_chapter", "Previous Chapter"),
         (">", "next_chapter", "Next Chapter"),
         ("g", "open_reference", "Go To"),
+        ("G", "open_reference", "Go To"),
         (":", "open_reference", "Go To"),
         ("?", "show_shortcuts", "Shortcuts"),
         ("f2", "toggle_layout", "Toggle Layout"),
@@ -1575,6 +1828,12 @@ class BibleView(Horizontal):
 
         self.app.push_screen(Find(view, self.views))
 
+    def action_open_config(self):
+        if running_in_browser():
+            return
+
+        self.app.push_screen(ConfigScreen())
+
     async def action_previous_verse(self):
         view = self.focused_view() or (self.views[0] if self.views else None)
 
@@ -1686,6 +1945,8 @@ class BibleView(Horizontal):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "toggle_live" and running_in_browser():
             return False
+        if action == "open_config" and running_in_browser():
+            return False
         return True
 
     def disable_live_now(self) -> None:
@@ -1765,8 +2026,12 @@ class Bibleit(App):
 
     def __init__(self):
         super().__init__()
-        self.dark_theme = False
+        self.dark_theme = theme_is_dark()
         atexit.register(self._disable_live_on_shutdown)
+
+    def on_mount(self) -> None:
+        self.apply_theme(self.dark_theme)
+        self.push_screen(WelcomeScreen())
 
     def exit(self, *args, **kwargs) -> None:
         self._disable_live_on_shutdown()
@@ -1814,7 +2079,14 @@ class Bibleit(App):
         )
 
     def action_toggle_theme(self):
-        self.dark_theme = not self.dark_theme
+        self.apply_theme(not self.dark_theme)
+
+        if not running_in_browser():
+            save_config({"THEME": "dark" if self.dark_theme else "light"})
+
+    def apply_theme(self, dark: bool) -> None:
+        self.dark_theme = dark
+        self.theme = "textual-dark" if dark else "textual-light"
         self.set_class(self.dark_theme, "dark")
 
     def compose(self):

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import unittest
 from unittest.mock import patch
+from tempfile import TemporaryDirectory
 
 from aiohttp.test_utils import make_mocked_request
 
+from bibleit.config import save_config
 from bibleit.live import (
     HUB_KEY,
     TITLE_KEY,
@@ -64,6 +66,23 @@ class LiveVerseTest(unittest.TestCase):
     def test_control_requests_require_matching_bearer_token(self):
         with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}, clear=True):
             app = create_app("test live")
+
+        request = make_mocked_request(
+            "POST",
+            "/api/publish",
+            headers={"Authorization": "Bearer secret"},
+            app=app,
+        )
+
+        self.assertEqual(app[TOKEN_KEY], "secret")
+        self.assertTrue(request_is_authorized(request))
+
+    def test_control_requests_use_config_token(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_TOKEN": "secret"})
+                app = create_app("test live")
 
         request = make_mocked_request(
             "POST",

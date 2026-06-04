@@ -2,17 +2,27 @@ from __future__ import annotations
 
 import unittest
 from unittest.mock import patch
+from tempfile import TemporaryDirectory
+import asyncio
+
+from textual.widgets import ListItem, Switch
 
 try:
     from bibleit import translation
+    from bibleit.config import config_value, load_config, save_config, theme_is_dark, theme_value
     from bibleit.app import (
         BibleView,
+        Bibleit,
+        ConfigScreen,
         HistoryEntry,
         LivePublisher,
         NavigationState,
         RowRef,
         SessionHistory,
+        ShortcutsScreen,
+        StatusBar,
         View,
+        WelcomeScreen,
         running_in_browser,
     )
     from bibleit.navigation import (
@@ -24,7 +34,13 @@ try:
         previous_chapter_ref,
         select_navigation_completion,
     )
-    from bibleit.text_find import TextFindIndex, clean_verse_text, find_translation_text
+    from bibleit.text_find import (
+        TextFindIndex,
+        cached_find_index,
+        clean_verse_text,
+        clear_find_index_cache,
+        find_translation_text,
+    )
 except ModuleNotFoundError:
     raise
 
@@ -60,6 +76,13 @@ class FakeTranslation:
                     "First Letter of Paul to the Corinthians",
                     46,
                     16,
+                ),
+                "Primeira Carta de João": translation.TranslationChapter(
+                    62,
+                    62,
+                    "Primeira Carta de João",
+                    62,
+                    5,
                 ),
                 "Matthew": translation.TranslationChapter(40, 40, "Matthew", 40, 28),
             },
@@ -126,6 +149,25 @@ class FakeView:
         self.live = FakeLive()
 
 
+class FakeClickEvent:
+    def __init__(self, item):
+        self.item = item
+        self.stopped = False
+
+    def stop(self):
+        self.stopped = True
+
+
+class FakeInputEvent:
+    def __init__(self, input_id: str, value: str):
+        self.input = type("FakeInput", (), {"id": input_id})()
+        self.value = value
+        self.stopped = False
+
+    def stop(self):
+        self.stopped = True
+
+
 class BibleViewRowTests(unittest.TestCase):
     def make_view(self):
         return View(NavigationState(), FakeTranslation())
@@ -153,6 +195,25 @@ class BibleViewRowTests(unittest.TestCase):
         self.assertIn("@click=app.open_strong('H7225')", styled)
         self.assertIn("ᴴ7225", styled)
 
+    def test_valid_index_clamps_stale_index(self):
+        view = View(NavigationState(), FakeTranslation())
+        view._nodes._append(ListItem())
+        view._nodes._append(ListItem())
+        view.index = 24
+
+        self.assertEqual(view._valid_index(), 1)
+        self.assertEqual(view.index, 1)
+
+    def test_stale_row_click_is_ignored(self):
+        view = View(NavigationState(), FakeTranslation(), ListItem())
+        event = FakeClickEvent(ListItem())
+
+        with patch("bibleit.app.running_in_browser", return_value=True):
+            view._on_list_item__child_clicked(event)
+
+        self.assertTrue(event.stopped)
+        self.assertIsNone(view.index)
+
 
 class SessionHistoryTests(unittest.TestCase):
     def test_record_moves_existing_entry_to_front(self):
@@ -179,6 +240,7 @@ class SessionHistoryTests(unittest.TestCase):
 
 class TextFindTests(unittest.TestCase):
     def setUp(self):
+        clear_find_index_cache()
         self.translation = FakeTranslation()
 
     def test_clean_verse_text_removes_rendered_markup(self):
@@ -209,6 +271,28 @@ class TextFindTests(unittest.TestCase):
         )
         self.assertEqual([result.label for result in index.find("formless")], ["Genesis 1:2"])
         self.assertEqual(self.translation.read_calls, read_calls)
+
+    def test_find_index_cache_reuses_translation_index(self):
+        cached_find_index(self.translation)
+        read_calls = self.translation.read_calls
+
+        cached_find_index(self.translation)
+
+        self.assertEqual(self.translation.read_calls, read_calls)
+
+    def test_find_index_cache_evicts_oldest_index(self):
+        class OtherTranslation(FakeTranslation):
+            slug = "OTHER"
+
+        with patch.dict("os.environ", {"BIBLEIT_FIND_INDEX_CACHE_SIZE": "1"}):
+            cached_find_index(self.translation)
+            other = OtherTranslation()
+            cached_find_index(other)
+            read_calls = self.translation.read_calls
+
+            cached_find_index(self.translation)
+
+        self.assertGreater(self.translation.read_calls, read_calls)
 
 
 class NavigationCommandTests(unittest.TestCase):
@@ -337,9 +421,15 @@ class NavigationCommandTests(unittest.TestCase):
             navigation_suggestion_value("dani 2:3", self.translation),
         )
 
-    def test_book_suggestion_skips_contains_match(self):
+    def test_book_suggestion_skips_contains_match_with_unfinished_tail(self):
         self.assertIsNone(
             navigation_suggestion_value("cor 13:4", self.translation),
+        )
+
+    def test_book_suggestion_is_accent_insensitive(self):
+        self.assertEqual(
+            navigation_suggestion_value("joao", self.translation),
+            "Primeira Carta de João ",
         )
 
 
@@ -354,6 +444,262 @@ class BrowserModeTests(unittest.TestCase):
     def test_running_in_browser_is_false_without_web_driver(self):
         with patch.dict("os.environ", {}, clear=True):
             self.assertFalse(running_in_browser())
+
+
+class ConfigTests(unittest.TestCase):
+    def test_save_config_creates_toml_file(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config(
+                    {
+                        "LIVE_URL": "https://live.example",
+                        "LIVE_TOKEN": "secret",
+                    }
+                )
+
+                self.assertEqual(
+                    load_config(),
+                    {
+                        "LIVE_URL": "https://live.example",
+                        "LIVE_TOKEN": "secret",
+                    },
+                )
+
+    def test_save_config_skips_empty_values(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config(
+                    {
+                        "LIVE_URL": "https://live.example",
+                        "LIVE_TOKEN": "",
+                    }
+                )
+
+                self.assertEqual(load_config(), {"LIVE_URL": "https://live.example"})
+
+                with open(path, encoding="utf-8") as file:
+                    self.assertNotIn("LIVE_TOKEN", file.read())
+
+    def test_save_config_removes_existing_value_when_empty(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_TOKEN": "secret", "LIVE_URL": "https://live.example"})
+                save_config({"LIVE_TOKEN": ""})
+
+                self.assertEqual(load_config(), {"LIVE_URL": "https://live.example"})
+
+    def test_environment_value_takes_precedence_over_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_URL": "https://config.example"})
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_CONFIG_FILE": path,
+                    "BIBLEIT_LIVE_URL": "https://env.example",
+                },
+                clear=True,
+            ):
+                self.assertEqual(config_value("LIVE_URL"), "https://env.example")
+
+    def test_theme_is_loaded_from_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"THEME": "dark"})
+
+                self.assertEqual(theme_value(), "dark")
+                self.assertTrue(theme_is_dark())
+
+    def test_theme_env_takes_precedence_over_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"THEME": "light"})
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_CONFIG_FILE": path,
+                    "BIBLEIT_THEME": "dark",
+                },
+                clear=True,
+            ):
+                self.assertTrue(theme_is_dark())
+
+    def test_invalid_theme_falls_back_to_light(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"THEME": "sepia"})
+
+                self.assertEqual(theme_value(), "light")
+
+    def test_config_save_then_escape_keeps_saved_theme(self):
+        async def run():
+            with TemporaryDirectory() as temp:
+                path = f"{temp}/config"
+                with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                    save_config({"THEME": "light"})
+                    app = Bibleit()
+
+                    async with app.run_test() as pilot:
+                        app.push_screen(ConfigScreen())
+                        await pilot.pause()
+                        app.screen.query_one("#config-theme-dark", Switch).value = True
+                        await pilot.press("ctrl+s")
+                        await pilot.pause()
+                        await pilot.press("escape")
+                        await pilot.pause()
+
+                        self.assertTrue(app.dark_theme)
+                        self.assertTrue(app.has_class("dark"))
+                        self.assertEqual(app.theme, "textual-dark")
+
+        asyncio.run(run())
+
+    def test_shortcuts_screen_mounts_with_open_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                bible_view = app.query_exactly_one(BibleView)
+                view = View(NavigationState(), FakeTranslation())
+                view.show_strongs = True
+                bible_view.views.append(view)
+
+                app.push_screen(ShortcutsScreen())
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, ShortcutsScreen)
+
+        asyncio.run(run())
+
+    def test_welcome_forwards_shortcut(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, WelcomeScreen)
+
+                await pilot.press("?")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, ShortcutsScreen)
+
+        asyncio.run(run())
+
+    def test_uppercase_g_opens_go_to_command(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), FakeTranslation()))
+                bible_view.focus()
+                await pilot.pause()
+
+                await pilot.press("G")
+                await pilot.pause()
+
+                self.assertTrue(app.query_exactly_one(StatusBar).command_mode)
+
+        asyncio.run(run())
+
+    def test_go_to_completion_arrows_cycle_matches(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), AmbiguousFakeTranslation()))
+                status = app.query_exactly_one(StatusBar)
+                status.open_command()
+                status._set_command_value("Da")
+                await pilot.pause()
+
+                status._show_completions(["Daniel", "Darius"])
+
+                self.assertEqual(status._completion_matches, ["Daniel", "Darius"])
+                self.assertEqual(status._completion_index, 0)
+
+                await pilot.press("right")
+                await pilot.pause()
+                self.assertEqual(status._completion_index, 1)
+
+                await pilot.press("left")
+                await pilot.pause()
+                self.assertEqual(status._completion_index, 0)
+
+        asyncio.run(run())
+
+    def test_go_to_submit_uses_active_completion(self):
+        async def run():
+            app = Bibleit()
+            submitted = []
+
+            async with app.run_test():
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), AmbiguousFakeTranslation()))
+                bible_view.go_to_command = submitted.append
+                status = app.query_exactly_one(StatusBar)
+                status.open_command()
+                status._set_command_value("Da")
+                status._show_completions(["Daniel", "Darius"], 1)
+
+                status.on_input_submitted(FakeInputEvent("status-command", "Da"))
+
+                self.assertEqual(submitted, ["Darius "])
+
+        asyncio.run(run())
+
+    def test_go_to_typing_shows_completion_matches(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test():
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), FakeTranslation()))
+                status = app.query_exactly_one(StatusBar)
+                status.open_command()
+                status._set_command_value("joao")
+
+                status.on_input_changed(FakeInputEvent("status-command", "joao"))
+
+                self.assertEqual(status._completion_matches, ["Primeira Carta de João"])
+                self.assertEqual(status._completion_index, 0)
+
+        asyncio.run(run())
+
+    def test_browser_theme_toggle_does_not_save_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_CONFIG_FILE": path,
+                    "TEXTUAL_DRIVER": "textual.drivers.web_driver:WebDriver",
+                },
+                clear=True,
+            ):
+                save_config({"THEME": "light"})
+                app = Bibleit()
+
+                app.action_toggle_theme()
+
+                self.assertTrue(app.dark_theme)
+                self.assertEqual(load_config(), {"THEME": "light"})
 
 
 class LivePublisherTests(unittest.TestCase):
@@ -376,9 +722,37 @@ class LivePublisherTests(unittest.TestCase):
         ):
             self.assertEqual(LivePublisher().url, "https://live.example")
 
+    def test_live_url_uses_config_before_serve_public_url(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_URL": "https://config-live.example"})
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_CONFIG_FILE": path,
+                    "BIBLEIT_SERVE_PUBLIC_URL": "https://bibleit.mittel.site",
+                },
+                clear=True,
+            ):
+                self.assertEqual(LivePublisher().url, "https://config-live.example")
+
     def test_live_token_is_sent_as_bearer_header(self):
         with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}, clear=True):
             publisher = LivePublisher()
+
+            self.assertEqual(
+                publisher._headers()["Authorization"],
+                "Bearer secret",
+            )
+
+    def test_live_token_uses_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_TOKEN": "secret"})
+                publisher = LivePublisher()
 
             self.assertEqual(
                 publisher._headers()["Authorization"],

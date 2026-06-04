@@ -1,6 +1,6 @@
 [project]
 name = "bibleit"
-version = "0.2.1"
+version = "0.3.0"
 authors = [{ name = "Felipe Mamud", email = "trovatti@gmail.com" }]
 description = "Interactive Bible Reading"
 readme = "README.md"

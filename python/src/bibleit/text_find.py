@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from html import unescape
+from collections import OrderedDict
+import os
 import re
 
 from unidecode import unidecode
 
 from bibleit import translation
 from bibleit.navigation import book_ids_for
+
+DEFAULT_FIND_INDEX_CACHE_SIZE = 4
 
 
 @dataclass(frozen=True)
@@ -69,7 +73,7 @@ def find_translation_text(
     *,
     limit: int = 100,
 ) -> list[TextFindResult]:
-    return TextFindIndex.build(translation_).find(query, limit=limit)
+    return cached_find_index(translation_).find(query, limit=limit)
 
 
 class TextFindIndex:
@@ -103,3 +107,34 @@ class TextFindIndex:
                     break
 
         return results
+
+
+_INDEX_CACHE: OrderedDict[str, TextFindIndex] = OrderedDict()
+
+
+def cached_find_index(translation_: translation.Translation) -> TextFindIndex:
+    slug = translation_.slug
+    if slug in _INDEX_CACHE:
+        _INDEX_CACHE.move_to_end(slug)
+        return _INDEX_CACHE[slug]
+
+    index = TextFindIndex.build(translation_)
+    _INDEX_CACHE[slug] = index
+    _trim_index_cache()
+    return index
+
+
+def clear_find_index_cache() -> None:
+    _INDEX_CACHE.clear()
+
+
+def find_index_cache_size() -> int:
+    try:
+        return max(1, int(os.getenv("BIBLEIT_FIND_INDEX_CACHE_SIZE", DEFAULT_FIND_INDEX_CACHE_SIZE)))
+    except ValueError:
+        return DEFAULT_FIND_INDEX_CACHE_SIZE
+
+
+def _trim_index_cache() -> None:
+    while len(_INDEX_CACHE) > find_index_cache_size():
+        _INDEX_CACHE.popitem(last=False)

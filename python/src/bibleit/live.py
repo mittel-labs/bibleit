@@ -10,6 +10,8 @@ from importlib.resources import files
 
 from aiohttp import web
 
+from bibleit.config import config_value
+
 LIVE_APP_TITLE = "bibleit live"
 HTML_TAG_RE = re.compile(r"<[^>]+>")
 
@@ -181,7 +183,7 @@ def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
     app = web.Application()
     app[HUB_KEY] = LiveHub()
     app[TITLE_KEY] = title
-    app[TOKEN_KEY] = os.getenv("BIBLEIT_LIVE_TOKEN", "")
+    app[TOKEN_KEY] = config_value("LIVE_TOKEN")
     app.router.add_get("/", index)
     app.router.add_get("/api/current", current)
     app.router.add_post("/api/publish", publish)

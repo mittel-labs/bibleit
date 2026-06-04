@@ -217,7 +217,9 @@ def navigation_suggestion_value(
     normalized_candidate = _normalized_book_name(candidate)
 
     if not normalized_candidate.startswith(normalized_book):
-        return None
+        if tail:
+            return None
+        return f"{candidate} "
 
     if tail and normalized_book != normalized_candidate:
         return None

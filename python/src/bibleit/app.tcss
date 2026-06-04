@@ -128,6 +128,37 @@ Find {
   color: #a9a29a;
 }
 
+#find-translations {
+  width: 100%;
+  height: 3;
+  margin-top: 1;
+}
+
+#find-translations Button {
+  width: auto;
+  min-width: 8;
+  height: 3;
+  margin-right: 1;
+  padding: 0 1;
+  background: #202020;
+  color: #d8d0c7;
+  border: round #4d4740;
+  text-style: none;
+}
+
+#find-translations Button:hover,
+#find-translations Button:focus {
+  color: #f8f5ef;
+  border: round #d7b46a;
+}
+
+#find-translations Button.active {
+  background: #d7b46a;
+  color: #161616;
+  border: round #d7b46a;
+  text-style: bold;
+}
+
 Find Input {
   width: 100%;
   height: 3;
@@ -176,14 +207,23 @@ Find Input:focus {
 }
 
 StrongScreen,
-ShortcutsScreen {
+ConfigScreen {
   layer: overlay;
   align: center middle;
   background: #00000099;
 }
 
+ShortcutsScreen,
+WelcomeScreen {
+  layer: overlay;
+  align: center middle;
+  background: transparent;
+}
+
 StrongScreen > Container,
-ShortcutsScreen > Container {
+ShortcutsScreen > Container,
+WelcomeScreen > Container,
+ConfigScreen > Container {
   width: 72;
   max-width: 80%;
   height: auto;
@@ -195,13 +235,57 @@ ShortcutsScreen > Container {
 }
 
 StrongScreen Label,
-ShortcutsScreen Label {
+ShortcutsScreen Label,
+WelcomeScreen Label,
+ConfigScreen Label {
   width: 100%;
   height: auto;
   background: transparent;
   color: #f3f0ea;
   text-wrap: wrap;
   text-overflow: fold;
+}
+
+#welcome-title {
+  width: 100%;
+  height: 3;
+  color: #ffb347;
+  text-style: bold;
+  content-align: center middle;
+}
+
+#welcome-subtitle {
+  width: 100%;
+  height: 2;
+  color: #f3f0ea;
+  content-align: center middle;
+}
+
+#welcome-description {
+  width: 100%;
+  height: auto;
+  margin-bottom: 1;
+  color: #a9a29a;
+  content-align: center middle;
+}
+
+.welcome-row {
+  width: 100%;
+  height: auto;
+}
+
+.welcome-key {
+  width: 14;
+  min-width: 14;
+  color: #ffb347;
+  text-style: bold;
+  content-align: right middle;
+}
+
+.welcome-row-description {
+  width: 1fr;
+  color: #f3f0ea;
+  padding-left: 1;
 }
 
 #shortcuts-title {
@@ -211,6 +295,71 @@ ShortcutsScreen Label {
   color: #ffb347;
   text-style: bold;
   content-align: center middle;
+}
+
+#config-title {
+  width: 100%;
+  height: 2;
+  margin-bottom: 1;
+  color: #ffb347;
+  text-style: bold;
+  content-align: center middle;
+}
+
+#config-path {
+  color: #a9a29a;
+  margin-bottom: 1;
+}
+
+.config-label {
+  color: #ffb347;
+  text-style: bold;
+  margin-top: 1;
+}
+
+.config-note {
+  color: #a9a29a;
+}
+
+#config-theme-row {
+  width: 100%;
+  height: 3;
+  align: left middle;
+}
+
+#config-theme-label {
+  width: 1fr;
+  height: 3;
+  content-align: left middle;
+  color: #f3f0ea;
+}
+
+#config-theme-dark {
+  width: 12;
+  height: 3;
+}
+
+ConfigScreen Input {
+  width: 100%;
+  height: 3;
+  background: #202020;
+  color: #f3f0ea;
+  border: tall #6b655d;
+  padding: 0 1;
+}
+
+ConfigScreen Input:focus {
+  border: tall #d97706;
+}
+
+#config-actions {
+  width: 100%;
+  height: 3;
+  margin-top: 1;
+}
+
+#config-actions Button {
+  margin-right: 1;
 }
 
 .shortcut-row {
@@ -492,7 +641,8 @@ Bibleit.dark HistoryPane {
 }
 
 Bibleit.dark #history-filter,
-Bibleit.dark Find Input {
+Bibleit.dark Find Input,
+Bibleit.dark ConfigScreen Input {
   background: #202020;
   color: #f1ede6;
   border: tall #5f564d;
@@ -546,9 +696,29 @@ Bibleit.dark Find {
   background: #000000aa;
 }
 
+Bibleit.dark #find-translations Button {
+  background: #202020;
+  color: #d8d0c7;
+  border: round #5f564d;
+}
+
+Bibleit.dark #find-translations Button:hover,
+Bibleit.dark #find-translations Button:focus {
+  color: #f8f5ef;
+  border: round #c4933e;
+}
+
+Bibleit.dark #find-translations Button.active {
+  background: #c4933e;
+  color: #15120e;
+  border: round #c4933e;
+}
+
 Bibleit.dark #find-panel,
 Bibleit.dark StrongScreen > Container,
-Bibleit.dark ShortcutsScreen > Container {
+Bibleit.dark ShortcutsScreen > Container,
+Bibleit.dark WelcomeScreen > Container,
+Bibleit.dark ConfigScreen > Container {
   background: #141414;
   color: #f1ede6;
 }

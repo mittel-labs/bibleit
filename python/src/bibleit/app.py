@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from textual.app import App
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal
 from textual.binding import Binding
 from textual.widgets import ListView, ListItem, Input, Tree, Footer, Label, Static, Button, Switch
 from textual.screen import Screen
@@ -38,46 +38,27 @@ import asyncio
 from rich.markup import escape
 
 
-class HistoryPane(Vertical):
-    can_focus = True
-    can_focus_children = True
-    pane_open = reactive(False)
-
+class HistoryScreen(Screen):
     BINDINGS = [
-        ("escape", "close_pane", "Close"),
-        Binding("tab", "focus_filter", "Filter", show=True),
-        Binding("shift+tab", "focus_list", "Verses", show=True),
+        ("escape", "close_screen", "Close"),
+        ("ctrl+h", "close_screen", "History"),
         Binding("enter", "go_to_selected", "Go To", priority=True),
     ]
 
     def __init__(self) -> None:
         super().__init__()
-        self.history = SessionHistory()
         self._filter = ""
         self._navigating = False
 
     def compose(self):
-        yield Label("History", id="history-title")
-        yield Input(placeholder="Filter verses…", id="history-filter")
-        yield ListView(id="history-list")
+        with Container(id="history-panel"):
+            yield Label("History", id="history-title")
+            yield Input(placeholder="Filter verses…", id="history-filter")
+            yield ListView(id="history-list")
 
-    def watch_pane_open(self, pane_open: bool) -> None:
-        self.set_class(pane_open, "open")
-        if pane_open:
-            self._refresh_list()
-            self.call_after_refresh(self.action_focus_list)
-
-    def toggle(self) -> None:
-        self.pane_open = not self.pane_open
-        if self.pane_open:
-            self.focus()
-
-    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if action == "focus_filter":
-            return self._history_list_focused()
-        if action == "focus_list":
-            return self._history_filter_focused()
-        return True
+    def on_mount(self) -> None:
+        self._refresh_list()
+        self.call_after_refresh(self.action_focus_filter)
 
     def _history_list(self) -> ListView:
         return self.query_one("#history-list", ListView)
@@ -109,37 +90,13 @@ class HistoryPane(Vertical):
     def action_focus_filter(self) -> None:
         self._history_filter().focus()
 
-    def record(
-        self,
-        translation_: translation.Translation,
-        ref: translation.TranslationRef,
-    ) -> None:
-        if self._navigating:
-            return
-
-        chapter = ref.chapter or 1
-        verse = ref.verse_start or 1
-        label = verse_reference_label(translation_, ref.bookid, chapter, verse)
-        self.history.record(
-            HistoryEntry(
-                bookid=ref.bookid,
-                chapter=chapter,
-                verse=verse,
-                label=label,
-            )
-        )
-
-        if self.pane_open:
-            self._refresh_list()
-
     def navigate_to(self, entry: HistoryEntry) -> None:
         bible_view = self.app.query_exactly_one(BibleView)
         self._navigating = True
         try:
             bible_view.go_to_ref(entry.as_ref())
-            self.history.record(entry)
-            if self.pane_open:
-                self._refresh_list()
+            self.app.record_history_entry(entry)
+            self.app.pop_screen()
         finally:
             self._navigating = False
 
@@ -147,8 +104,8 @@ class HistoryPane(Vertical):
         list_view = self._history_list()
         previous_index = list_view.index if keep_index else None
         list_view.clear()
-        for entry in self.history.entries(self._filter):
-            item = ListItem(Label(entry.label))
+        for entry in self.app.history.entries(self._filter):
+            item = ListItem(Label(entry.label, classes="history-entry"))
             item.entry = entry
             list_view.append(item)
 
@@ -161,12 +118,14 @@ class HistoryPane(Vertical):
             list_view.index = 0
 
     async def on_key(self, event: events.Key) -> None:
-        if not self.pane_open:
-            return
-
         if event.key == "escape":
             event.stop()
-            self.action_close_pane()
+            self.action_close_screen()
+            return
+
+        if self._history_filter_focused() and event.key == "down":
+            event.stop()
+            self.action_focus_list()
             return
 
         if self._history_list_focused() and event.key in ("up", "down"):
@@ -177,6 +136,9 @@ class HistoryPane(Vertical):
             if event.key == "down":
                 list_view.action_cursor_down()
             else:
+                if list_view.index in (None, 0):
+                    self.action_focus_filter()
+                    return
                 list_view.action_cursor_up()
 
     def on_input_changed(self, event: Input.Changed) -> None:
@@ -208,10 +170,8 @@ class HistoryPane(Vertical):
         if entry is not None:
             self.navigate_to(entry)
 
-    def action_close_pane(self) -> None:
-        if not self.pane_open:
-            return
-        self.pane_open = False
+    def action_close_screen(self) -> None:
+        self.app.pop_screen()
         self.app.query_exactly_one(BibleView).focus()
 
 
@@ -244,6 +204,7 @@ class StatusBar(Horizontal):
         yield Static(id="status-command-completions")
         with Container(id="status-actions"):
             yield Button("Find", id="action-find")
+            yield Button("History", id="action-history")
             yield Button("Translations", id="action-translations")
             yield Button("Strongs", id="action-strongs")
             yield Button("Config", id="action-config")
@@ -317,6 +278,7 @@ class StatusBar(Horizontal):
         actions = {
             "action-menu": self.action_toggle_menu,
             "action-find": bible_view.action_open_find,
+            "action-history": bible_view.action_toggle_history,
             "action-translations": bible_view.action_open_translations,
             "action-strongs": bible_view.action_toggle_strongs,
             "action-config": bible_view.action_open_config,
@@ -636,7 +598,7 @@ class Find(Screen):
     def _open_result(self, result: TextFindResult) -> None:
         bible_view = self.app.query_exactly_one(BibleView)
         bible_view.go_to_ref(result.ref)
-        self.app.query_one(HistoryPane).record(self.view.translation, result.ref)
+        self.app.record_history(self.view.translation, result.ref)
         self.app.pop_screen()
 
     def action_open_selected(self) -> None:
@@ -1040,6 +1002,7 @@ class ShortcutsScreen(OverlayStatusMixin, Screen):
         ("Ctrl+T", "Translations"),
         ("Ctrl+F", "Find text"),
         ("Ctrl+G", "Strongs"),
+        ("Ctrl+H", "History"),
         ("Ctrl+P", "Config"),
         ("Ctrl+D", "Toggle theme"),
         ("Ctrl+W", "Close pane"),
@@ -1088,6 +1051,7 @@ class WelcomeScreen(OverlayStatusMixin, Screen):
             "ctrl+t": lambda view: view.action_open_translations(),
             "ctrl+f": lambda view: view.action_open_find(),
             "ctrl+g": lambda view: view.action_toggle_strongs(),
+            "ctrl+h": lambda view: view.action_toggle_history(),
             "ctrl+l": lambda view: view.action_toggle_live(),
             "ctrl+p": lambda view: view.action_open_config(),
             "ctrl+d": lambda view: self.app.action_toggle_theme(),
@@ -1692,6 +1656,7 @@ class BibleView(Horizontal):
         ("ctrl+t", "open_translations", "Translations"),
         ("ctrl+f", "open_find", "Find"),
         ("ctrl+g", "toggle_strongs", "Strongs"),
+        ("ctrl+h", "toggle_history", "History"),
         ("ctrl+p", "open_config", "Config"),
         ("ctrl+l", "toggle_live", "Live"),
         ("ctrl+w", "close_pane", "Close Pane"),
@@ -1791,7 +1756,7 @@ class BibleView(Horizontal):
             return False
 
         self.go_to_ref(ref)
-        self.app.query_one(HistoryPane).record(view.translation, ref)
+        self.app.record_history(view.translation, ref)
         return True
 
     def on_mount(self):
@@ -1833,6 +1798,13 @@ class BibleView(Horizontal):
             return
 
         self.app.push_screen(ConfigScreen())
+
+    def action_toggle_history(self) -> None:
+        if isinstance(self.app.screen, HistoryScreen):
+            self.app.pop_screen()
+            self.focus()
+        else:
+            self.app.push_screen(HistoryScreen())
 
     async def action_previous_verse(self):
         view = self.focused_view() or (self.views[0] if self.views else None)
@@ -2026,6 +1998,7 @@ class Bibleit(App):
 
     def __init__(self):
         super().__init__()
+        self.history = SessionHistory()
         self.dark_theme = theme_is_dark()
         atexit.register(self._disable_live_on_shutdown)
 
@@ -2089,8 +2062,27 @@ class Bibleit(App):
         self.theme = "textual-dark" if dark else "textual-light"
         self.set_class(self.dark_theme, "dark")
 
+    def record_history(
+        self,
+        translation_: translation.Translation,
+        ref: translation.TranslationRef,
+    ) -> None:
+        chapter = ref.chapter or 1
+        verse = ref.verse_start or 1
+        label = verse_reference_label(translation_, ref.bookid, chapter, verse)
+        self.record_history_entry(
+            HistoryEntry(
+                bookid=ref.bookid,
+                chapter=chapter,
+                verse=verse,
+                label=label,
+            )
+        )
+
+    def record_history_entry(self, entry: HistoryEntry) -> None:
+        self.history.record(entry)
+
     def compose(self):
         with Horizontal(id="workspace"):
             yield BibleView()
-            yield HistoryPane()
         yield StatusBar()

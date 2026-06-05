@@ -56,8 +56,10 @@ class LiveVerseTest(unittest.TestCase):
         self.assertNotIn("__all__", rendered)
 
     def test_control_requests_are_open_without_token(self):
-        with patch.dict("os.environ", {}, clear=True):
-            app = create_app("test live")
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                app = create_app("test live")
 
         request = make_mocked_request("POST", "/api/publish", app=app)
 

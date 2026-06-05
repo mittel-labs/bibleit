@@ -635,6 +635,24 @@ class ConfigTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_at_opens_go_to_command(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), FakeTranslation()))
+                bible_view.focus()
+                await pilot.pause()
+
+                await pilot.press("@")
+                await pilot.pause()
+
+                self.assertTrue(app.query_exactly_one(StatusBar).command_mode)
+
+        asyncio.run(run())
+
     def test_ctrl_h_toggles_history_screen(self):
         async def run():
             app = Bibleit()

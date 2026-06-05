@@ -996,7 +996,7 @@ class ShortcutsScreen(OverlayStatusMixin, Screen):
         ("Ctrl+E", "End of current chapter"),
         ("<", "Previous chapter"),
         (">", "Next chapter"),
-        ("g", "Go to"),
+        ("g / @", "Go to"),
         ("Tab", "Cycle go-to matches"),
         ("Enter", "Select match or navigate"),
         ("Ctrl+T", "Translations"),
@@ -1057,6 +1057,7 @@ class WelcomeScreen(OverlayStatusMixin, Screen):
             "ctrl+d": lambda view: self.app.action_toggle_theme(),
             "g": lambda view: view.action_open_reference(),
             "G": lambda view: view.action_open_reference(),
+            "@": lambda view: view.action_open_reference(),
             ":": lambda view: view.action_open_reference(),
             "up": lambda view: self.app.run_worker(view.action_previous_verse(), exit_on_error=False),
             "down": lambda view: self.app.run_worker(view.action_next_verse(), exit_on_error=False),
@@ -1084,7 +1085,7 @@ class WelcomeScreen(OverlayStatusMixin, Screen):
             )
             for key, description in [
                 ("↑ / ↓", "Previous / next verse"),
-                ("g", "Go to book, chapter, or verse"),
+                ("g / @", "Go to book, chapter, or verse"),
                 ("Ctrl+F", "Find text in the current translation"),
                 ("Ctrl+T", "Open translations"),
                 ("Ctrl+L", "Toggle live mode"),
@@ -1666,6 +1667,7 @@ class BibleView(Horizontal):
         (">", "next_chapter", "Next Chapter"),
         ("g", "open_reference", "Go To"),
         ("G", "open_reference", "Go To"),
+        ("@", "open_reference", "Go To"),
         (":", "open_reference", "Go To"),
         ("?", "show_shortcuts", "Shortcuts"),
         ("f2", "toggle_layout", "Toggle Layout"),

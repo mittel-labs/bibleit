@@ -50,40 +50,6 @@ ListItem {
   }
 }
 
-HistoryPane {
-  display: none;
-  width: 42%;
-  max-width: 48;
-  height: 100%;
-  padding: 1;
-  background: #ece8e1;
-  border-left: solid #d6cfc5;
-}
-
-HistoryPane.open {
-  display: block;
-}
-
-#history-title {
-  width: 100%;
-  height: 2;
-  text-style: bold;
-}
-
-#history-filter {
-  width: 100%;
-  height: 3;
-  margin-bottom: 1;
-  background: #f8f5ef;
-  color: #202020;
-  border: tall #b98b4d;
-}
-
-#history-list {
-  width: 100%;
-  height: 1fr;
-}
-
 Footer {
   background: #ece8e1;
   color: #2a2a2a;
@@ -569,10 +535,82 @@ StatusBar.browser.compact.open {
   height: 2;
 }
 
-BibleView {
+#workspace {
   width: 100%;
   height: 1fr;
+}
+
+BibleView {
+  width: 1fr;
+  height: 100%;
   background: #f3f1ed;
+}
+
+HistoryScreen {
+  layer: overlay;
+  align: center middle;
+  background: #00000066;
+}
+
+#history-panel {
+  width: 54;
+  max-width: 86%;
+  height: 70%;
+  max-height: 80%;
+  layout: vertical;
+  background: #ece8e1;
+  border: round #c89b5d;
+  padding: 1 2;
+}
+
+#history-title {
+  width: 100%;
+  height: 2;
+  color: #d97706;
+  text-style: bold;
+}
+
+#history-filter {
+  width: 100%;
+  height: 1;
+  margin: 0 0 1 0;
+  background: #f8f5ef;
+  color: #202020;
+  border: none;
+  padding: 0 1;
+}
+
+#history-filter:focus {
+  background: #f8f5ef;
+  color: #202020;
+}
+
+#history-list {
+  height: 1fr;
+  background: transparent;
+  scrollbar-size: 0 0;
+}
+
+#history-list > ListItem {
+  height: auto;
+  background: transparent;
+  color: #2a2a2a;
+  margin-bottom: 0;
+}
+
+#history-list > ListItem.-highlight {
+  background: #e7c878;
+  color: #1f1f1f;
+  border-left: thick #d97706;
+  text-style: italic bold;
+}
+
+#history-list > ListItem > Label {
+  width: 100%;
+  height: auto;
+  padding: 0 1 0 1;
+  text-wrap: wrap;
+  text-overflow: fold;
 }
 
 BibleView.vertical {
@@ -635,9 +673,9 @@ Bibleit.dark BibleView.vertical View {
   border-bottom: solid #2a2724;
 }
 
-Bibleit.dark HistoryPane {
-  background: #171717;
-  border-left: solid #2c2926;
+Bibleit.dark #history-panel {
+  background: #141414;
+  color: #f1ede6;
 }
 
 Bibleit.dark #history-filter,
@@ -646,6 +684,29 @@ Bibleit.dark ConfigScreen Input {
   background: #202020;
   color: #f1ede6;
   border: tall #5f564d;
+}
+
+Bibleit.dark #history-filter:focus {
+  background: #202020;
+  color: #f1ede6;
+  border: none;
+}
+
+Bibleit.dark #history-list,
+Bibleit.dark #history-list > ListItem {
+  background: #171717;
+  color: #d8d0c7;
+}
+
+Bibleit.dark #history-list > ListItem.-highlight {
+  background: #c4933e;
+  color: #15120e;
+  border-left: thick #d97706;
+  text-style: italic bold;
+}
+
+Bibleit.dark #history-list > ListItem.-highlight > Label {
+  color: #15120e;
 }
 
 Bibleit.dark Footer,

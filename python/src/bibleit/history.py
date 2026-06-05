@@ -45,6 +45,14 @@ class SessionHistory:
             return ordered
 
         labels = [unidecode(entry.label.lower()) for entry in ordered]
+        direct_matches = [
+            entry
+            for entry, label in zip(ordered, labels)
+            if _matches_history_text(normalized, label)
+        ]
+        if len(normalized) <= 2:
+            return direct_matches
+
         matches = process.extract(
             normalized,
             labels,
@@ -53,4 +61,23 @@ class SessionHistory:
             limit=len(ordered),
         )
         label_to_entry = dict(zip(labels, ordered))
-        return [label_to_entry[match[0]] for match in matches]
+        fuzzy_matches = [label_to_entry[match[0]] for match in matches]
+        return _unique_entries([*direct_matches, *fuzzy_matches])
+
+
+def _matches_history_text(query: str, label: str) -> bool:
+    if query in label:
+        return True
+
+    return any(word.startswith(query) for word in label.split())
+
+
+def _unique_entries(entries: list[HistoryEntry]) -> list[HistoryEntry]:
+    seen = set()
+    unique = []
+    for entry in entries:
+        if entry.key in seen:
+            continue
+        unique.append(entry)
+        seen.add(entry.key)
+    return unique

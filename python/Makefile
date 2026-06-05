@@ -1,4 +1,4 @@
-.PHONY: run repl bump-version lint fix-lint test build local-install-test FORCE
+.PHONY: run native native-clean repl bump-version lint fix-lint test build local-install-test FORCE
 
 VENV_DIR:=.venv
 VENV_ACTIVATE:=. $(VENV_DIR)/bin/activate
@@ -11,6 +11,32 @@ PYTHON_BIN?=$(or \
 	$(shell command -v python3.13 2>/dev/null),\
 	python3)
 SOURCE_DIR:=src
+LIBBIBLEIT_DIR:=$(abspath ../libbibleit)
+NATIVE_DIR:=$(SOURCE_DIR)/bibleit/_native
+UNAME_S:=$(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+NATIVE_LIB:=libbibleit.dylib
+else
+NATIVE_LIB:=libbibleit.so
+endif
+NATIVE_STAMP:=$(NATIVE_DIR)/$(NATIVE_LIB)
+LIBBIBLEIT_SRCS:=$(wildcard $(LIBBIBLEIT_DIR)/src/*.c $(LIBBIBLEIT_DIR)/include/bibleit/*.h)
+
+$(NATIVE_STAMP): $(LIBBIBLEIT_SRCS) $(LIBBIBLEIT_DIR)/Makefile
+	@test -f $(LIBBIBLEIT_DIR)/Makefile || (echo "libbibleit not found at $(LIBBIBLEIT_DIR)" >&2; exit 1)
+	$(MAKE) -C $(LIBBIBLEIT_DIR)
+	@mkdir -p $(NATIVE_DIR)
+	@touch $(NATIVE_DIR)/__init__.py
+	cp -Lf $(LIBBIBLEIT_DIR)/$(NATIVE_LIB) $@
+ifeq ($(UNAME_S),Darwin)
+	@command -v codesign >/dev/null 2>&1 && codesign --force --sign - $@ || true
+endif
+
+native: $(NATIVE_STAMP)
+
+native-clean:
+	$(MAKE) -C $(LIBBIBLEIT_DIR) clean
+	@rm -f $(NATIVE_DIR)/$(NATIVE_LIB) $(NATIVE_DIR)/libbibleit.so.*
 
 $(VENV_DIR):
 	$(PYTHON_BIN) -m venv $@
@@ -29,7 +55,7 @@ install: $(VENV_DEPS_FILE)
 clean-venv:
 	@rm -rf $(VENV_DIR)
 
-run: $(VENV_DEPS_FILE)
+run: $(VENV_DEPS_FILE) $(NATIVE_STAMP)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit)
 
 serve: $(VENV_DEPS_FILE)

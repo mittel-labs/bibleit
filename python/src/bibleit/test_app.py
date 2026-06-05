@@ -5,7 +5,7 @@ from unittest.mock import patch
 from tempfile import TemporaryDirectory
 import asyncio
 
-from textual.widgets import ListItem, Switch
+from textual.widgets import Button, Label, ListItem, ListView, Switch
 
 try:
     from bibleit import translation
@@ -15,6 +15,7 @@ try:
         Bibleit,
         ConfigScreen,
         HistoryEntry,
+        HistoryScreen,
         LivePublisher,
         NavigationState,
         RowRef,
@@ -234,6 +235,26 @@ class SessionHistoryTests(unittest.TestCase):
         history.record(HistoryEntry(43, 3, 16, "John 3:16"))
 
         filtered = history.entries("john 3:16")
+
+        self.assertEqual([entry.label for entry in filtered], ["John 3:16"])
+
+    def test_entries_filters_from_first_letter(self):
+        history = SessionHistory()
+        history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+        history.record(HistoryEntry(19, 23, 1, "Psalms 23:1"))
+        history.record(HistoryEntry(43, 3, 16, "John 3:16"))
+
+        filtered = history.entries("j")
+
+        self.assertEqual([entry.label for entry in filtered], ["John 3:16"])
+
+    def test_entries_filters_from_second_letter(self):
+        history = SessionHistory()
+        history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+        history.record(HistoryEntry(19, 23, 1, "Psalms 23:1"))
+        history.record(HistoryEntry(43, 3, 16, "John 3:16"))
+
+        filtered = history.entries("jo")
 
         self.assertEqual([entry.label for entry in filtered], ["John 3:16"])
 
@@ -611,6 +632,118 @@ class ConfigTests(unittest.TestCase):
                 await pilot.pause()
 
                 self.assertTrue(app.query_exactly_one(StatusBar).command_mode)
+
+        asyncio.run(run())
+
+    def test_ctrl_h_toggles_history_screen(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.focus()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, HistoryScreen)
+
+                await pilot.press("ctrl+h")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, HistoryScreen)
+
+                await pilot.press("ctrl+h")
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, HistoryScreen)
+
+        asyncio.run(run())
+
+    def test_history_status_button_opens_history_screen(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, HistoryScreen)
+
+                status = app.query_exactly_one(StatusBar)
+                button = status.query_one("#action-history", Button)
+                await status.on_button_pressed(Button.Pressed(button))
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, HistoryScreen)
+                self.assertIsNotNone(app.screen.query_one("#history-title", Label))
+
+        asyncio.run(run())
+
+    def test_history_entries_are_wrapped(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                app.history.record(
+                    HistoryEntry(
+                        46,
+                        1,
+                        1,
+                        "Carta de Paulo aos Coríntios 1:1",
+                    )
+                )
+                app.push_screen(HistoryScreen())
+                await pilot.pause()
+
+                history = app.screen
+                row = history.query_one("#history-list", ListView).children[0]
+                label = row.query_one(Label)
+
+                self.assertEqual(str(row.styles.height), "auto")
+                self.assertEqual(str(row.styles.margin.bottom), "0")
+                self.assertEqual(str(label.styles.height), "auto")
+                self.assertEqual(label.styles.text_overflow, "fold")
+
+        asyncio.run(run())
+
+    def test_history_down_from_filter_focuses_first_entry(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                app.history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+                app.push_screen(HistoryScreen())
+                await pilot.pause()
+
+                history = app.screen
+                history.action_focus_filter()
+                await pilot.pause()
+                await pilot.press("down")
+                await pilot.pause()
+
+                list_view = history.query_one("#history-list", ListView)
+                self.assertIs(app.focused, list_view)
+                self.assertEqual(list_view.index, 0)
+
+        asyncio.run(run())
+
+    def test_history_up_from_first_entry_focuses_filter(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                app.history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+                app.push_screen(HistoryScreen())
+                await pilot.pause()
+
+                history = app.screen
+                await pilot.press("up")
+                await pilot.pause()
+
+                self.assertIs(app.focused, history.query_one("#history-filter"))
 
         asyncio.run(run())
 

@@ -21,9 +21,9 @@ def running_in_browser() -> bool:
 
 
 def live_publish_url() -> str:
-    host = os.getenv("BIBLEIT_SERVE_HOST") or "0.0.0.0"
-    port = os.getenv("BIBLEIT_SERVE_PORT") or "8000"
-    return (config_value("LIVE_URL") or os.getenv("BIBLEIT_SERVE_PUBLIC_URL") or f"http://{host}:{port}").rstrip("/")
+    host = os.getenv("BIBLEIT_LIVE_HOST") or "0.0.0.0"
+    port = os.getenv("BIBLEIT_LIVE_PORT") or "8000"
+    return (config_value("LIVE_URL") or f"http://{host}:{port}").rstrip("/")
 
 
 class LivePublisher:

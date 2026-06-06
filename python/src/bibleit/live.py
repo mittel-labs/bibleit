@@ -192,21 +192,11 @@ def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
     return app
 
 
-async def create_live_app(title: str = LIVE_APP_TITLE) -> web.Application:
-    from bibleit.serve import server
-
-    app = create_app(title)
-    server.title = "bibleit"
-    server.public_url = os.getenv("BIBLEIT_SERVE_PUBLIC_URL", "http://127.0.0.1:8000")
-    app.add_subapp("/textual", await server._make_app())
-    return app
-
-
 def main() -> None:
     host = os.getenv("BIBLEIT_LIVE_HOST", "0.0.0.0")
     port = int(os.getenv("BIBLEIT_LIVE_PORT", "8000"))
     title = os.getenv("BIBLEIT_LIVE_TITLE", LIVE_APP_TITLE)
-    web.run_app(create_live_app(title), host=host, port=port)
+    web.run_app(create_app(title), host=host, port=port)
 
 
 if __name__ == "__main__":

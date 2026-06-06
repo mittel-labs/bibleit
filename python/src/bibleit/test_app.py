@@ -854,26 +854,27 @@ class ConfigTests(unittest.TestCase):
 
 
 class LivePublisherTests(unittest.TestCase):
-    def test_uses_serve_public_url_for_local_terminal_control(self):
+    def test_live_url_controls_remote_server(self):
         with patch.dict(
             "os.environ",
-            {"BIBLEIT_SERVE_PUBLIC_URL": "https://bibleit.mittel.site/"},
+            {"BIBLEIT_LIVE_URL": "https://bibleit.mittel.site/"},
             clear=True,
         ):
             self.assertEqual(LivePublisher().url, "https://bibleit.mittel.site")
 
-    def test_live_url_takes_precedence_over_serve_public_url(self):
+    def test_live_url_takes_precedence_over_host_and_port(self):
         with patch.dict(
             "os.environ",
             {
                 "BIBLEIT_LIVE_URL": "https://live.example",
-                "BIBLEIT_SERVE_PUBLIC_URL": "https://bibleit.mittel.site",
+                "BIBLEIT_LIVE_HOST": "127.0.0.1",
+                "BIBLEIT_LIVE_PORT": "9000",
             },
             clear=True,
         ):
             self.assertEqual(LivePublisher().url, "https://live.example")
 
-    def test_live_url_uses_config_before_serve_public_url(self):
+    def test_live_url_uses_config_before_host_and_port(self):
         with TemporaryDirectory() as temp:
             path = f"{temp}/config"
             with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
@@ -883,7 +884,8 @@ class LivePublisherTests(unittest.TestCase):
                 "os.environ",
                 {
                     "BIBLEIT_CONFIG_FILE": path,
-                    "BIBLEIT_SERVE_PUBLIC_URL": "https://bibleit.mittel.site",
+                    "BIBLEIT_LIVE_HOST": "127.0.0.1",
+                    "BIBLEIT_LIVE_PORT": "9000",
                 },
                 clear=True,
             ):

@@ -4,7 +4,7 @@ VENV_DIR:=.venv
 VENV_ACTIVATE:=. $(VENV_DIR)/bin/activate
 VENV_PY:=$(VENV_DIR)/bin/python
 VENV_DEPS_FILE:=$(VENV_DIR)/.deps
-VENV_DEPS:=aiohttp flake8 black rapidfuzz requests textual textual-dev textual-serve unidecode build hatchling
+VENV_DEPS:=aiohttp flake8 black rapidfuzz requests textual textual-dev unidecode build hatchling
 PYTHON_BIN?=$(or \
 	$(shell command -v python3.11 2>/dev/null),\
 	$(shell command -v python3.12 2>/dev/null),\
@@ -58,9 +58,6 @@ clean-venv:
 run: $(VENV_DEPS_FILE) $(NATIVE_STAMP)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit)
 
-serve: $(VENV_DEPS_FILE)
-	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit.serve)
-
 live: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit.live)
 
@@ -70,9 +67,6 @@ bump-version:
 
 run-dev: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); textual run --dev bibleit.app:Bibleit)
-
-serve-dev: $(VENV_DEPS_FILE)
-	$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); textual serve --dev "python -m bibleit")
 
 lint: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && flake8 --config=.flake8 $(SOURCE_DIR)

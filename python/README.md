@@ -1,18 +1,17 @@
 # bibleit
 
-Interactive Bible reading for the terminal and browser, built with Python,
-Textual, and libbibleit.
+Interactive Bible reading for the terminal, plus a lightweight live web viewer,
+built with Python, Textual, and libbibleit.
 
 ## Features
 
 - Terminal Bible reader with keyboard-first navigation.
-- Browser access through Textual Web, with mobile-friendly touch controls.
 - Multiple translations open side by side or stacked vertically.
 - Synchronized cursor across open translation panes.
 - Go-to navigation with `g`, supporting verse, chapter/verse, and fuzzy book names.
 - Text Find with `Ctrl+F`, result browsing, and visual translation toggles.
 - Strong's references with linked entries via `Ctrl+G`.
-- Live web presentation mode for sharing the active verse with viewers.
+- Live web viewer for sharing the active verse with viewers.
 - Live viewer controls for light/dark theme, font size, presentation mode, and translation selection.
 - Persistent local config for live URL/token and theme.
 - Docker and Fly.io deployment support.
@@ -51,10 +50,10 @@ Run the terminal application:
 make run
 ```
 
-Run the browser version:
+Run the live web viewer:
 
 ```bash
-make serve
+make live
 ```
 
 Then open:
@@ -116,10 +115,10 @@ Empty values are not written to the config file.
 
 ## Live Mode
 
-Start the web server:
+Start the live web server:
 
 ```bash
-make serve
+make live
 ```
 
 Run the terminal app and point it at the live server:
@@ -129,7 +128,7 @@ BIBLEIT_LIVE_URL=http://localhost:8000 make run
 ```
 
 Press `Ctrl+L` in the terminal app to publish the active verse to the web
-viewer. When live mode is off, the browser loads the interactive Textual app.
+viewer. When live mode is off, the browser shows a waiting splash screen.
 
 ## Development
 
@@ -137,12 +136,6 @@ Run with Textual development tools:
 
 ```bash
 make run-dev
-```
-
-Run browser version with hot reload:
-
-```bash
-make serve-dev
 ```
 
 Open a Python shell inside the virtual environment:
@@ -187,25 +180,27 @@ Run the local installation test:
 make local-install-test
 ```
 
-## Browser server configuration
+## Live server configuration
 
-The browser server supports the following environment variables:
+The live server supports the following environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `BIBLEIT_SERVE_HOST` | `0.0.0.0` | Bind address |
-| `BIBLEIT_SERVE_PORT` | `8000` | Server port |
-| `BIBLEIT_SERVE_PUBLIC_URL` | `http://localhost:8000` | Public URL used by the browser/websocket client |
+| `BIBLEIT_LIVE_HOST` | `0.0.0.0` | Bind address |
+| `BIBLEIT_LIVE_PORT` | `8000` | Server port |
+| `BIBLEIT_LIVE_URL` | unset | Public live server URL used by the terminal app |
+| `BIBLEIT_LIVE_TOKEN` | unset | Optional token used to protect live control requests |
+| `BIBLEIT_LIVE_TITLE` | `bibleit live` | Browser page title |
 | `BIBLEIT_FIND_INDEX_CACHE_SIZE` | `4` | Max number of translation text indexes cached by Find |
 
 Example:
 
 ```bash
-export BIBLEIT_SERVE_HOST=0.0.0.0
-export BIBLEIT_SERVE_PORT=8000
-export BIBLEIT_SERVE_PUBLIC_URL=http://localhost:8000
+export BIBLEIT_LIVE_HOST=0.0.0.0
+export BIBLEIT_LIVE_PORT=8000
+export BIBLEIT_LIVE_URL=http://localhost:8000
 
-make serve
+make live
 ```
 
 ## Docker
@@ -222,10 +217,10 @@ Run terminal mode:
 docker run -it bibleit
 ```
 
-Run browser mode:
+Run live web mode:
 
 ```bash
-docker run -p 8000:8000 bibleit serve
+docker run -p 8000:8000 bibleit live
 ```
 
 Then open:

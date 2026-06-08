@@ -3,7 +3,7 @@ from __future__ import annotations
 from textual.app import App
 from textual.containers import Container, Horizontal
 from textual.binding import Binding
-from textual.widgets import ListView, ListItem, Input, Tree, Footer, Label, Static, Button, Switch
+from textual.widgets import ListView, ListItem, Input, Tree, Label, Static, Button, Switch
 from textual.screen import Screen
 from textual.message import Message
 from textual.reactive import reactive
@@ -640,8 +640,9 @@ class Find(Screen):
 class Translations(Screen):
     AVAILABLE_NODE_LABEL = "Available"
     INSTALLED_NODE_LABEL = "Installed"
+    LOADING_LABEL = "Loading translations..."
     BINDINGS = [
-        ("escape", "app.pop_screen", "Close"),
+        ("escape", "close", "Close"),
         ("ctrl+i", "install", "Install"),
         ("ctrl+u", "uninstall", "Uninstall"),
         ("ctrl+o", "open", "Open"),
@@ -654,14 +655,20 @@ class Translations(Screen):
             super().__init__()
 
     def compose(self):
-        yield Tree("Translations")
-        yield Footer(show_command_palette=False)
+        with Container(id="translations-panel"):
+            yield Label("Translations", id="translations-title")
+            yield Label("Open installed translations or install new ones.", id="translations-caption")
+            yield Tree(self.LOADING_LABEL, id="translations-tree")
 
     def on_mount(self):
-        self._build_tree()
+        self.call_after_refresh(self._build_tree)
+
+    def _tree(self) -> Tree:
+        return self.query_exactly_one("#translations-tree", Tree)
 
     def _build_tree(self, active_slug: str = None):
-        tree = self.query_exactly_one(Tree)
+        tree = self._tree()
+        tree.root.label = "Translations"
         tree.root.remove_children()
         active_node = None
         installed = tree.root.add(self.INSTALLED_NODE_LABEL)
@@ -688,6 +695,9 @@ class Translations(Screen):
         self.call_after_refresh(select_active)
 
     def _install_node(self, node) -> None:
+        if node is None:
+            return
+
         data = node.data
         if data and not translation.is_installed(data.slug):
             try:
@@ -711,10 +721,13 @@ class Translations(Screen):
             )
 
     def action_install(self):
-        self._install_node(self.query_exactly_one(Tree).cursor_node)
+        self._install_node(self._tree().cursor_node)
 
     def action_uninstall(self):
-        node = self.query_exactly_one(Tree).cursor_node
+        node = self._tree().cursor_node
+        if node is None:
+            return
+
         data = node.data
         if data and translation.is_installed(data.slug):
             try:
@@ -738,6 +751,9 @@ class Translations(Screen):
             )
 
     def _open_node(self, node) -> None:
+        if node is None:
+            return
+
         data = node.data
 
         if not data:
@@ -757,9 +773,12 @@ class Translations(Screen):
         self.app.pop_screen()
 
     def action_open(self):
-        self._open_node(self.query_exactly_one(Tree).cursor_node)
+        self._open_node(self._tree().cursor_node)
 
     def _activate_node(self, node) -> None:
+        if node is None:
+            return
+
         if node.children:
             if node.is_expanded:
                 node.collapse()
@@ -772,7 +791,7 @@ class Translations(Screen):
                 self._install_node(node)
 
     def action_activate(self):
-        node = self.query_exactly_one(Tree).cursor_node
+        node = self._tree().cursor_node
 
         if node:
             self._activate_node(node)
@@ -780,6 +799,10 @@ class Translations(Screen):
     def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         event.stop()
         self._activate_node(event.node)
+
+    def action_close(self):
+        self.app.pop_screen()
+        self.app.query_exactly_one(BibleView).focus()
 
 
 class ConfigScreen(Screen):

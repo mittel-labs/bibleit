@@ -179,6 +179,12 @@ ConfigScreen {
   background: #00000099;
 }
 
+Translations {
+  layer: overlay;
+  align: center middle;
+  background: #00000066;
+}
+
 ShortcutsScreen,
 WelcomeScreen {
   layer: overlay;
@@ -198,6 +204,46 @@ ConfigScreen > Container {
   border: round #c89b5d;
   padding: 1 2;
   color: #f3f0ea;
+}
+
+#translations-panel {
+  width: 74;
+  max-width: 88%;
+  height: 82%;
+  max-height: 86%;
+  layout: vertical;
+  background: #ece8e1;
+  border: round #c89b5d;
+  padding: 1 2;
+  color: #2a2a2a;
+}
+
+#translations-title {
+  width: 100%;
+  height: 2;
+  color: #d97706;
+  text-style: bold;
+}
+
+#translations-caption {
+  width: 100%;
+  height: 1;
+  margin-bottom: 1;
+  color: #7c7468;
+}
+
+#translations-tree {
+  width: 100%;
+  height: 1fr;
+  background: transparent;
+  color: #2a2a2a;
+  scrollbar-size: 0 0;
+}
+
+#translations-tree:focus > .tree--cursor {
+  background: #e7c878;
+  color: #1f1f1f;
+  text-style: bold;
 }
 
 StrongScreen Label,
@@ -782,6 +828,26 @@ Bibleit.dark WelcomeScreen > Container,
 Bibleit.dark ConfigScreen > Container {
   background: #141414;
   color: #f1ede6;
+}
+
+Bibleit.dark #translations-panel {
+  background: #141414;
+  color: #f1ede6;
+}
+
+Bibleit.dark #translations-caption {
+  color: #a9a198;
+}
+
+Bibleit.dark #translations-tree {
+  background: transparent;
+  color: #f1ede6;
+}
+
+Bibleit.dark #translations-tree:focus > .tree--cursor {
+  background: #c4933e;
+  color: #15120e;
+  text-style: bold;
 }
 
 Bibleit.dark #text-find-results,

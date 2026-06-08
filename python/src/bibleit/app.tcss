@@ -364,6 +364,64 @@ ConfigScreen Input:focus {
   border: tall #d97706;
 }
 
+ConfigScreen Select {
+  width: 100%;
+  height: 3;
+  background: transparent;
+  color: #f3f0ea;
+  border: none;
+}
+
+ConfigScreen Select > SelectCurrent {
+  width: 100%;
+  height: 3;
+  background: #202020;
+  color: #f3f0ea;
+  border: tall #6b655d;
+  padding: 0 1;
+}
+
+ConfigScreen Select > SelectCurrent Static#label {
+  color: #a9a29a;
+  height: 1;
+  content-align: left middle;
+}
+
+ConfigScreen Select > SelectCurrent.-has-value Static#label {
+  color: #f3f0ea;
+}
+
+ConfigScreen Select > SelectCurrent .arrow {
+  color: #ffb347;
+}
+
+ConfigScreen Select:focus > SelectCurrent {
+  border: tall #d97706;
+}
+
+ConfigScreen Select > SelectOverlay {
+  width: 100%;
+  max-height: 10;
+  background: #202020;
+  color: #f3f0ea;
+  border: tall #6b655d;
+}
+
+ConfigScreen Select > SelectOverlay:focus {
+  border: tall #d97706;
+}
+
+ConfigScreen Select > SelectOverlay > .option-list--option {
+  height: 1;
+  padding: 0 1;
+}
+
+ConfigScreen Select > SelectOverlay > .option-list--option-highlighted {
+  background: #d97706;
+  color: #111111;
+  text-style: bold;
+}
+
 #config-actions {
   width: 100%;
   height: 3;
@@ -687,6 +745,13 @@ View:last-child {
 }
 
 BibleView.vertical View:last-child {
+  border-bottom: none;
+}
+
+BibleView.maximized View {
+  width: 1fr;
+  height: 100%;
+  border-right: none;
   border-bottom: none;
 }
 

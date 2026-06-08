@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import tomllib
 
-CONFIG_NAMES = ("LIVE_TOKEN", "LIVE_URL", "THEME")
+CONFIG_NAMES = ("LIVE_TOKEN", "LIVE_URL", "DEFAULT_TRANSLATION", "THEME")
 CONFIG_DIR = ".bibleit"
 CONFIG_FILE = "config"
 THEMES = ("light", "dark")

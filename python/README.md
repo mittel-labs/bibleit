@@ -68,13 +68,28 @@ Run the installed package directly:
 python -m bibleit
 ```
 
+Read a verse from the command line:
+
+```bash
+bibleit -t NVIPT dani 9.2
+python -m bibleit -t KJV "john 3:16"
+python -m bibleit -t NVIPT,KJV dani 9:2-15
+bibleit -t KJV --strongs genesis 1.1
+```
+
+With no arguments, `bibleit` and `python -m bibleit` open the terminal app.
+With a reference, they print matching verse text to stdout. Set a default
+translation with `BIBLEIT_DEFAULT_TRANSLATION`, `BIBLEIT_TRANSLATION`, or
+`DEFAULT_TRANSLATION` in `~/.bibleit/config`.
+
 ## Keyboard
 
 | Shortcut | Action |
 |---|---|
 | `↑` / `↓` | Previous / next verse |
 | `g` | Go to verse, chapter, or book reference |
-| `Tab` | Cycle go-to matches |
+| `Tab` / `Shift+Tab` | Next / previous open translation |
+| `Tab` in Go To | Cycle go-to matches |
 | `Ctrl+F` | Find verse text |
 | `←` / `→` in Find | Switch Find translation |
 | `Ctrl+T` | Open translations |
@@ -82,6 +97,10 @@ python -m bibleit
 | `Ctrl+A` / `Ctrl+E` | Beginning / end of current chapter |
 | `<` / `>` | Previous / next chapter |
 | `Ctrl+W` | Close the active translation pane |
+| `Ctrl+M` | Maximize / restore the active translation pane |
+| `Ctrl+Tab` | Rotate translations |
+| `Ctrl+1`-`Ctrl+9` | Select a translation while maximized |
+| `Esc` | Restore panes when a translation is maximized |
 | `F2` | Toggle split layout |
 | `Ctrl+L` | Toggle live mode |
 | `Ctrl+D` | Toggle theme |
@@ -100,6 +119,7 @@ variables with the `BIBLEIT_` prefix take precedence.
 |---|---|---|
 | `LIVE_URL` | `BIBLEIT_LIVE_URL` | Live server URL used by the terminal app |
 | `LIVE_TOKEN` | `BIBLEIT_LIVE_TOKEN` | Optional token used to protect live control requests |
+| `DEFAULT_TRANSLATION` | `BIBLEIT_DEFAULT_TRANSLATION` | Default translation slug for CLI verse lookup |
 | `THEME` | `BIBLEIT_THEME` | `light` or `dark` |
 
 Open the config screen with `Ctrl+P`.

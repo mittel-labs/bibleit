@@ -169,9 +169,21 @@ def install_dictionary(name: str) -> Path:
 
 
 @cache
+def get_translation_available(slug: str):
+    for language in get_languages_config():
+        for translation in language["translations"]:
+            if translation["short_name"] == slug:
+                return _map_to_translation(translation)
+
+    return None
+
+
+@cache
 def get_translations_available():
     return {
-        t["short_name"]: _map_to_translation(t) for language in get_languages_config() for t in language["translations"]
+        t["short_name"]: get_translation_available(t["short_name"])
+        for language in get_languages_config()
+        for t in language["translations"]
     }
 
 
@@ -190,7 +202,7 @@ def get_languages_available():
 
 def get_installed() -> dict[str, TranslationHeader]:
     translations = map(attrgetter("stem"), TRANSLATIONS_DIR.glob(TRANSLATION_FILE.format(name="*")))
-    return {slug: get_translations_available().get(slug) for slug in translations}
+    return {slug: get_translation_available(slug) for slug in translations}
 
 
 def is_installed(slug: str) -> bool:
@@ -254,9 +266,9 @@ def get(slug: str) -> Path:
 
 
 def open(slug: str) -> Translation:
-    if slug not in get_translations_available():
-        raise ValueError("open failure: translation not found: {slug}")
-    header = get_translations_available().get(slug)
+    header = get_translation_available(slug)
+    if header is None:
+        raise ValueError(f"open failure: translation not found: {slug}")
     return Translation(header)
 
 

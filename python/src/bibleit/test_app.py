@@ -46,6 +46,14 @@ except ModuleNotFoundError:
     raise
 
 
+class FakeBtView:
+    def __init__(self, value: str):
+        self.value = value
+
+    def memoryview(self):
+        return memoryview(self.value.encode("utf-8"))
+
+
 class FakeCursor:
     def __init__(self, values):
         self.values = values
@@ -57,7 +65,14 @@ class FakeCursor:
 
         value = self.values[self.index]
         self.index += 1
-        return value
+        return FakeBtView(value)
+
+    def previous(self):
+        if self.index <= 0:
+            return None
+
+        self.index -= 1
+        return FakeBtView(self.values[self.index])
 
 
 class FakeTranslation:
@@ -112,6 +127,9 @@ class FakeTranslation:
 
     def read(self, ref: translation.TranslationRef):
         self.read_calls += 1
+        return FakeCursor(self.rows_by_book.get(ref.bookid, []))
+
+    def cursor_from(self, ref: translation.TranslationRef):
         return FakeCursor(self.rows_by_book.get(ref.bookid, []))
 
 
@@ -468,6 +486,18 @@ class BrowserModeTests(unittest.TestCase):
 
 
 class ConfigTests(unittest.TestCase):
+    def setUp(self):
+        self.config_dir = TemporaryDirectory()
+        self.config_patcher = patch.dict(
+            "os.environ",
+            {"BIBLEIT_CONFIG_FILE": f"{self.config_dir.name}/config"},
+        )
+        self.config_patcher.start()
+
+    def tearDown(self):
+        self.config_patcher.stop()
+        self.config_dir.cleanup()
+
     def test_save_config_creates_toml_file(self):
         with TemporaryDirectory() as temp:
             path = f"{temp}/config"
@@ -528,6 +558,14 @@ class ConfigTests(unittest.TestCase):
             ):
                 self.assertEqual(config_value("LIVE_URL"), "https://env.example")
 
+    def test_config_screen_uses_select_for_default_translation(self):
+        with patch.object(translation, "get_installed", return_value={"TEST": FakeTranslation().header}):
+            screen = ConfigScreen()
+
+            options = screen._translation_options()
+
+        self.assertEqual(options, [("TEST - Test", "TEST")])
+
     def test_theme_is_loaded_from_config(self):
         with TemporaryDirectory() as temp:
             path = f"{temp}/config"
@@ -575,12 +613,11 @@ class ConfigTests(unittest.TestCase):
                         app.screen.query_one("#config-theme-dark", Switch).value = True
                         await pilot.press("ctrl+s")
                         await pilot.pause()
-                        await pilot.press("escape")
-                        await pilot.pause()
 
                         self.assertTrue(app.dark_theme)
                         self.assertTrue(app.has_class("dark"))
                         self.assertEqual(app.theme, "textual-dark")
+                        self.assertNotIsInstance(app.screen, ConfigScreen)
 
         asyncio.run(run())
 
@@ -650,6 +687,258 @@ class ConfigTests(unittest.TestCase):
                 await pilot.pause()
 
                 self.assertTrue(app.query_exactly_one(StatusBar).command_mode)
+
+        asyncio.run(run())
+
+    def test_tab_keeps_focus_on_active_list_view(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                view = View(NavigationState(), FakeTranslation())
+                bible_view.views.append(view)
+                await bible_view.mount(view)
+                await pilot.pause()
+
+                view.focus()
+                await pilot.pause()
+
+                await pilot.press("tab")
+                await pilot.pause()
+
+                self.assertIs(app.focused, view)
+
+        asyncio.run(run())
+
+    def test_tab_switches_between_open_translations(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                bible_view.set_active_view(first)
+                first.focus()
+                await pilot.press("tab")
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertIs(bible_view.active_view, second)
+                self.assertIs(app.focused, second)
+                self.assertEqual(status.active_translation, "TWO")
+
+                await pilot.press("shift+tab")
+                await pilot.pause()
+
+                self.assertIs(bible_view.active_view, first)
+                self.assertIs(app.focused, first)
+                self.assertEqual(status.active_translation, "ONE")
+
+        asyncio.run(run())
+
+    def test_status_bar_marks_focused_translation_active(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                second.focus()
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertEqual(status.translations, ["ONE", "TWO"])
+                self.assertEqual(status.active_translation, "TWO")
+
+        asyncio.run(run())
+
+    def test_ctrl_m_toggles_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                first.focus()
+                await pilot.press("ctrl+m")
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertIs(bible_view.maximized_view, first)
+                self.assertTrue(first.display)
+                self.assertFalse(second.display)
+                self.assertEqual(status.translations, ["ONE", "TWO"])
+                self.assertEqual(status.active_translation, "ONE")
+                self.assertEqual(status.maximized_translation, "ONE")
+
+                await pilot.press("ctrl+m")
+                await pilot.pause()
+
+                self.assertIsNone(bible_view.maximized_view)
+                self.assertTrue(first.display)
+                self.assertTrue(second.display)
+                self.assertIs(bible_view.active_view, first)
+                self.assertIs(app.focused, first)
+                self.assertEqual(status.active_translation, "ONE")
+                self.assertEqual(status.maximized_translation, "")
+
+        asyncio.run(run())
+
+    def test_go_to_uses_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test():
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+
+                bible_view._set_maximized_view(second)
+                status = app.query_exactly_one(StatusBar)
+                status.open_command()
+
+                self.assertIs(status._active_translation(), second_translation)
+
+        asyncio.run(run())
+
+    def test_escape_restores_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first = View(bible_view.state, FakeTranslation())
+                second = View(bible_view.state, FakeTranslation())
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                first.focus()
+                await pilot.press("ctrl+m")
+                await pilot.pause()
+                await pilot.press("escape")
+                await pilot.pause()
+
+                self.assertIsNone(bible_view.maximized_view)
+                self.assertTrue(first.display)
+                self.assertTrue(second.display)
+                self.assertEqual(app.query_exactly_one(StatusBar).maximized_translation, "")
+
+        asyncio.run(run())
+
+    def test_ctrl_tab_rotates_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                bible_view._set_maximized_view(first)
+                bible_view.action_next_maximized_translation()
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertIs(bible_view.maximized_view, second)
+                self.assertFalse(first.display)
+                self.assertTrue(second.display)
+                self.assertEqual(status.translations, ["ONE", "TWO"])
+                self.assertEqual(status.maximized_translation, "TWO")
+
+        asyncio.run(run())
+
+    def test_ctrl_number_selects_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                bible_view._set_maximized_view(first)
+                bible_view.action_maximize_translation(2)
+                await pilot.pause()
+
+                self.assertIs(bible_view.maximized_view, second)
+                self.assertFalse(first.display)
+                self.assertTrue(second.display)
+                self.assertEqual(app.query_exactly_one(StatusBar).maximized_translation, "TWO")
+
+        asyncio.run(run())
+
+    def test_default_translation_opens_on_start(self):
+        async def run():
+            default_translation = FakeTranslation()
+            default_translation.slug = "ONE"
+            app = Bibleit()
+
+            with (
+                patch("bibleit.app.config_value", return_value="ONE"),
+                patch("bibleit.app.translation.open", return_value=default_translation),
+            ):
+                async with app.run_test():
+                    bible_view = app.query_exactly_one(BibleView)
+
+                    self.assertEqual([view.translation.slug for view in bible_view.views], ["ONE"])
+                    self.assertEqual(app.query_exactly_one(StatusBar).active_translation, "ONE")
 
         asyncio.run(run())
 

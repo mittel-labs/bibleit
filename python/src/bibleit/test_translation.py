@@ -48,6 +48,7 @@ class TranslationNativeTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
 
         translation.get_translations_available.cache_clear()
+        translation.get_translation_available.cache_clear()
         translation.get_languages_available.cache_clear()
 
         self.patches = [

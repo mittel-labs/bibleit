@@ -20,6 +20,9 @@ dependencies = [
   "unidecode",
 ]
 
+[project.scripts]
+bibleit = "bibleit.cli:main"
+
 [project.optional-dependencies]
 dev = ["black", "flake8", "textual-dev"]
 

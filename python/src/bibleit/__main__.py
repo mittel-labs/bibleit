@@ -1,3 +1,3 @@
-from bibleit.app import Bibleit
+from bibleit.cli import main
 
-Bibleit().run()
+raise SystemExit(main())

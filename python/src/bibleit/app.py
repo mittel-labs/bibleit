@@ -3,7 +3,7 @@ from __future__ import annotations
 from textual.app import App
 from textual.containers import Container, Horizontal
 from textual.binding import Binding
-from textual.widgets import ListView, ListItem, Input, Tree, Label, Static, Button, Switch
+from textual.widgets import ListView, ListItem, Input, Tree, Label, Static, Button, Switch, Select
 from textual.screen import Screen
 from textual.message import Message
 from textual.reactive import reactive
@@ -12,7 +12,7 @@ from typing import Iterable, Sequence
 from html import unescape
 
 from bibleit import translation
-from bibleit.config import config_path, env_overrides, load_config, save_config, theme_is_dark
+from bibleit.config import config_path, config_value, env_overrides, load_config, save_config, theme_is_dark
 from bibleit.history import HistoryEntry, SessionHistory
 from bibleit.live_publisher import LivePublisher, running_in_browser
 from bibleit.navigation import (
@@ -179,6 +179,8 @@ class StatusBar(Horizontal):
     can_focus = False
     can_focus_children = True
     translations = reactive(list)
+    active_translation = reactive("")
+    maximized_translation = reactive("")
     strongs = reactive(False)
     live = reactive(False)
     compact = reactive(False)
@@ -213,6 +215,12 @@ class StatusBar(Horizontal):
     def watch_translations(self):
         self._refresh()
 
+    def watch_active_translation(self):
+        self._refresh()
+
+    def watch_maximized_translation(self):
+        self._refresh()
+
     def watch_strongs(self):
         self._refresh()
 
@@ -244,11 +252,20 @@ class StatusBar(Horizontal):
         self.compact = event.size.width < 72
 
     def _refresh(self):
-        translation_text = (
-            " [#b8b0a6]·[/] ".join(f"[#d97706]{t}[/]" for t in self.translations)
-            if self.translations
-            else "No translation selected"
-        )
+        if self.translations:
+            translations = []
+            for slug in self.translations:
+                if self.active_translation:
+                    if slug == self.active_translation:
+                        translations.append(f"[bold #d97706]{slug}[/]")
+                    else:
+                        translations.append(f"[#8d8478]{slug}[/]")
+                else:
+                    translations.append(f"[#d97706]{slug}[/]")
+
+            translation_text = " [#b8b0a6]·[/] ".join(translations)
+        else:
+            translation_text = "No translation selected"
 
         left = " [#b8b0a6]·[/] ".join(
             filter(
@@ -316,7 +333,7 @@ class StatusBar(Horizontal):
 
     def _active_translation(self) -> translation.Translation | None:
         bible_view = self.app.query_exactly_one(BibleView)
-        view = bible_view.focused_view() or (bible_view.views[0] if bible_view.views else None)
+        view = bible_view._active_view()
         return view.translation if view is not None else None
 
     def _set_command_value(self, value: str) -> None:
@@ -849,14 +866,55 @@ class ConfigScreen(Screen):
                         classes="config-note",
                     )
 
+            yield Label("DEFAULT_TRANSLATION", classes="config-label")
+            default_translation = values.get("DEFAULT_TRANSLATION", "")
+            yield Select(
+                self._translation_options(default_translation),
+                prompt="Auto",
+                allow_blank=True,
+                value=default_translation or Select.NULL,
+                id="config-default-translation",
+            )
+
+            if "DEFAULT_TRANSLATION" in overrides:
+                yield Label(
+                    "BIBLEIT_DEFAULT_TRANSLATION is set and will take precedence.",
+                    classes="config-note",
+                )
+
             with Horizontal(id="config-actions"):
                 yield Button("Save", id="config-save")
                 yield Button("Close", id="config-close")
+
+    def _translation_options(self, selected_slug: str = "") -> list[tuple[str, str]]:
+        installed = {
+            slug: header
+            for slug, header in translation.get_installed().items()
+            if header is not None
+        }
+
+        options = [
+            (self._translation_label(slug, header.name), slug)
+            for slug, header in sorted(installed.items())
+        ]
+
+        if selected_slug and selected_slug not in installed:
+            options.insert(0, (selected_slug, selected_slug))
+
+        return options
+
+    def _translation_label(self, slug: str, name: str, limit: int = 56) -> str:
+        label = f"{slug} - {name}"
+        if len(label) <= limit:
+            return label
+        return f"{label[: limit - 1]}…"
 
     def _values(self) -> dict[str, str]:
         values = {
             name: self.query_one(f"#config-{name.lower().replace('_', '-')}", Input).value for name in self.TEXT_CONFIGS
         }
+        default_translation = self.query_one("#config-default-translation", Select).value
+        values["DEFAULT_TRANSLATION"] = "" if default_translation == Select.NULL else str(default_translation)
         values["THEME"] = "dark" if self.query_one("#config-theme-dark", Switch).value else "light"
         return values
 
@@ -865,6 +923,7 @@ class ConfigScreen(Screen):
         save_config(values)
         self.app.apply_theme(theme_is_dark())
         self.notify("Config saved", title=str(config_path()), timeout=3)
+        self.app.pop_screen()
 
     def action_close(self) -> None:
         self.app.apply_theme(theme_is_dark())
@@ -881,6 +940,27 @@ class ConfigScreen(Screen):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         event.stop()
         self.action_save()
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key not in {"down", "up"}:
+            return
+
+        if self._select_is_expanded():
+            return
+
+        event.stop()
+        if event.key == "down":
+            self.focus_next()
+        else:
+            self.focus_previous()
+
+    def _select_is_expanded(self) -> bool:
+        focused = self.app.focused
+        while focused is not None and focused is not self:
+            if isinstance(focused, Select) and focused.has_class("-expanded"):
+                return True
+            focused = focused.parent
+        return False
 
 
 class StrongScreen(Screen):
@@ -1003,6 +1083,13 @@ class OverlayStatusMixin:
             return
 
         status.translations = [view.translation.slug for view in bible_view.views]
+        active_view = bible_view._active_view()
+        status.active_translation = active_view.translation.slug if active_view is not None else ""
+        status.maximized_translation = (
+            bible_view.maximized_view.translation.slug
+            if bible_view.maximized_view is not None
+            else ""
+        )
         status.strongs = any(view.show_strongs for view in bible_view.views)
         status.live = bible_view.state.live
 
@@ -1020,7 +1107,8 @@ class ShortcutsScreen(OverlayStatusMixin, Screen):
         ("<", "Previous chapter"),
         (">", "Next chapter"),
         ("g / @", "Go to"),
-        ("Tab", "Cycle go-to matches"),
+        ("Tab", "Next translation / cycle go-to matches"),
+        ("Shift+Tab", "Previous translation"),
         ("Enter", "Select match or navigate"),
         ("Ctrl+T", "Translations"),
         ("Ctrl+F", "Find text"),
@@ -1029,6 +1117,9 @@ class ShortcutsScreen(OverlayStatusMixin, Screen):
         ("Ctrl+P", "Config"),
         ("Ctrl+D", "Toggle theme"),
         ("Ctrl+W", "Close pane"),
+        ("Ctrl+M", "Maximize translation"),
+        ("Ctrl+Tab", "Next translation"),
+        ("Ctrl+1-9", "Select maximized translation"),
         ("F2", "Toggle split layout"),
         ("Ctrl+L", "Live mode"),
         ("?", "Show shortcuts"),
@@ -1153,7 +1244,6 @@ class View(ListView):
         self._live_mode_group = f"live-mode-{id(self)}"
         self._pending_live_publish: dict | None = None
         self._live_publish_running = False
-        self._pointer_down_y: int | None = None
         self._cursor_move_lock = asyncio.Lock()
 
     def _select_first(self):
@@ -1161,6 +1251,18 @@ class View(ListView):
             self.focus()
             self.index = 0
             self.publish_current()
+
+    def on_focus(self, event: events.Focus) -> None:
+        self._activate_parent_view()
+
+    def _activate_parent_view(self) -> None:
+        if not self.is_attached:
+            return
+
+        try:
+            self.app.query_exactly_one(BibleView).set_active_view(self)
+        except Exception:
+            return
 
     def publish_current(self):
         if not self.state.live:
@@ -1510,6 +1612,7 @@ class View(ListView):
                 return
 
             self.focus()
+            self._activate_parent_view()
 
             index = self._valid_index()
             if index is None:
@@ -1535,6 +1638,7 @@ class View(ListView):
                 return
 
             self.focus()
+            self._activate_parent_view()
 
             index = self._valid_index()
             if index is None:
@@ -1565,16 +1669,14 @@ class View(ListView):
 
     async def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
         event.stop()
-        await self._move_cursor_down()
 
     async def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
         event.stop()
-        await self._move_cursor_up()
 
     def on_mouse_down(self, event: events.MouseDown) -> None:
         if not running_in_browser():
             self.focus()
-        self._pointer_down_y = event.screen_y
+        self._activate_parent_view()
 
     def _on_list_item__child_clicked(self, event: ListItem._ChildClicked) -> None:
         event.stop()
@@ -1582,29 +1684,14 @@ class View(ListView):
         if not running_in_browser():
             self.focus()
 
+        self._activate_parent_view()
+
         try:
             self.index = self._nodes.index(event.item)
         except ValueError:
             return
 
         self.post_message(self.Selected(self, event.item, self.index))
-
-    async def on_mouse_up(self, event: events.MouseUp) -> None:
-        if self._pointer_down_y is None:
-            return
-
-        delta_y = self._pointer_down_y - event.screen_y
-        self._pointer_down_y = None
-
-        if abs(delta_y) < 2:
-            return
-
-        event.stop()
-        steps = min(5, max(1, abs(delta_y) // 3))
-        move = self._move_cursor_down if delta_y > 0 else self._move_cursor_up
-
-        for _ in range(steps):
-            await move()
 
     def sync_to_state(self, focus: bool = False):
         if not self.is_attached:
@@ -1677,6 +1764,9 @@ class BibleView(Horizontal):
     can_focus = True
 
     BINDINGS = [
+        Binding("tab", "next_translation", "Next Translation", show=False, priority=True),
+        Binding("shift+tab", "previous_translation", "Previous Translation", show=False, priority=True),
+        Binding("ctrl+tab", "next_translation", "Next Translation", show=False, priority=True),
         ("ctrl+t", "open_translations", "Translations"),
         ("ctrl+f", "open_find", "Find"),
         ("ctrl+g", "toggle_strongs", "Strongs"),
@@ -1684,6 +1774,16 @@ class BibleView(Horizontal):
         ("ctrl+p", "open_config", "Config"),
         ("ctrl+l", "toggle_live", "Live"),
         ("ctrl+w", "close_pane", "Close Pane"),
+        ("ctrl+m", "toggle_maximize", "Maximize"),
+        ("ctrl+1", "maximize_translation(1)", "Maximize Translation 1"),
+        ("ctrl+2", "maximize_translation(2)", "Maximize Translation 2"),
+        ("ctrl+3", "maximize_translation(3)", "Maximize Translation 3"),
+        ("ctrl+4", "maximize_translation(4)", "Maximize Translation 4"),
+        ("ctrl+5", "maximize_translation(5)", "Maximize Translation 5"),
+        ("ctrl+6", "maximize_translation(6)", "Maximize Translation 6"),
+        ("ctrl+7", "maximize_translation(7)", "Maximize Translation 7"),
+        ("ctrl+8", "maximize_translation(8)", "Maximize Translation 8"),
+        ("ctrl+9", "maximize_translation(9)", "Maximize Translation 9"),
         ("ctrl+a", "chapter_start", "Chapter Start"),
         ("ctrl+e", "chapter_end", "Chapter End"),
         ("<", "previous_chapter", "Previous Chapter"),
@@ -1693,6 +1793,7 @@ class BibleView(Horizontal):
         ("@", "open_reference", "Go To"),
         (":", "open_reference", "Go To"),
         ("?", "show_shortcuts", "Shortcuts"),
+        ("escape", "restore_panes", "Restore Panes"),
         ("f2", "toggle_layout", "Toggle Layout"),
     ]
 
@@ -1701,6 +1802,8 @@ class BibleView(Horizontal):
         self.state = NavigationState()
         self.views: list[View] = []
         self.vertical_layout = False
+        self.maximized_view: View | None = None
+        self.active_view: View | None = None
 
     def compose(self):
         yield Button("↑", id="nav-previous", classes="verse-nav")
@@ -1713,6 +1816,9 @@ class BibleView(Horizontal):
         view = View(self.state, translation)
         self.views.append(view)
         await self.mount(view)
+        if self.maximized_view is not None:
+            view.display = False
+        self.active_view = view
         view.sync_to_state(focus=True)
         self.refresh_status()
 
@@ -1730,6 +1836,7 @@ class BibleView(Horizontal):
 
     def on_view_navigate(self, event: View.Navigate):
         view = event.control
+        self.set_active_view(view)
 
         for other in self.views:
             if other is view:
@@ -1748,7 +1855,7 @@ class BibleView(Horizontal):
         self.state.verse = ref.verse_start or 1
         self.state.index = 0
 
-        focused_view = self.focused_view() or (self.views[0] if self.views else None)
+        focused_view = self._active_view()
         for view in self.views:
             view.sync_to_state(focus=view is focused_view)
 
@@ -1764,7 +1871,7 @@ class BibleView(Horizontal):
         self.app.query_exactly_one(StatusBar).open_command()
 
     def go_to_command(self, value: str) -> bool:
-        view = self.focused_view() or (self.views[0] if self.views else None)
+        view = self._active_view()
         if not view:
             self.notify(
                 "Please open a translation first",
@@ -1788,6 +1895,17 @@ class BibleView(Horizontal):
         self.app.install_screen(Translations(), name="translations")
         self.set_class(running_in_browser(), "browser")
         self.focus()
+
+    def on_focus(self, event: events.Focus) -> None:
+        view = self._active_view()
+        if view:
+            event.stop()
+            self.call_after_refresh(view.focus)
+
+    def action_focus_active_view(self) -> None:
+        view = self._active_view()
+        if view:
+            view.focus()
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "nav-previous":
@@ -1832,19 +1950,122 @@ class BibleView(Horizontal):
             self.app.push_screen(HistoryScreen())
 
     async def action_previous_verse(self):
-        view = self.focused_view() or (self.views[0] if self.views else None)
+        view = self._active_view()
 
         if view:
             await view._move_cursor_up()
 
     async def action_next_verse(self):
-        view = self.focused_view() or (self.views[0] if self.views else None)
+        view = self._active_view()
 
         if view:
             await view._move_cursor_down()
 
     def _active_view(self) -> View | None:
-        return self.focused_view() or (self.views[0] if self.views else None)
+        if self.maximized_view is not None:
+            return self.maximized_view
+
+        focused_view = self.focused_view()
+        if focused_view is not None:
+            return focused_view
+
+        if self._has_view(self.active_view):
+            return self.active_view
+
+        return self.views[0] if self.views else None
+
+    def _has_view(self, view: View | None) -> bool:
+        return any(candidate is view for candidate in self.views)
+
+    def set_active_view(self, view: View | None) -> None:
+        if view is None or not self._has_view(view):
+            return
+
+        self.active_view = view
+        self.refresh_status()
+
+    def _set_maximized_view(self, view: View | None) -> None:
+        previous_maximized_view = self.maximized_view
+        self.maximized_view = view if self._has_view(view) else None
+        if self.maximized_view is not None:
+            self.active_view = self.maximized_view
+        elif self._has_view(previous_maximized_view):
+            self.active_view = previous_maximized_view
+
+        for candidate in self.views:
+            candidate.display = self.maximized_view is None or candidate is self.maximized_view
+
+        self.set_class(self.maximized_view is not None, "maximized")
+        self.refresh_status()
+
+        active_view = (
+            self.maximized_view
+            if self.maximized_view is not None
+            else (
+                self.active_view
+                if self._has_view(self.active_view)
+                else (self.views[0] if self.views else None)
+            )
+        )
+        if active_view is not None:
+            self.call_after_refresh(active_view.focus)
+
+    def action_toggle_maximize(self):
+        view = self._active_view()
+        if view is None:
+            return
+
+        self._set_maximized_view(None if self.maximized_view is view else view)
+
+    def _translation_index(self) -> int | None:
+        view = self._active_view()
+        if view is None:
+            return None
+
+        for index, candidate in enumerate(self.views):
+            if candidate is view:
+                return index
+
+        return None
+
+    def _switch_translation(self, direction: int) -> None:
+        if len(self.views) < 2:
+            return
+
+        index = self._translation_index()
+        if index is None:
+            return
+
+        view = self.views[(index + direction) % len(self.views)]
+        if self.maximized_view is not None:
+            self._set_maximized_view(view)
+        else:
+            self.set_active_view(view)
+            self.call_after_refresh(view.focus)
+
+    def action_next_translation(self):
+        self._switch_translation(1)
+
+    def action_previous_translation(self):
+        self._switch_translation(-1)
+
+    def action_next_maximized_translation(self):
+        if self.maximized_view is not None:
+            self.action_next_translation()
+
+    def action_maximize_translation(self, number: int):
+        if self.maximized_view is None:
+            return
+
+        index = number - 1
+        if index < 0 or index >= len(self.views):
+            return
+
+        self._set_maximized_view(self.views[index])
+
+    def action_restore_panes(self):
+        if self.maximized_view is not None:
+            self._set_maximized_view(None)
 
     def _chapter_end_ref(self, view: View) -> translation.TranslationRef | None:
         try:
@@ -1910,13 +2131,9 @@ class BibleView(Horizontal):
         self.set_class(self.vertical_layout, "vertical")
 
     def action_toggle_strongs(self):
-        view = self.focused_view()
-
+        view = self._active_view()
         if not view:
-            if self.views:
-                view = self.views[0]
-            else:
-                return
+            return
 
         view.action_toggle_strongs()
 
@@ -1928,13 +2145,13 @@ class BibleView(Horizontal):
         self.refresh_status()
 
         if self.state.live:
-            view = self.focused_view() or (self.views[0] if self.views else None)
+            view = self._active_view()
 
             if view:
                 view.set_live_mode(True)
                 self.publish_live_state()
         else:
-            view = self.focused_view() or (self.views[0] if self.views else None)
+            view = self._active_view()
 
             if view:
                 view.set_live_mode(False)
@@ -1960,7 +2177,14 @@ class BibleView(Horizontal):
 
     def refresh_status(self):
         status = self.app.query_exactly_one(StatusBar)
+        active_view = self._active_view()
         status.translations = [view.translation.slug for view in self.views]
+        status.active_translation = active_view.translation.slug if active_view is not None else ""
+        status.maximized_translation = (
+            self.maximized_view.translation.slug
+            if self.maximized_view is not None
+            else ""
+        )
         status.live = self.state.live
 
     def publish_live_state(self):
@@ -1995,7 +2219,12 @@ class BibleView(Horizontal):
 
         index = self.views.index(view)
         self.views.remove(view)
+        if self.maximized_view is view:
+            self.maximized_view = None
+        if self.active_view is view:
+            self.active_view = self.views[min(index, len(self.views) - 1)] if self.views else None
         await view.remove()
+        self._set_maximized_view(self.maximized_view)
         self.refresh_status()
 
         next_view = self.views[min(index, len(self.views) - 1)]
@@ -2027,9 +2256,24 @@ class Bibleit(App):
         self.dark_theme = theme_is_dark()
         atexit.register(self._disable_live_on_shutdown)
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self.apply_theme(self.dark_theme)
+        await self._open_default_translation()
         self.push_screen(WelcomeScreen())
+
+    async def _open_default_translation(self) -> None:
+        slug = config_value("DEFAULT_TRANSLATION").strip()
+        if not slug:
+            return
+
+        bible_view = self.query_exactly_one(BibleView)
+        try:
+            translation_ = translation.open(slug)
+        except (RuntimeError, ValueError) as error:
+            self.notify(str(error), severity="warning", timeout=3)
+            return
+
+        await bible_view.add_translation(translation_)
 
     def exit(self, *args, **kwargs) -> None:
         self._disable_live_on_shutdown()

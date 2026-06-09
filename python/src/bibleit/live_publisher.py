@@ -5,7 +5,9 @@ import json
 import os
 import urllib.error
 import urllib.request
+from urllib.parse import urlencode, urlsplit, urlunsplit
 import uuid
+from collections.abc import AsyncIterator
 from typing import Sequence
 
 import aiohttp
@@ -100,6 +102,35 @@ class LivePublisher:
 
         await self._post("/api/live", {"live": live})
 
+    async def status_events(self) -> AsyncIterator[dict[str, bool | int]]:
+        if not self.enabled:
+            yield {"connected": False, "live": False, "clients": 0}
+            return
+
+        try:
+            timeout = aiohttp.ClientTimeout(total=None, sock_connect=self.timeout)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.ws_connect(self._websocket_url(role="monitor")) as ws:
+                    async for message in ws:
+                        if message.type != aiohttp.WSMsgType.TEXT:
+                            continue
+
+                        try:
+                            payload = json.loads(message.data)
+                        except (TypeError, ValueError):
+                            continue
+
+                        if payload.get("type") not in {"clients", "mode"}:
+                            continue
+
+                        yield {
+                            "connected": True,
+                            "live": bool(payload.get("live", True)),
+                            "clients": int(payload.get("clients") or 0),
+                        }
+        except (aiohttp.ClientError, asyncio.TimeoutError, TypeError, ValueError):
+            yield {"connected": False, "live": False, "clients": 0}
+
     def set_live_blocking(self, live: bool) -> bool:
         if not self.enabled:
             return False
@@ -138,3 +169,17 @@ class LivePublisher:
             headers["Authorization"] = f"Bearer {self.token}"
 
         return headers
+
+    def _websocket_url(self, **query: str) -> str:
+        parsed = urlsplit(self.url)
+        scheme = "wss" if parsed.scheme == "https" else "ws"
+        path = parsed.path.rstrip("/") + "/ws"
+        return urlunsplit(
+            (
+                scheme,
+                parsed.netloc,
+                path,
+                urlencode(query),
+                "",
+            )
+        )

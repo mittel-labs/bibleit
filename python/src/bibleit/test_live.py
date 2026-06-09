@@ -13,6 +13,7 @@ from bibleit.live import (
     TOKEN_KEY,
     clean_verse_text,
     create_app,
+    current,
     parse_verse_line,
     request_is_authorized,
     viewer_html,
@@ -44,6 +45,7 @@ class LiveVerseTest(unittest.TestCase):
 
         self.assertEqual(app[TITLE_KEY], "test live")
         self.assertIsNone(app[HUB_KEY].current)
+        self.assertEqual(app[HUB_KEY].client_count(), 0)
 
     def test_viewer_html_renders_template_with_escaped_title(self):
         rendered = viewer_html("bibleit <live>")
@@ -72,6 +74,16 @@ class LiveVerseTest(unittest.TestCase):
         request = make_mocked_request("POST", "/api/publish", app=app)
 
         self.assertTrue(request_is_authorized(request))
+
+    def test_current_response_includes_client_count(self):
+        app = create_app("test live")
+        request = make_mocked_request("GET", "/api/current", app=app)
+
+        import asyncio
+
+        response = asyncio.run(current(request))
+
+        self.assertIn('"clients": 0', response.text)
 
     def test_control_requests_require_matching_bearer_token(self):
         with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}, clear=True):

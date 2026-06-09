@@ -730,6 +730,7 @@ View {
   height: 100%;
   background: #f3f1ed;
   border-right: solid #ddd4c8;
+  overflow: hidden auto;
   scrollbar-size: 0 0;
 }
 

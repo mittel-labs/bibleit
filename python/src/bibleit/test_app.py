@@ -35,6 +35,7 @@ try:
         previous_chapter_ref,
         select_navigation_completion,
     )
+    from bibleit.panes import PaneRegistry
     from bibleit.text_find import (
         TextFindIndex,
         cached_find_index,
@@ -159,6 +160,9 @@ class FakeLive:
     def __init__(self):
         self.values = []
 
+    async def set_live(self, live: bool):
+        self.values.append(live)
+
     def set_live_blocking(self, live: bool):
         self.values.append(live)
 
@@ -168,9 +172,26 @@ class FakeView:
         self.live = FakeLive()
 
 
+class RestoringBibleView(BibleView):
+    def __init__(self):
+        super().__init__()
+        self.published = 0
+
+    def publish_live_state(self):
+        self.published += 1
+
+
 class FakeClickEvent:
     def __init__(self, item):
         self.item = item
+        self.stopped = False
+
+    def stop(self):
+        self.stopped = True
+
+
+class FakeStopEvent:
+    def __init__(self):
         self.stopped = False
 
     def stop(self):
@@ -227,11 +248,65 @@ class BibleViewRowTests(unittest.TestCase):
         view = View(NavigationState(), FakeTranslation(), ListItem())
         event = FakeClickEvent(ListItem())
 
-        with patch("bibleit.app.running_in_browser", return_value=True):
+        with patch("bibleit.ui.view.running_in_browser", return_value=True):
             view._on_list_item__child_clicked(event)
 
         self.assertTrue(event.stopped)
         self.assertIsNone(view.index)
+
+    def test_mouse_scroll_events_are_consumed_without_cursor_movement(self):
+        async def run():
+            view = self.make_view()
+            for _ in range(5):
+                view._nodes._append(ListItem())
+            view.index = 3
+
+            down = FakeStopEvent()
+            await view.on_mouse_scroll_down(down)
+            self.assertTrue(down.stopped)
+            self.assertEqual(view.index, 3)
+
+            up = FakeStopEvent()
+            await view.on_mouse_scroll_up(up)
+            self.assertTrue(up.stopped)
+            self.assertEqual(view.index, 3)
+
+        asyncio.run(run())
+
+
+class PaneRegistryTests(unittest.TestCase):
+    def test_removing_active_view_selects_next_view(self):
+        first = object()
+        second = object()
+        third = object()
+        panes = PaneRegistry()
+        panes.views.extend([first, second, third])
+        panes.active_view = second
+
+        self.assertIs(panes.remove(second), third)
+        self.assertIs(panes.active_view, third)
+        self.assertEqual(panes.views, [first, third])
+
+    def test_restoring_maximized_keeps_previous_view_active(self):
+        first = object()
+        second = object()
+        panes = PaneRegistry()
+        panes.views.extend([first, second])
+
+        panes.set_maximized(second)
+        self.assertIs(panes.active_view, second)
+
+        panes.set_maximized(None)
+        self.assertIs(panes.active_view, second)
+
+    def test_cycle_uses_focused_view_before_active_view(self):
+        first = object()
+        second = object()
+        panes = PaneRegistry()
+        panes.views.extend([first, second])
+        panes.active_view = first
+
+        self.assertIs(panes.cycle(1, focused_view=second), first)
 
 
 class SessionHistoryTests(unittest.TestCase):
@@ -774,6 +849,35 @@ class ConfigTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_opening_new_translation_keeps_existing_focus(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+
+                await bible_view.add_translation(first_translation)
+                await pilot.pause()
+                first = bible_view.views[0]
+                first.focus()
+                bible_view.set_active_view(first)
+
+                await bible_view.add_translation(second_translation)
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertIs(bible_view.active_view, first)
+                self.assertIs(app.focused, first)
+                self.assertEqual(status.translations, ["ONE", "TWO"])
+                self.assertEqual(status.active_translation, "ONE")
+
+        asyncio.run(run())
+
     def test_ctrl_m_toggles_maximized_translation(self):
         async def run():
             app = Bibleit()
@@ -1201,6 +1305,15 @@ class LivePublisherTests(unittest.TestCase):
                 "Bearer secret",
             )
 
+    def test_live_status_websocket_uses_monitor_role(self):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_URL": "https://live.example/base/"}, clear=True):
+            publisher = LivePublisher()
+
+            self.assertEqual(
+                publisher._websocket_url(role="monitor"),
+                "wss://live.example/base/ws?role=monitor",
+            )
+
     def test_verse_payload_adds_increasing_sequence(self):
         publisher = LivePublisher()
 
@@ -1241,6 +1354,20 @@ class LivePublisherTests(unittest.TestCase):
 
         self.assertFalse(bible_view.state.live)
         self.assertEqual(view.live.values, [False])
+
+    def test_restore_remote_live_state_republishes_after_reconnect(self):
+        async def run():
+            bible_view = RestoringBibleView()
+            view = FakeView()
+            bible_view.state.live = True
+            bible_view.views.append(view)
+
+            await bible_view._restore_remote_live_state()
+
+            self.assertEqual(view.live.values, [True])
+            self.assertEqual(bible_view.published, 1)
+
+        asyncio.run(run())
 
 
 if __name__ == "__main__":

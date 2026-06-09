@@ -8,7 +8,7 @@ built with Python, Textual, and libbibleit.
 - Terminal Bible reader with keyboard-first navigation.
 - Multiple translations open side by side or stacked vertically.
 - Synchronized cursor across open translation panes.
-- Go-to navigation with `g`, supporting verse, chapter/verse, and fuzzy book names.
+- Go-to navigation with `g` or `@`, supporting verse, chapter/verse, and fuzzy book names.
 - Text Find with `Ctrl+F`, result browsing, and visual translation toggles.
 - Strong's references with linked entries via `Ctrl+G`.
 - Live web viewer for sharing the active verse with viewers.
@@ -87,13 +87,14 @@ translation with `BIBLEIT_DEFAULT_TRANSLATION`, `BIBLEIT_TRANSLATION`, or
 | Shortcut | Action |
 |---|---|
 | `↑` / `↓` | Previous / next verse |
-| `g` | Go to verse, chapter, or book reference |
+| `g` / `G` / `@` | Go to verse, chapter, or book reference |
 | `Tab` / `Shift+Tab` | Next / previous open translation |
 | `Tab` in Go To | Cycle go-to matches |
 | `Ctrl+F` | Find verse text |
 | `←` / `→` in Find | Switch Find translation |
 | `Ctrl+T` | Open translations |
 | `Ctrl+G` | Toggle Strong's |
+| `Ctrl+H` | Open history |
 | `Ctrl+A` / `Ctrl+E` | Beginning / end of current chapter |
 | `<` / `>` | Previous / next chapter |
 | `Ctrl+W` | Close the active translation pane |
@@ -108,7 +109,7 @@ translation with `BIBLEIT_DEFAULT_TRANSLATION`, `BIBLEIT_TRANSLATION`, or
 | `?` | Show shortcuts |
 
 At startup bibleit shows a small welcome screen with the most useful
-shortcuts. Press `Enter`, `Esc`, `q`, or `?` to dismiss it.
+shortcuts. Press any shortcut to dismiss it and continue.
 
 ## Configuration
 

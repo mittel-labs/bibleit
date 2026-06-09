@@ -65,12 +65,18 @@ class LiveHub:
         self.sequence = 0
         self.live = False
         self.clients: set[web.WebSocketResponse] = set()
+        self.monitors: set[web.WebSocketResponse] = set()
+
+    def client_count(self) -> int:
+        stale = {ws for ws in self.clients if ws.closed}
+        self.clients.difference_update(stale)
+        return len(self.clients)
 
     async def broadcast(self, message: dict) -> None:
         encoded = json.dumps(message)
 
         stale = []
-        for ws in self.clients:
+        for ws in self.clients | self.monitors:
             if ws.closed:
                 stale.append(ws)
                 continue
@@ -78,6 +84,7 @@ class LiveHub:
 
         for ws in stale:
             self.clients.discard(ws)
+            self.monitors.discard(ws)
 
     async def publish(self, payload: dict) -> None:
         publisher_id = payload.get("publisher_id")
@@ -100,7 +107,21 @@ class LiveHub:
 
     async def set_live(self, live: bool) -> None:
         self.live = live
-        await self.broadcast({"type": "mode", "live": self.live})
+        await self.broadcast(
+            {
+                "type": "mode",
+                "live": self.live,
+                "clients": self.client_count(),
+            }
+        )
+
+    async def broadcast_client_count(self) -> None:
+        await self.broadcast(
+            {
+                "type": "clients",
+                "clients": self.client_count(),
+            }
+        )
 
 
 HUB_KEY = web.AppKey("hub", LiveHub)
@@ -141,7 +162,13 @@ async def index(request: web.Request) -> web.Response:
 
 async def current(request: web.Request) -> web.Response:
     hub = request.app[HUB_KEY]
-    return web.json_response({"live": hub.live, "verse": hub.current})
+    return web.json_response(
+        {
+            "live": hub.live,
+            "verse": hub.current,
+            "clients": hub.client_count(),
+        }
+    )
 
 
 async def publish(request: web.Request) -> web.Response:
@@ -156,16 +183,35 @@ async def live_mode(request: web.Request) -> web.Response:
     payload = await request.json()
     live = bool(payload.get("live"))
     await request.app[HUB_KEY].set_live(live)
-    return web.json_response({"ok": True, "live": live})
+    return web.json_response(
+        {
+            "ok": True,
+            "live": live,
+            "clients": request.app[HUB_KEY].client_count(),
+        }
+    )
 
 
 async def websocket(request: web.Request) -> web.WebSocketResponse:
     hub: LiveHub = request.app[HUB_KEY]
+    is_monitor = request.query.get("role") == "monitor"
     ws = web.WebSocketResponse(heartbeat=20)
     await ws.prepare(request)
-    hub.clients.add(ws)
+    if is_monitor:
+        hub.monitors.add(ws)
+    else:
+        hub.clients.add(ws)
+        await hub.broadcast_client_count()
 
-    await ws.send_str(json.dumps({"type": "mode", "live": hub.live}))
+    await ws.send_str(
+        json.dumps(
+            {
+                "type": "mode",
+                "live": hub.live,
+                "clients": hub.client_count(),
+            }
+        )
+    )
 
     if hub.current:
         await ws.send_str(json.dumps({"type": "verse", "verse": hub.current}))
@@ -175,6 +221,10 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
             pass
     finally:
         hub.clients.discard(ws)
+        hub.monitors.discard(ws)
+
+        if not is_monitor:
+            await hub.broadcast_client_count()
 
     return ws
 

@@ -234,3 +234,4 @@ build-*/
 docgen_tmp/
 
 config/*.bt
+**/_version.py

@@ -1,10 +1,10 @@
-.PHONY: run native native-clean repl bump-version lint fix-lint test build local-install-test FORCE
+.PHONY: run native native-clean repl lint fix-lint test build local-install-test FORCE
 
 VENV_DIR:=.venv
 VENV_ACTIVATE:=. $(VENV_DIR)/bin/activate
 VENV_PY:=$(VENV_DIR)/bin/python
 VENV_DEPS_FILE:=$(VENV_DIR)/.deps
-VENV_DEPS:=aiohttp flake8 black rapidfuzz requests textual textual-dev unidecode build hatchling
+VENV_DEPS:=aiohttp flake8 black rapidfuzz requests textual textual-dev unidecode build hatchling hatch-vcs
 PYTHON_BIN?=$(or \
 	$(shell command -v python3.11 2>/dev/null),\
 	$(shell command -v python3.12 2>/dev/null),\
@@ -60,10 +60,6 @@ run: $(VENV_DEPS_FILE) $(NATIVE_STAMP)
 
 live: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit.live)
-
-bump-version:
-	@./bump-version.sh
-	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit)
 
 run-dev: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); textual run --dev bibleit.app:Bibleit)

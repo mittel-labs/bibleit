@@ -189,6 +189,10 @@ Build distribution packages:
 make build
 ```
 
+bibleit package versions are derived from Git tags via `hatch-vcs`. To publish
+a release, create a tag such as `v0.5.1` and build from that tag instead of
+editing `pyproject.toml`.
+
 Install local wheel:
 
 ```bash

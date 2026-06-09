@@ -79,6 +79,9 @@ jobs:
         if: runner.os == 'Linux'
         run: python -m build --sdist --outdir dist .
 
+      - name: Compute version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
       - name: Build platform wheel
         run: python -m cibuildwheel --output-dir dist .
         env:
@@ -87,6 +90,7 @@ jobs:
           CIBW_BEFORE_TEST: 'find . -name "*.dylib" -o -name "*.so"'
           CIBW_TEST_COMMAND: 'python -c "import bibleit._ffi as ffi; print(ffi._lib_name())"'
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
+          CIBW_ENVIRONMENT: SETUPTOOLS_SCM_PRETEND_VERSION=${{ env.VERSION }}
 
       - name: Upload distributions
         uses: actions/upload-artifact@v7

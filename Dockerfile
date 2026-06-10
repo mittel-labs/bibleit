@@ -5,20 +5,12 @@ ENV BIBLEIT_LIVE_HOST=0.0.0.0
 ENV BIBLEIT_LIVE_PORT=8000
 ENV BIBLEIT_LIVE_URL=http://127.0.0.1:8000
 
+RUN pip install aiohttp
+
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential make \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY libbibleit ./libbibleit
-COPY python ./python
-
-WORKDIR /app/python
-
-RUN make install-local
+COPY python/src /app
 
 EXPOSE 8000
 
-ENTRYPOINT ["make"]
-CMD ["live"]
+CMD ["python", "-m", "bibleit.live"]

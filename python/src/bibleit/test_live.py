@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import unittest
+import json
+from types import SimpleNamespace
 from unittest.mock import patch
 from tempfile import TemporaryDirectory
 
+from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
 from bibleit.config import save_config
@@ -14,6 +17,7 @@ from bibleit.live import (
     clean_verse_text,
     create_app,
     current,
+    handle_publisher_message,
     parse_verse_line,
     request_is_authorized,
     viewer_html,
@@ -169,6 +173,31 @@ class LiveVerseTest(unittest.TestCase):
             )
 
             self.assertEqual(hub.current["reference"], "Genesis 1:1")
+
+        import asyncio
+
+        asyncio.run(run())
+
+    def test_publisher_websocket_message_updates_current_verse(self):
+        async def run():
+            hub = create_app("test live")[HUB_KEY]
+            message = SimpleNamespace(
+                type=web.WSMsgType.TEXT,
+                data=json.dumps(
+                    {
+                        "type": "publish",
+                        "payload": {
+                            "publisher_id": "presenter",
+                            "sequence": 1,
+                            "reference": "Genesis 1:3",
+                        },
+                    }
+                ),
+            )
+
+            await handle_publisher_message(hub, message)
+
+            self.assertEqual(hub.current["reference"], "Genesis 1:3")
 
         import asyncio
 

@@ -47,6 +47,7 @@ class View(ListView):
         self._live_mode_group = f"live-mode-{id(self)}"
         self._pending_live_publish: dict | None = None
         self._live_publish_running = False
+        self._live_publish_event = asyncio.Event()
         self._cursor_move_lock = asyncio.Lock()
 
     def _select_first(self):
@@ -100,6 +101,7 @@ class View(ListView):
 
     def _publish_payload(self, payload: dict) -> None:
         self._pending_live_publish = payload
+        self._live_publish_event.set()
 
         if self._live_publish_running:
             return
@@ -116,16 +118,28 @@ class View(ListView):
 
     async def _drain_live_publish(self) -> None:
         try:
-            while self._pending_live_publish is not None:
-                await asyncio.sleep(0.05)
-                payload = self._pending_live_publish
-                self._pending_live_publish = None
-                published = await self.live.publish_payload(payload)
+            while True:
+                while self._pending_live_publish is not None:
+                    await asyncio.sleep(0)
+                    payload = self._pending_live_publish
+                    self._pending_live_publish = None
+                    published = await self.live.publish_payload(payload)
 
-                if not published and self._pending_live_publish is None:
-                    self._pending_live_publish = payload
-                    await asyncio.sleep(0.25)
+                    if not published and self._pending_live_publish is None:
+                        self._pending_live_publish = payload
+                        await asyncio.sleep(0.25)
+
+                self._live_publish_event.clear()
+
+                if self._pending_live_publish is not None:
+                    continue
+
+                try:
+                    await asyncio.wait_for(self._live_publish_event.wait(), timeout=2)
+                except asyncio.TimeoutError:
+                    break
         finally:
+            await self.live.close()
             self._live_publish_running = False
 
             if self._pending_live_publish is not None and self.is_attached:

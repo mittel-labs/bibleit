@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import hmac
+import asyncio
 import json
 import os
 import re
@@ -76,11 +77,21 @@ class LiveHub:
         encoded = json.dumps(message)
 
         stale = []
-        for ws in self.clients | self.monitors:
+        targets = list(self.clients | self.monitors)
+        send_tasks = []
+
+        for ws in targets:
             if ws.closed:
                 stale.append(ws)
                 continue
-            await ws.send_str(encoded)
+
+            send_tasks.append((ws, asyncio.create_task(ws.send_str(encoded))))
+
+        for ws, task in send_tasks:
+            try:
+                await task
+            except (ConnectionError, RuntimeError):
+                stale.append(ws)
 
         for ws in stale:
             self.clients.discard(ws)
@@ -192,13 +203,35 @@ async def live_mode(request: web.Request) -> web.Response:
     )
 
 
+async def handle_publisher_message(hub: LiveHub, message: web.WSMessage) -> None:
+    if message.type != web.WSMsgType.TEXT:
+        return
+
+    try:
+        payload = json.loads(message.data)
+    except (TypeError, ValueError):
+        return
+
+    if payload.get("type") == "publish" and isinstance(payload.get("payload"), dict):
+        await hub.publish(payload["payload"])
+    elif payload.get("type") == "live":
+        await hub.set_live(bool(payload.get("live")))
+
+
 async def websocket(request: web.Request) -> web.WebSocketResponse:
     hub: LiveHub = request.app[HUB_KEY]
     is_monitor = request.query.get("role") == "monitor"
+    is_publisher = request.query.get("role") == "publisher"
+
+    if is_publisher:
+        require_authorized(request)
+
     ws = web.WebSocketResponse(heartbeat=20)
     await ws.prepare(request)
     if is_monitor:
         hub.monitors.add(ws)
+    elif is_publisher:
+        pass
     else:
         hub.clients.add(ws)
         await hub.broadcast_client_count()
@@ -217,13 +250,14 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
         await ws.send_str(json.dumps({"type": "verse", "verse": hub.current}))
 
     try:
-        async for _ in ws:
-            pass
+        async for message in ws:
+            if is_publisher:
+                await handle_publisher_message(hub, message)
     finally:
         hub.clients.discard(ws)
         hub.monitors.discard(ws)
 
-        if not is_monitor:
+        if not is_monitor and not is_publisher:
             await hub.broadcast_client_count()
 
     return ws

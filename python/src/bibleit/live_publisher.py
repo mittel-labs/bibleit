@@ -35,6 +35,9 @@ class LivePublisher:
         self.token = config_value("LIVE_TOKEN")
         self.publisher_id = uuid.uuid4().hex
         self.sequence = 0
+        self._publish_session: aiohttp.ClientSession | None = None
+        self._publish_ws: aiohttp.ClientWebSocketResponse | None = None
+        self._publish_key: tuple[str, str | None] | None = None
 
     @property
     def enabled(self) -> bool:
@@ -94,6 +97,9 @@ class LivePublisher:
         if not self.enabled:
             return False
 
+        if await self._publish_over_websocket(payload):
+            return True
+
         return await self._post("/api/publish", payload)
 
     async def set_live(self, live: bool) -> None:
@@ -101,6 +107,9 @@ class LivePublisher:
             return
 
         await self._post("/api/live", {"live": live})
+
+    async def close(self) -> None:
+        await self._close_publisher_websocket()
 
     async def status_events(self) -> AsyncIterator[dict[str, bool | int]]:
         if not self.enabled:
@@ -161,6 +170,44 @@ class LivePublisher:
                     return 200 <= response.status < 300
         except (aiohttp.ClientError, asyncio.TimeoutError):
             return False
+
+    async def _publish_over_websocket(self, payload: dict) -> bool:
+        try:
+            ws = await self._publisher_websocket()
+            await ws.send_json({"type": "publish", "payload": payload})
+            return True
+        except (aiohttp.ClientError, asyncio.TimeoutError, TypeError, ValueError):
+            await self._close_publisher_websocket()
+            return False
+
+    async def _publisher_websocket(self) -> aiohttp.ClientWebSocketResponse:
+        key = (self.url, self.token)
+
+        if self._publish_key != key:
+            await self._close_publisher_websocket()
+
+        if self._publish_ws is not None and not self._publish_ws.closed:
+            return self._publish_ws
+
+        timeout = aiohttp.ClientTimeout(total=None, sock_connect=self.timeout)
+        self._publish_session = aiohttp.ClientSession(timeout=timeout)
+        self._publish_ws = await self._publish_session.ws_connect(
+            self._websocket_url(role="publisher"),
+            headers=self._headers(),
+        )
+        self._publish_key = key
+        return self._publish_ws
+
+    async def _close_publisher_websocket(self) -> None:
+        if self._publish_ws is not None and not self._publish_ws.closed:
+            await self._publish_ws.close()
+
+        if self._publish_session is not None and not self._publish_session.closed:
+            await self._publish_session.close()
+
+        self._publish_ws = None
+        self._publish_session = None
+        self._publish_key = None
 
     def _headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}

@@ -112,7 +112,12 @@ class BibleView(Horizontal):
 
         self.publish_live_state()
 
-    def go_to_ref(self, ref: translation.TranslationRef) -> None:
+    def go_to_ref(
+        self,
+        ref: translation.TranslationRef,
+        *,
+        live_history: bool = False,
+    ) -> None:
         self.state.bookid = ref.bookid
         self.state.chapter = ref.chapter or 1
         self.state.verse = ref.verse_start or 1
@@ -122,7 +127,7 @@ class BibleView(Horizontal):
         for view in self.views:
             view.sync_to_state(focus=view is focused_view)
 
-        self.publish_live_state()
+        self.publish_live_state(history=live_history)
 
     def action_open_reference(self) -> None:
         if not self.views:
@@ -150,7 +155,7 @@ class BibleView(Horizontal):
             self.notify(str(error), severity="error", timeout=3)
             return False
 
-        self.go_to_ref(ref)
+        self.go_to_ref(ref, live_history=True)
         self.app.record_history(view.translation, ref)
         return True
 
@@ -492,7 +497,7 @@ class BibleView(Horizontal):
         status.live_connecting = self.live_connecting
         status.live_clients = self.live_clients
 
-    def publish_live_state(self):
+    def publish_live_state(self, *, history: bool = False):
         if not self.state.live or not self.views:
             return
 
@@ -512,6 +517,8 @@ class BibleView(Horizontal):
         payload = self.views[0].live.bundle_payload(values)
 
         if payload is not None:
+            if history:
+                payload["history"] = True
             self.views[0]._publish_payload(payload)
 
     async def action_close_pane(self):

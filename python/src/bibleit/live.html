@@ -90,12 +90,13 @@
       display: none !important;
     }
 
-    :root[data-live="false"] #font-increase,
-    :root[data-live="false"] #font-decrease,
+    :root[data-live="false"] #font-size,
     :root[data-live="false"] #presentation,
+    :root[data-live="false"] #history-toggle,
     :root[data-live="false"] .translation-filter,
     :root[data-live="false"] .verses,
     :root[data-live="false"] .status,
+    :root[data-live="false"] .history-panel,
     :root[data-live="false"] .brand {
       display: none;
     }
@@ -110,18 +111,15 @@
       background: var(--button-bg);
       color: var(--fg);
       font: 700 1rem/1 ui-sans-serif, system-ui, sans-serif;
+      z-index: 3;
     }
 
     #theme {
       right: max(1rem, env(safe-area-inset-right));
     }
 
-    #font-decrease {
+    #font-size {
       right: calc(max(1rem, env(safe-area-inset-right)) + 3.25rem);
-    }
-
-    #font-increase {
-      right: calc(max(1rem, env(safe-area-inset-right)) + 6.5rem);
     }
 
     #presentation {
@@ -223,6 +221,19 @@
       border-color: var(--accent);
     }
 
+    #history-toggle {
+      right: calc(max(1rem, env(safe-area-inset-right)) + 6.5rem);
+    }
+
+    :root[data-history="true"] #history-toggle {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    :root[data-has-history="false"] #history-toggle {
+      display: none;
+    }
+
     .translation {
       color: var(--accent);
       font: 700 0.78rem/1.2 ui-sans-serif, system-ui, sans-serif;
@@ -251,12 +262,15 @@
       align-items: start;
     }
 
-    :root[data-presentation="true"] #font-increase,
-    :root[data-presentation="true"] #font-decrease {
+    :root[data-presentation="true"] #font-size {
       display: none;
     }
 
     :root[data-presentation="true"] .translation-filter {
+      right: calc(max(1rem, env(safe-area-inset-right)) + 6.5rem);
+    }
+
+    :root[data-presentation="true"] #history-toggle {
       right: calc(max(1rem, env(safe-area-inset-right)) + 3.25rem);
     }
 
@@ -322,6 +336,77 @@
 
     :root[data-presentation="true"] .status {
       display: none;
+    }
+
+    .history-panel {
+      position: fixed;
+      top: calc(max(1rem, env(safe-area-inset-top)) + 3.4rem);
+      right: max(1rem, env(safe-area-inset-right));
+      width: min(24rem, calc(100vw - 2rem));
+      max-height: min(34rem, calc(100dvh - 6rem));
+      z-index: 4;
+      display: none;
+      overflow: auto;
+      border: 1px solid var(--button-border);
+      border-radius: 1rem;
+      padding: 0.55rem;
+      background: color-mix(in srgb, var(--bg) 94%, white);
+      box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, 0.16);
+    }
+
+    :root[data-history="true"][data-live="true"] .history-panel {
+      display: block;
+    }
+
+    .history-empty,
+    .history-item {
+      border-radius: 0.75rem;
+      padding: 0.7rem 0.8rem;
+      font: 700 0.9rem/1.35 ui-sans-serif, system-ui, sans-serif;
+      color: var(--muted);
+    }
+
+    .history-item {
+      width: 100%;
+      position: static;
+      top: auto;
+      right: auto;
+      min-width: 0;
+      min-height: 0;
+      height: auto;
+      display: grid;
+      gap: 0.25rem;
+      border: 0;
+      text-align: left;
+      color: var(--fg);
+      background: transparent;
+      box-shadow: none;
+      cursor: pointer;
+      white-space: normal;
+    }
+
+    .history-item:hover,
+    .history-item:focus-visible {
+      background: rgba(191, 107, 33, 0.12);
+      outline: none;
+    }
+
+    .history-item .history-ref {
+      color: var(--accent);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .history-item .history-text {
+      color: var(--fg);
+      display: -webkit-box;
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 700;
+      line-height: 1.25;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
     }
 
     :root[data-presentation="true"] .brand {
@@ -475,8 +560,28 @@
         right: auto;
       }
 
+      #theme {
+        right: max(0.75rem, env(safe-area-inset-right));
+      }
+
+      #font-size {
+        right: calc(max(0.75rem, env(safe-area-inset-right)) + 3.25rem);
+      }
+
       .translation-filter {
         right: calc(max(0.75rem, env(safe-area-inset-right)) + 9.75rem);
+      }
+
+      #history-toggle {
+        right: calc(max(0.75rem, env(safe-area-inset-right)) + 6.5rem);
+      }
+
+      :root[data-presentation="true"] .translation-filter {
+        right: calc(max(0.75rem, env(safe-area-inset-right)) + 6.5rem);
+      }
+
+      :root[data-presentation="true"] #history-toggle {
+        right: calc(max(0.75rem, env(safe-area-inset-right)) + 3.25rem);
       }
 
       main {
@@ -557,8 +662,8 @@
         <span>Scan to open</span>
       </a>
     </section>
-    <button id="font-increase" type="button" aria-label="Increase verse font size" title="Increase verse font size">A+</button>
-    <button id="font-decrease" type="button" aria-label="Decrease verse font size" title="Decrease verse font size">A-</button>
+    <button id="font-size" type="button" aria-label="Change verse font size" title="Change verse font size">A</button>
+    <button id="history-toggle" type="button" aria-label="Show verse history" title="Show verse history">☷</button>
     <button id="presentation" type="button" aria-label="Toggle presentation mode" title="Toggle presentation mode">⛶</button>
     <details id="translation-filter" class="translation-filter">
       <summary id="translation-filter-label" aria-label="All translations" title="All translations">
@@ -576,12 +681,14 @@
     <div class="verses" id="verses"></div>
     <div class="status" id="status">Connected viewers follow the active verse automatically.</div>
     <div class="brand">bibleit</div>
+    <div id="history-panel" class="history-panel" aria-label="Verse history"></div>
   </main>
   <script>
     const verses = document.getElementById("verses");
     const status = document.getElementById("status");
-    const fontIncrease = document.getElementById("font-increase");
-    const fontDecrease = document.getElementById("font-decrease");
+    const fontSize = document.getElementById("font-size");
+    const historyToggle = document.getElementById("history-toggle");
+    const historyPanel = document.getElementById("history-panel");
     const presentation = document.getElementById("presentation");
     const translationFilter = document.getElementById("translation-filter");
     const translationFilterLabel = document.getElementById("translation-filter-label");
@@ -591,6 +698,7 @@
     const splashStatus = document.getElementById("splash-status");
     let isLiveMode = false;
     let lastVerseData = null;
+    let verseHistory = [];
     let selectedTranslations = loadSelectedTranslations();
     let presentationPreviousScaleIndex = null;
     let restorePresentationOnLive = localStorage.getItem("bibleit-presentation") === "true";
@@ -770,8 +878,10 @@
       const safeScale = verseScales[clampedIndex];
       document.documentElement.style.setProperty("--verse-scale", safeScale.toString());
       if (persist) localStorage.setItem("bibleit-verse-scale", safeScale.toString());
-      fontDecrease.disabled = clampedIndex === 0;
-      fontIncrease.disabled = clampedIndex === verseScales.length - 1;
+      const label = `Font size ${clampedIndex + 1}/${verseScales.length}`;
+      fontSize.setAttribute("aria-label", label);
+      fontSize.title = label;
+      fontSize.textContent = clampedIndex === 0 ? "A" : `A${clampedIndex + 1}`;
       fitPresentationText();
     }
 
@@ -787,9 +897,16 @@
 
     document.documentElement.dataset.filtered = selectedTranslations ? "true" : "false";
     document.documentElement.dataset.live = "false";
+    document.documentElement.dataset.hasHistory = "false";
 
     theme.addEventListener("click", () => {
       setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+    });
+
+    historyToggle.addEventListener("click", () => {
+      const enabled = document.documentElement.dataset.history !== "true";
+      document.documentElement.dataset.history = enabled ? "true" : "false";
+      renderHistory();
     });
 
     presentation.addEventListener("click", () => {
@@ -797,12 +914,8 @@
       setPresentationMode(enabled);
     });
 
-    fontDecrease.addEventListener("click", () => {
-      setVerseScaleIndex(currentVerseScaleIndex() - 1);
-    });
-
-    fontIncrease.addEventListener("click", () => {
-      setVerseScaleIndex(currentVerseScaleIndex() + 1);
+    fontSize.addEventListener("click", () => {
+      setVerseScaleIndex((currentVerseScaleIndex() + 1) % verseScales.length);
     });
 
     translationFilterOptions.addEventListener("change", () => {
@@ -816,6 +929,67 @@
     function normalizeVerses(data) {
       if (Array.isArray(data.translations) && data.translations.length) return data.translations;
       return data.text ? [data] : [];
+    }
+
+    function verseHistoryKey(data) {
+      return normalizeVerses(data)
+        .map((verse) => [
+          verse.translation || "bibleit",
+          verse.book || "",
+          verse.chapter || "",
+          verse.verse || "",
+        ].join(":"))
+        .join("|");
+    }
+
+    function verseHistoryReference(verse) {
+      const translation = verse.translation || "bibleit";
+      const reference = verse.reference || [verse.book, `${verse.chapter}:${verse.verse}`].filter(Boolean).join(" ");
+      return `${translation} · ${reference}`;
+    }
+
+    function recordHistory(data) {
+      const key = verseHistoryKey(data);
+      if (!key) return;
+
+      verseHistory = verseHistory.filter((entry) => entry.key !== key);
+      verseHistory.unshift({ key, data });
+      verseHistory = verseHistory.slice(0, 24);
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (!verseHistory.length) {
+        document.documentElement.dataset.hasHistory = "false";
+        document.documentElement.dataset.history = "false";
+        historyPanel.replaceChildren();
+        return;
+      }
+
+      document.documentElement.dataset.hasHistory = "true";
+      historyPanel.replaceChildren(
+        ...verseHistory.map((entry) => {
+          const primary = normalizeVerses(entry.data)[0] || {};
+          const button = document.createElement("button");
+          const reference = document.createElement("span");
+          const text = document.createElement("span");
+
+          button.type = "button";
+          button.className = "history-item";
+          reference.className = "history-ref";
+          text.className = "history-text";
+          reference.textContent = verseHistoryReference(primary);
+          text.textContent = primary.text || "";
+
+          button.append(reference, text);
+          button.addEventListener("click", () => {
+            document.documentElement.dataset.history = "false";
+            showVerse(entry.data, "History");
+          });
+
+          return button;
+        })
+      );
     }
 
     function visibleVerses(data) {
@@ -892,12 +1066,20 @@
       });
     }
 
-    function applyVerse(data) {
+    function showVerse(data, label) {
       lastVerseData = data;
       if (isLiveMode) {
         renderLiveVerses();
-        status.textContent = "Live";
+        status.textContent = label;
       }
+    }
+
+    function applyVerse(data) {
+      if (data.history === true) {
+        recordHistory(data);
+      }
+
+      showVerse(data, "Live");
     }
 
     function renderLiveVerses() {
@@ -938,10 +1120,15 @@
     }
 
     connect();
+    renderHistory();
     
     document.addEventListener("click", (event) => {
       if (!translationFilter.contains(event.target)) {
         translationFilter.removeAttribute("open");
+      }
+
+      if (!historyPanel.contains(event.target) && event.target !== historyToggle) {
+        document.documentElement.dataset.history = "false";
       }
     });
   </script>

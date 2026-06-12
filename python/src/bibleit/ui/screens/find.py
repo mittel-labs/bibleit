@@ -160,7 +160,7 @@ class Find(Screen):
         from bibleit.ui.bible_view import BibleView
 
         bible_view = self.app.query_exactly_one(BibleView)
-        bible_view.go_to_ref(result.ref)
+        bible_view.go_to_ref(result.ref, live_history=True)
         self.app.record_history(self.view.translation, result.ref)
         self.app.pop_screen()
 

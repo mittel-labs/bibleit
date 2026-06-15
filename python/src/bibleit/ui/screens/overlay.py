@@ -17,9 +17,7 @@ class OverlayStatusMixin:
         active_view = bible_view._active_view()
         status.active_translation = active_view.translation.slug if active_view is not None else ""
         status.maximized_translation = (
-            bible_view.maximized_view.translation.slug
-            if bible_view.maximized_view is not None
-            else ""
+            bible_view.maximized_view.translation.slug if bible_view.maximized_view is not None else ""
         )
         status.strongs = any(view.show_strongs for view in bible_view.views)
         status.live = bible_view.state.live

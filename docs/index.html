@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="bibleit is an open source keyboard-first Bible reader for the terminal with synced translations, live sharing, Strong's references, and a fast CLI.">
+  <meta name="theme-color" content="#111111">
+  <title>bibleit - open source Bible reading for the terminal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="bibleit home">
+      <span class="brand-mark">b</span>
+      <span>bibleit</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="#features">Features</a>
+      <a href="#live">Live</a>
+      <a href="#install">Install</a>
+      <a href="#contribute">Contribute</a>
+    </nav>
+    <a class="header-action" href="https://github.com/mittel-labs/bibleit">GitHub</a>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-visual" aria-hidden="true">
+        <div class="terminal-window">
+          <div class="window-bar">
+            <span></span><span></span><span></span>
+            <strong>bibleit</strong>
+          </div>
+          <div class="terminal-grid">
+            <div class="verse-line"><b>Daniel 9:2</b><span>I Daniel understood by books the number of the years...</span></div>
+            <div class="verse-line active"><b>Daniel 9:3</b><span>And I set my face unto the Lord God, to seek by prayer...</span></div>
+            <div class="verse-line"><b>Daniel 9:4</b><span>And I prayed unto the Lord my God, and made my confession...</span></div>
+            <div class="status-line">bibleit · KJV* · ASV · LIVE (3)</div>
+          </div>
+        </div>
+        <div class="live-card">
+          <span>KJV</span>
+          <b>Daniel 9:2</b>
+          <p>I Daniel understood by books the number of the years...</p>
+        </div>
+      </div>
+
+      <div class="hero-copy">
+        <p class="eyebrow">Open source Bible reading</p>
+        <h1 id="hero-title">A fast Bible reader for the terminal.</h1>
+        <p class="hero-text">
+          bibleit brings keyboard-first navigation, multiple synced translations,
+          Strong's references, text find, history, and a lightweight live web viewer
+          into one focused reading workflow.
+        </p>
+        <div class="hero-actions">
+          <a class="primary-action" href="#install">Install bibleit</a>
+          <a class="secondary-action" href="https://github.com/mittel-labs/bibleit">View source</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="quick-strip" aria-label="Project highlights">
+      <div>
+        <strong>Python + Textual</strong>
+        <span>Native terminal interface</span>
+      </div>
+      <div>
+        <strong>Live viewer</strong>
+        <span>Share the active verse</span>
+      </div>
+      <div>
+        <strong>CLI ready</strong>
+        <span>Print verses from scripts</span>
+      </div>
+      <div>
+        <strong>MIT licensed</strong>
+        <span>Built in the open</span>
+      </div>
+    </section>
+
+    <section id="features" class="section">
+      <div class="section-heading">
+        <p class="eyebrow">Reading flow</p>
+        <h2>Designed for people who live on the keyboard.</h2>
+      </div>
+      <div class="feature-grid">
+        <article>
+          <span class="icon">↕</span>
+          <h3>Synchronized translations</h3>
+          <p>Open translations side by side, stack them vertically, maximize one pane, and keep every view on the same reference.</p>
+        </article>
+        <article>
+          <span class="icon">⌕</span>
+          <h3>Go to anything</h3>
+          <p>Jump with fuzzy references like <code>dan 9.2</code>, <code>john 3:16</code>, or whole chapters from the same prompt.</p>
+        </article>
+        <article>
+          <span class="icon">#</span>
+          <h3>Strong's references</h3>
+          <p>Toggle Strong's data when you want it, keep the reading surface clean when you do not.</p>
+        </article>
+        <article>
+          <span class="icon">⌘</span>
+          <h3>Helpful command surface</h3>
+          <p>Find verse text, browse history, configure live settings, and discover shortcuts without leaving the app.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="live" class="section live-section">
+      <div class="section-heading">
+        <p class="eyebrow">Live mode</p>
+        <h2>Let an audience follow the verse you are reading.</h2>
+      </div>
+      <div class="live-layout">
+        <div class="live-copy">
+          <p>
+            Start the live server, connect the terminal app, and viewers can open a
+            clean mobile-friendly page that follows your current verse. The presenter
+            stays in the terminal; the audience gets a simple web view.
+          </p>
+          <ul class="check-list">
+            <li>Multiple translations rendered together</li>
+            <li>Light, dark, and presentation-friendly modes</li>
+            <li>Viewer controls that do not affect presenter config</li>
+            <li>Optional live token for presenter control</li>
+          </ul>
+        </div>
+        <div class="phone-preview" aria-label="Live viewer preview">
+          <div class="phone-toolbar">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="phone-content">
+            <small>KJV</small>
+            <strong>Psalms 23:1</strong>
+            <p>The Lord is my shepherd; I shall not want.</p>
+            <em>Live</em>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="install" class="section install-section">
+      <div class="section-heading">
+        <p class="eyebrow">Install</p>
+        <h2>Run bibleit as a TUI or a command-line reader.</h2>
+      </div>
+      <div class="command-grid">
+        <article class="command-card">
+          <h3>Install from PyPI</h3>
+          <pre><code>pip install bibleit</code></pre>
+        </article>
+        <article class="command-card">
+          <h3>Read from stdout</h3>
+          <pre><code>bibleit -t KJV dan 9.2
+bibleit -t KJV john 3:16</code></pre>
+        </article>
+        <article class="command-card">
+          <h3>Run live server</h3>
+          <pre><code>bibleit --live</code></pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shortcuts-section">
+      <div class="section-heading">
+        <p class="eyebrow">Shortcuts</p>
+        <h2>Small commands, fast movement.</h2>
+      </div>
+      <div class="shortcut-list" aria-label="Common shortcuts">
+        <span><kbd>g</kbd> Go to reference</span>
+        <span><kbd>Ctrl</kbd><kbd>F</kbd> Find text</span>
+        <span><kbd>Ctrl</kbd><kbd>T</kbd> Translations</span>
+        <span><kbd>Ctrl</kbd><kbd>H</kbd> History</span>
+        <span><kbd>Ctrl</kbd><kbd>L</kbd> Live mode</span>
+        <span><kbd>?</kbd> Help</span>
+      </div>
+    </section>
+
+    <section id="contribute" class="section contribute-section">
+      <div>
+        <p class="eyebrow">Contribute</p>
+        <h2>Help shape a calm, capable Bible reader.</h2>
+        <p>
+          bibleit is MIT licensed and welcomes bug reports, ideas, and pull
+          requests. The codebase includes the Python TUI, live web server, CLI,
+          and native libbibleit integration.
+        </p>
+      </div>
+      <div class="contribute-actions">
+        <a class="primary-action" href="https://github.com/mittel-labs/bibleit/issues">Open an issue</a>
+        <a class="secondary-action" href="https://github.com/mittel-labs/bibleit">Read the code</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>bibleit</span>
+    <span>Open source Bible reading by contributors.</span>
+    <a href="https://mittel.site">mittel.site</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

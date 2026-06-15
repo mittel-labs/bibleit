@@ -509,11 +509,7 @@ class BibleView(Horizontal):
         active_view = self._active_view()
         status.translations = [view.translation.slug for view in self.views]
         status.active_translation = active_view.translation.slug if active_view is not None else ""
-        status.maximized_translation = (
-            self.maximized_view.translation.slug
-            if self.maximized_view is not None
-            else ""
-        )
+        status.maximized_translation = self.maximized_view.translation.slug if self.maximized_view is not None else ""
         status.live = self.state.live
         status.live_connected = self.live_connected
         status.live_connecting = self.live_connecting

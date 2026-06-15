@@ -15,7 +15,6 @@ from bibleit import translation
 from bibleit.config import config_value
 from bibleit.navigation import NavigationState, parse_navigation_ref
 
-
 RANGE_RE = re.compile(r"^(?P<start>.+?)(?:\s*[-–]\s*(?P<end>\d+))$")
 TAG_RE = re.compile(r"<[^>]+>")
 DEFAULT_TRANSLATION_SLUG = "KJV"
@@ -31,6 +30,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if namespace.tui:
         return _run_tui()
+
+    if namespace.live is not None:
+        return _run_live(_live_values(namespace.live, parser))
 
     if namespace.list_translations:
         return _print_translations()
@@ -90,6 +92,13 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Keep Strong's numbers in verse output.",
     )
+    parser.add_argument(
+        "-l",
+        "--live",
+        nargs="*",
+        metavar="HOST_PORT",
+        help="Serve live endpoint, optionally overriding host and port: --live 0.0.0.0 8000.",
+    )
     return parser
 
 
@@ -97,6 +106,21 @@ def _run_tui() -> int:
     from bibleit.app import Bibleit
 
     Bibleit().run()
+    return 0
+
+
+def _live_values(values: Sequence[str], parser: argparse.ArgumentParser) -> Sequence[str]:
+    if len(values) not in (0, 2):
+        parser.error("--live expects HOST PORT")
+    return values
+
+
+def _run_live(values: Sequence[str] = ()) -> int:
+    from bibleit import live
+
+    host = values[0] if len(values) == 2 else None
+    port = values[1] if len(values) == 2 else None
+    live.main(host=host, port=port)
     return 0
 
 
@@ -143,10 +167,7 @@ def _resolve_translation_slug(value: str) -> str:
         return available.slug
 
     installed_slugs = [
-        path.stem
-        for path in translation.TRANSLATIONS_DIR.glob(
-            translation.TRANSLATION_FILE.format(name="*")
-        )
+        path.stem for path in translation.TRANSLATIONS_DIR.glob(translation.TRANSLATION_FILE.format(name="*"))
     ]
     for slug in installed_slugs:
         if _normalize(slug) == normalized:
@@ -158,10 +179,7 @@ def _resolve_translation_slug(value: str) -> str:
     if not installed:
         raise LookupError("no translations installed; open bibleit and add a translation first")
 
-    candidates = {
-        slug: f"{slug} {header.name}"
-        for slug, header in installed.items()
-    }
+    candidates = {slug: f"{slug} {header.name}" for slug, header in installed.items()}
     prefix_matches = [slug for slug, label in candidates.items() if _normalize(label).startswith(normalized)]
     if len(prefix_matches) == 1:
         return prefix_matches[0]

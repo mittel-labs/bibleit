@@ -100,6 +100,20 @@ class CliTests(unittest.TestCase):
         self.assertEqual(fake.read_refs, [translation.TranslationRef(27, 9, 2)])
         stdout.write.assert_any_call("Daniel 9:2 No primeiro ano\nDaniel 9:3 Por isso me voltei\n")
 
+    def test_live_accepts_host_and_port(self):
+        with patch("bibleit.live.main") as live_main:
+            rc = cli.main(["--live", "127.0.0.1", "9001"])
+
+        self.assertEqual(rc, 0)
+        live_main.assert_called_once_with(host="127.0.0.1", port="9001")
+
+    def test_live_short_alias_accepts_host_and_port(self):
+        with patch("bibleit.live.main") as live_main:
+            rc = cli.main(["-l", "0.0.0.0", "8000"])
+
+        self.assertEqual(rc, 0)
+        live_main.assert_called_once_with(host="0.0.0.0", port="8000")
+
 
 if __name__ == "__main__":
     unittest.main()

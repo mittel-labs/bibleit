@@ -74,16 +74,9 @@ class ConfigScreen(Screen):
                 yield Button("Close", id="config-close")
 
     def _translation_options(self, selected_slug: str = "") -> list[tuple[str, str]]:
-        installed = {
-            slug: header
-            for slug, header in translation.get_installed().items()
-            if header is not None
-        }
+        installed = {slug: header for slug, header in translation.get_installed().items() if header is not None}
 
-        options = [
-            (self._translation_label(slug, header.name), slug)
-            for slug, header in sorted(installed.items())
-        ]
+        options = [(self._translation_label(slug, header.name), slug) for slug, header in sorted(installed.items())]
 
         if selected_slug and selected_slug not in installed:
             options.insert(0, (selected_slug, selected_slug))

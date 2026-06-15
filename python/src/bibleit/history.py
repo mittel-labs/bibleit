@@ -45,11 +45,7 @@ class SessionHistory:
             return ordered
 
         labels = [unidecode(entry.label.lower()) for entry in ordered]
-        direct_matches = [
-            entry
-            for entry, label in zip(ordered, labels)
-            if _matches_history_text(normalized, label)
-        ]
+        direct_matches = [entry for entry, label in zip(ordered, labels) if _matches_history_text(normalized, label)]
         if len(normalized) <= 2:
             return direct_matches
 

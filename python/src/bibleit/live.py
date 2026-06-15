@@ -276,9 +276,9 @@ def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
     return app
 
 
-def main() -> None:
-    host = os.getenv("BIBLEIT_LIVE_HOST", "0.0.0.0")
-    port = int(os.getenv("BIBLEIT_LIVE_PORT", "8000"))
+def main(host: str | None = None, port: str | int | None = None) -> None:
+    host = host or os.getenv("BIBLEIT_LIVE_HOST", "0.0.0.0")
+    port = int(port or os.getenv("BIBLEIT_LIVE_PORT", "8000"))
     title = os.getenv("BIBLEIT_LIVE_TITLE", LIVE_APP_TITLE)
     web.run_app(create_app(title), host=host, port=port)
 

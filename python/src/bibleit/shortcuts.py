@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from textual.binding import Binding
 
-
 BIBLE_VIEW_BINDINGS = [
     Binding("tab", "next_translation", "Next Translation", show=False, priority=True),
     Binding("shift+tab", "previous_translation", "Previous Translation", show=False, priority=True),

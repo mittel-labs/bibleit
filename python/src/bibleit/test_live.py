@@ -10,6 +10,7 @@ from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
 from bibleit.config import save_config
+from bibleit import live
 from bibleit.live import (
     HUB_KEY,
     TITLE_KEY,
@@ -90,6 +91,23 @@ class LiveVerseTest(unittest.TestCase):
         response = asyncio.run(current(request))
 
         self.assertIn('"clients": 0', response.text)
+
+    def test_main_arguments_take_precedence_over_environment(self):
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_LIVE_HOST": "127.0.0.2",
+                    "BIBLEIT_LIVE_PORT": "9002",
+                },
+                clear=True,
+            ),
+            patch.object(live.web, "run_app") as run_app,
+        ):
+            live.main(host="127.0.0.1", port="9001")
+
+        self.assertEqual(run_app.call_args.kwargs["host"], "127.0.0.1")
+        self.assertEqual(run_app.call_args.kwargs["port"], 9001)
 
     def test_control_requests_require_matching_bearer_token(self):
         with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}, clear=True):

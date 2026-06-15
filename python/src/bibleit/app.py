@@ -20,7 +20,6 @@ from bibleit.ui.screens.welcome import WelcomeScreen
 from bibleit.ui.status import StatusBar
 from bibleit.ui.view import View
 
-
 __all__ = [
     "BibleView",
     "Bibleit",

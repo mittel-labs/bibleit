@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import re
 from unittest.mock import patch
 from tempfile import TemporaryDirectory
 import asyncio
@@ -56,9 +57,9 @@ class FakeBtView:
 
 
 class FakeCursor:
-    def __init__(self, values):
+    def __init__(self, values, index: int = 0):
         self.values = values
-        self.index = 0
+        self.index = index
 
     def next(self):
         if self.index >= len(self.values):
@@ -132,6 +133,39 @@ class FakeTranslation:
 
     def cursor_from(self, ref: translation.TranslationRef):
         return FakeCursor(self.rows_by_book.get(ref.bookid, []))
+
+
+class RefAwareFakeTranslation(FakeTranslation):
+    def __init__(self, rows_by_book):
+        super().__init__()
+        self.rows_by_book = rows_by_book
+
+    def cursor_from(self, ref: translation.TranslationRef):
+        rows = self.rows_by_book.get(ref.bookid, [])
+        target = RowRef(ref.bookid, ref.chapter or 1, ref.verse_start or 1)
+
+        for index, row in enumerate(rows):
+            row_ref = self._row_ref(row)
+
+            if row_ref == target:
+                return FakeCursor(rows, index)
+
+            if row_ref and (row_ref.chapter, row_ref.verse) > (target.chapter, target.verse):
+                return FakeCursor(rows, index)
+
+        return FakeCursor(rows, len(rows))
+
+    def _row_ref(self, row: str) -> RowRef | None:
+        match = re.match(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+", row)
+
+        if not match:
+            return None
+
+        bookid = self.resolve_bookid(match.group("book"))
+        if bookid is None:
+            return None
+
+        return RowRef(bookid, int(match.group("chapter")), int(match.group("verse")))
 
 
 class AmbiguousFakeTranslation(FakeTranslation):
@@ -272,6 +306,25 @@ class BibleViewRowTests(unittest.TestCase):
             self.assertEqual(view.index, 3)
 
         asyncio.run(run())
+
+    def test_value_for_ref_requires_exact_verse_match(self):
+        view = View(
+            NavigationState(),
+            RefAwareFakeTranslation(
+                {
+                    1: [
+                        "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                        "Genesis 1:3 Let there be light.",
+                    ],
+                }
+            ),
+        )
+
+        self.assertIsNone(view.value_for_ref(translation.TranslationRef(1, 1, 2)))
+        self.assertEqual(
+            view.value_for_ref(translation.TranslationRef(1, 1, 3)),
+            "Genesis 1:3 Let there be light.",
+        )
 
 
 class PaneRegistryTests(unittest.TestCase):
@@ -875,6 +928,58 @@ class ConfigTests(unittest.TestCase):
                 self.assertIs(app.focused, first)
                 self.assertEqual(status.translations, ["ONE", "TWO"])
                 self.assertEqual(status.active_translation, "ONE")
+
+        asyncio.run(run())
+
+    def test_missing_verse_in_secondary_translation_does_not_move_shared_state(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:2 The earth was formless and empty.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                first_translation.slug = "ONE"
+                second_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                bible_view.set_active_view(first)
+
+                bible_view.go_to_ref(translation.TranslationRef(1, 1, 1))
+                await pilot.pause()
+                await pilot.pause()
+
+                self.assertEqual(first._row_ref(first.children[first.index]), RowRef(1, 1, 1))
+                self.assertEqual(second._row_ref(second.children[second.index]), RowRef(1, 1, 1))
+
+                bible_view.go_to_ref(translation.TranslationRef(1, 1, 2))
+                await pilot.pause()
+                await pilot.pause()
+
+                self.assertEqual(
+                    (bible_view.state.bookid, bible_view.state.chapter, bible_view.state.verse),
+                    (1, 1, 2),
+                )
+                self.assertEqual(first._row_ref(first.children[first.index]), RowRef(1, 1, 2))
+                self.assertEqual(second._row_ref(second.children[second.index]), RowRef(1, 1, 1))
 
         asyncio.run(run())
 

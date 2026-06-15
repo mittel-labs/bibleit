@@ -172,7 +172,11 @@ class View(ListView):
         if value is None:
             return None
 
-        return self._decode_row(value)
+        row = self._decode_row(value)
+        if self._ref_from_text(row) != self._target_row_ref(ref):
+            return None
+
+        return row
 
     def _is_highlighting_state(self) -> bool:
         if self.index is None or not 0 <= self.index < len(self.children):
@@ -196,7 +200,18 @@ class View(ListView):
         if event.item is None:
             return
 
-        if self._sync_state_from_row(event.item, publish=False) and not self.syncing:
+        try:
+            item_index = self.children.index(event.item)
+        except ValueError:
+            return
+
+        if self.index is not None and item_index != self.index:
+            return
+
+        if self.syncing:
+            return
+
+        if self._sync_state_from_row(event.item, publish=False):
             self.scroll_to_widget(
                 event.item,
                 animate=False,
@@ -283,7 +298,15 @@ class View(ListView):
             if not self._append_cursor_row():
                 break
 
-    def _load_cursor_rows_around(self, ref: translation.TranslationRef, index: int) -> int:
+    def _target_row_ref(self, ref: translation.TranslationRef) -> RowRef:
+        return RowRef(
+            ref.bookid,
+            ref.chapter or 1,
+            ref.verse_start or 1,
+        )
+
+    def _load_cursor_rows_around(self, ref: translation.TranslationRef, index: int) -> int | None:
+        target = self._target_row_ref(ref)
         previous_rows: list[ListItem] = []
         previous_cursor = self.translation.cursor_from(ref)
 
@@ -298,16 +321,25 @@ class View(ListView):
         cursor = self.translation.cursor_from(ref)
         self.cursor = cursor
 
-        for row in previous_rows:
-            self.append(row)
-
         remaining = max(1, self.INITIAL_ROWS - len(previous_rows))
+        rows = [*previous_rows]
 
         for _ in range(remaining):
-            if not self._append_cursor_row():
+            value = self.cursor.next()
+            if value is None:
+                break
+            rows.append(self._make_row(self._decode_row(value)))
+
+        target_index = None
+        for row_index, row in enumerate(rows):
+            if isinstance(row, ListItem) and self._row_ref(row) == target:
+                target_index = row_index
                 break
 
-        return len(previous_rows)
+        for row in rows:
+            self.append(row)
+
+        return target_index
 
     def _row_ref(self, row: ListItem) -> RowRef | None:
         return self._ref_from_text(getattr(row, "data", ""))
@@ -383,7 +415,7 @@ class View(ListView):
                     force=True,
                 )
 
-                if self._sync_state_from_row(row, publish=False) and not self.syncing:
+                if not self.syncing and self._sync_state_from_row(row, publish=False):
                     self._post_navigate()
 
     def _force_highlight_row(self, row: ListItem) -> None:
@@ -512,22 +544,49 @@ class View(ListView):
 
         self.post_message(self.Selected(self, event.item, self.index))
 
-    def sync_to_state(self, focus: bool = False):
-        if not self.is_attached:
-            return
-
-        if self._is_highlighting_state():
-            if focus:
-                self.focus()
-            return
-
-        ref = translation.TranslationRef(
+    def _state_ref(self) -> translation.TranslationRef:
+        return translation.TranslationRef(
             self.state.bookid,
             self.state.chapter,
             self.state.verse,
         )
 
+    def _focus_if_requested(self, focus: bool) -> None:
+        if focus:
+            self.focus()
+
+    def _restore_synced_highlight(self, index: int, focus: bool) -> None:
+        if not self.is_attached:
+            self.syncing = False
+            return
+
+        self._force_highlight(index)
+        self._focus_if_requested(focus)
+        self.syncing = False
+
+    def _notify_missing_ref(self, focus: bool) -> None:
+        if focus:
+            self.notify(
+                "Reference not found",
+                severity="error",
+                timeout=3,
+            )
+
+    def sync_to_state(self, focus: bool = False) -> None:
+        if not self.is_attached:
+            return
+
+        if self._is_highlighting_state():
+            self._focus_if_requested(focus)
+            return
+
+        ref = self._state_ref()
+
         try:
+            if self.value_for_ref(ref) is None:
+                self._focus_if_requested(focus)
+                return
+
             self.syncing = True
             self.clear()
 
@@ -536,25 +595,15 @@ class View(ListView):
                 return
 
             index = self._load_cursor_rows_around(ref, self.state.index)
-
-            def restore():
-                if not self.is_attached:
-                    self.syncing = False
-                    return
-
-                self._force_highlight(index)
-                if focus:
-                    self.focus()
+            if index is None:
                 self.syncing = False
+                return
 
-            self.call_after_refresh(restore)
+            self.call_after_refresh(self._restore_synced_highlight, index, focus)
         except RuntimeError as e:
+            self.syncing = False
             self.log.error("error on cursor_from", e)
-            self.notify(
-                "Reference not found",
-                severity="error",
-                timeout=3,
-            )
+            self._notify_missing_ref(focus)
 
     def action_toggle_strongs(self):
         from bibleit.ui.status import StatusBar

@@ -104,7 +104,7 @@ class StatusBar(Horizontal):
         self._refresh()
 
     def on_resize(self, event: events.Resize) -> None:
-        self.compact = event.size.width < 72
+        self.compact = running_in_browser() and event.size.width < 72
 
     def _refresh(self):
         if self.translations:

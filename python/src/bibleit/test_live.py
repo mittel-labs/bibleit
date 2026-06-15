@@ -68,6 +68,8 @@ class LiveVerseTest(unittest.TestCase):
         self.assertIn('id="translation-filter"', rendered)
         self.assertIn("bibleit-selected-translations", rendered)
         self.assertNotIn("__all__", rendered)
+        self.assertIn('navigator.wakeLock.request("screen")', rendered)
+        self.assertIn("visibilitychange", rendered)
 
     def test_control_requests_are_open_without_token(self):
         with TemporaryDirectory() as temp:

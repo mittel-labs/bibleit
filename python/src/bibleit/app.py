@@ -91,13 +91,13 @@ class Bibleit(App):
         focused = self.focused
         view = focused
 
-        while view and not isinstance(view, View):
+        while view is not None and not isinstance(view, View):
             view = view.parent
 
-        if not view:
+        if view is None:
             return
 
-        if not view.translation:
+        if view.translation is None:
             return
 
         entry = view.translation.strongs.get(code)

@@ -112,6 +112,10 @@ class BibleView(Horizontal):
 
         self.publish_live_state()
 
+    def on_resize(self, event: events.Resize) -> None:
+        for view in self.views:
+            view.restore_visible_selection()
+
     def go_to_ref(
         self,
         ref: translation.TranslationRef,
@@ -140,7 +144,7 @@ class BibleView(Horizontal):
 
     def go_to_command(self, value: str) -> bool:
         view = self._active_view()
-        if not view:
+        if view is None:
             self.notify(
                 "Please open a translation first",
                 severity="warning",
@@ -149,15 +153,33 @@ class BibleView(Horizontal):
 
         try:
             ref = parse_navigation_ref(value, view.translation, self.state)
-            if view.value_for_ref(ref) is None:
+            target_view = self._view_with_ref(ref)
+            if target_view is None:
                 raise ValueError("Chapter/Verse not found")
         except (RuntimeError, ValueError) as error:
             self.notify(str(error), severity="error", timeout=3)
             return False
 
+        self.set_active_view(target_view)
         self.go_to_ref(ref, live_history=True)
-        self.app.record_history(view.translation, ref)
+        self.app.record_history(target_view.translation, ref)
         return True
+
+    def _view_with_ref(self, ref: translation.TranslationRef) -> View | None:
+        active_view = self._active_view()
+        views = [view for view in [active_view, *self.views] if view is not None]
+        seen: set[int] = set()
+
+        for view in views:
+            view_id = id(view)
+            if view_id in seen:
+                continue
+
+            seen.add(view_id)
+            if view.value_for_ref(ref) is not None:
+                return view
+
+        return None
 
     def on_mount(self):
         self.app.install_screen(Translations(), name="translations")
@@ -166,13 +188,13 @@ class BibleView(Horizontal):
 
     def on_focus(self, event: events.Focus) -> None:
         view = self._active_view()
-        if view:
+        if view is not None:
             event.stop()
             self.call_after_refresh(view.focus)
 
     def action_focus_active_view(self) -> None:
         view = self._active_view()
-        if view:
+        if view is not None:
             view.focus()
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -199,7 +221,7 @@ class BibleView(Horizontal):
 
         view = self.focused_view()
 
-        if not view:
+        if view is None:
             view = self.views[0]
 
         self.app.push_screen(Find(view, self.views))
@@ -220,13 +242,13 @@ class BibleView(Horizontal):
     async def action_previous_verse(self):
         view = self._active_view()
 
-        if view:
+        if view is not None:
             await view._move_cursor_up()
 
     async def action_next_verse(self):
         view = self._active_view()
 
-        if view:
+        if view is not None:
             await view._move_cursor_down()
 
     def _active_view(self) -> View | None:
@@ -316,14 +338,14 @@ class BibleView(Horizontal):
 
     def action_chapter_start(self):
         view = self._active_view()
-        if not view:
+        if view is None:
             return
 
         self.go_to_ref(translation.TranslationRef(self.state.bookid, self.state.chapter, 1))
 
     def action_chapter_end(self):
         view = self._active_view()
-        if not view:
+        if view is None:
             return
 
         ref = self._chapter_end_ref(view)
@@ -335,7 +357,7 @@ class BibleView(Horizontal):
 
     def action_next_chapter(self):
         view = self._active_view()
-        if not view:
+        if view is None:
             return
 
         ref = next_chapter_ref(view.translation, self.state)
@@ -346,7 +368,7 @@ class BibleView(Horizontal):
 
     def action_previous_chapter(self):
         view = self._active_view()
-        if not view:
+        if view is None:
             return
 
         ref = previous_chapter_ref(view.translation, self.state)
@@ -364,7 +386,7 @@ class BibleView(Horizontal):
 
     def action_toggle_strongs(self):
         view = self._active_view()
-        if not view:
+        if view is None:
             return
 
         view.action_toggle_strongs()
@@ -388,13 +410,13 @@ class BibleView(Horizontal):
         if self.state.live:
             view = self._active_view()
 
-            if view:
+            if view is not None:
                 view.set_live_mode(True)
                 self.publish_live_state()
         else:
             view = self._active_view()
 
-            if view:
+            if view is not None:
                 view.set_live_mode(False)
 
     def _start_live_status_worker(self) -> None:
@@ -523,7 +545,7 @@ class BibleView(Horizontal):
 
     async def action_close_pane(self):
         view = self.focused_view()
-        if not view:
+        if view is None:
             return
 
         if len(self.views) <= 1:
@@ -535,7 +557,7 @@ class BibleView(Horizontal):
         self._set_maximized_view(self.maximized_view)
         self.refresh_status()
 
-        next_view = self.active_view or self.views[min(index, len(self.views) - 1)]
+        next_view = self.active_view if self.active_view is not None else self.views[min(index, len(self.views) - 1)]
         if next_view is not None:
             next_view.focus()
             next_view.sync_to_state(focus=True)
@@ -546,7 +568,7 @@ class BibleView(Horizontal):
     def focused_view(self) -> View | None:
         focused = self.app.focused
 
-        while focused and not isinstance(focused, View):
+        while focused is not None and not isinstance(focused, View):
             focused = focused.parent
 
         return focused

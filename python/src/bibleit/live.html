@@ -702,6 +702,41 @@
     let selectedTranslations = loadSelectedTranslations();
     let presentationPreviousScaleIndex = null;
     let restorePresentationOnLive = localStorage.getItem("bibleit-presentation") === "true";
+    let presentationFitFrame = null;
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+      if (!("wakeLock" in navigator)) return;
+      if (!isLiveMode || document.visibilityState !== "visible" || wakeLock) return;
+
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => {
+          wakeLock = null;
+          if (isLiveMode && document.visibilityState === "visible") {
+            setTimeout(requestWakeLock, 0);
+          }
+        });
+      } catch (_error) {
+        wakeLock = null;
+      }
+    }
+
+    function releaseWakeLock() {
+      if (!wakeLock) return;
+
+      const lock = wakeLock;
+      wakeLock = null;
+      lock.release().catch(() => {});
+    }
+
+    function updateWakeLock() {
+      if (isLiveMode && document.visibilityState === "visible") {
+        requestWakeLock();
+      } else {
+        releaseWakeLock();
+      }
+    }
 
     function applyMode(isLive) {
       isLiveMode = Boolean(isLive);
@@ -723,6 +758,7 @@
         status.textContent = "Live";
         splashStatus.textContent = "Live";
       }
+      updateWakeLock();
     }
 
     function setTheme(value) {
@@ -763,7 +799,7 @@
         presentationPreviousScaleIndex = null;
       }
 
-      fitPresentationText();
+      schedulePresentationFit();
     }
 
     function loadSelectedTranslations() {
@@ -1066,6 +1102,19 @@
       });
     }
 
+    function schedulePresentationFit() {
+      if (presentationFitFrame !== null) {
+        cancelAnimationFrame(presentationFitFrame);
+      }
+
+      presentationFitFrame = requestAnimationFrame(() => {
+        presentationFitFrame = null;
+        fitPresentationText();
+        setTimeout(fitPresentationText, 80);
+        setTimeout(fitPresentationText, 250);
+      });
+    }
+
     function showVerse(data, label) {
       lastVerseData = data;
       if (isLiveMode) {
@@ -1086,15 +1135,18 @@
       const renderedVerses = visibleVerses(lastVerseData || {});
       document.documentElement.style.setProperty("--visible-count", Math.max(renderedVerses.length, 1).toString());
       verses.replaceChildren(...renderedVerses.map(renderVerseCard));
-      fitPresentationText();
-      setTimeout(fitPresentationText, 80);
-      setTimeout(fitPresentationText, 250);
+      schedulePresentationFit();
     }
 
-    window.addEventListener("resize", fitPresentationText);
+    window.addEventListener("resize", schedulePresentationFit);
+    window.addEventListener("orientationchange", schedulePresentationFit);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", schedulePresentationFit);
+    }
+    document.addEventListener("visibilitychange", updateWakeLock);
 
     if (document.fonts) {
-      document.fonts.ready.then(fitPresentationText);
+      document.fonts.ready.then(schedulePresentationFit);
     }
 
     function connect() {

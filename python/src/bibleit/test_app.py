@@ -278,6 +278,19 @@ class BibleViewRowTests(unittest.TestCase):
         self.assertEqual(view._valid_index(), 1)
         self.assertEqual(view.index, 1)
 
+    def test_restore_visible_selection_clamps_and_preserves_highlight(self):
+        view = View(NavigationState(), FakeTranslation())
+        rows = [ListItem() for _ in range(2)]
+        for row in rows:
+            view._nodes._append(row)
+        view.index = 24
+
+        view.restore_visible_selection()
+
+        self.assertEqual(view.index, 1)
+        self.assertFalse(rows[0].highlighted)
+        self.assertTrue(rows[1].highlighted)
+
     def test_stale_row_click_is_ignored(self):
         view = View(NavigationState(), FakeTranslation(), ListItem())
         event = FakeClickEvent(ListItem())
@@ -902,6 +915,24 @@ class ConfigTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_terminal_status_bar_does_not_compact_on_narrow_resize(self):
+        status = StatusBar()
+        event = type("FakeResize", (), {"size": type("FakeSize", (), {"width": 40})()})()
+
+        with patch("bibleit.ui.status.running_in_browser", return_value=False):
+            status.on_resize(event)
+
+        self.assertFalse(status.compact)
+
+    def test_browser_status_bar_compacts_on_narrow_resize(self):
+        status = StatusBar()
+        event = type("FakeResize", (), {"size": type("FakeSize", (), {"width": 40})()})()
+
+        with patch("bibleit.ui.status.running_in_browser", return_value=True):
+            status.on_resize(event)
+
+        self.assertTrue(status.compact)
+
     def test_opening_new_translation_keeps_existing_focus(self):
         async def run():
             app = Bibleit()
@@ -980,6 +1011,107 @@ class ConfigTests(unittest.TestCase):
                 )
                 self.assertEqual(first._row_ref(first.children[first.index]), RowRef(1, 1, 2))
                 self.assertEqual(second._row_ref(second.children[second.index]), RowRef(1, 1, 1))
+
+        asyncio.run(run())
+
+    def test_go_to_uses_other_open_translation_when_active_translation_misses_verse(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                for existing in list(bible_view.views):
+                    await existing.remove()
+                bible_view.panes = PaneRegistry()
+                missing_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                missing_translation.slug = "MISSING"
+                complete_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:2 The earth was formless and empty.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                complete_translation.slug = "COMPLETE"
+                missing = View(bible_view.state, missing_translation)
+                complete = View(bible_view.state, complete_translation)
+                bible_view.panes.add(missing)
+                bible_view.panes.add(complete)
+                await bible_view.mount(missing, complete)
+                bible_view.set_active_view(missing)
+
+                self.assertTrue(bible_view.go_to_command("2"))
+                await pilot.pause()
+                await pilot.pause()
+
+                self.assertIs(bible_view.active_view, complete)
+                self.assertEqual(
+                    (bible_view.state.bookid, bible_view.state.chapter, bible_view.state.verse),
+                    (1, 1, 2),
+                )
+                self.assertEqual(complete._row_ref(complete.children[complete.index]), RowRef(1, 1, 2))
+                self.assertIsNone(missing.index)
+
+        asyncio.run(run())
+
+    def test_live_publishes_other_translation_when_active_translation_misses_verse(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                for existing in list(bible_view.views):
+                    await existing.remove()
+                bible_view.panes = PaneRegistry()
+                missing_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                missing_translation.slug = "MISSING"
+                complete_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:2 The earth was formless and empty.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                complete_translation.slug = "COMPLETE"
+                missing = View(bible_view.state, missing_translation)
+                complete = View(bible_view.state, complete_translation)
+                published = []
+                missing._publish_payload = published.append
+                bible_view.panes.add(missing)
+                bible_view.panes.add(complete)
+                await bible_view.mount(missing, complete)
+                bible_view.set_active_view(missing)
+                bible_view.state.live = True
+
+                self.assertTrue(bible_view.go_to_command("2"))
+                await pilot.pause()
+
+                self.assertTrue(published)
+                self.assertEqual(published[-1]["reference"], "Genesis 1:2")
+                self.assertEqual(
+                    [verse["translation"] for verse in published[-1]["translations"]],
+                    ["COMPLETE"],
+                )
 
         asyncio.run(run())
 

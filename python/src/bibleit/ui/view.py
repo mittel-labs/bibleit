@@ -345,7 +345,7 @@ class View(ListView):
         return self._ref_from_text(getattr(row, "data", ""))
 
     def _ref_from_text(self, text: str) -> RowRef | None:
-        if not self.translation:
+        if self.translation is None:
             return None
 
         match = re.match(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+", text)
@@ -363,7 +363,11 @@ class View(ListView):
         ref = self._row_ref(row)
         if ref is None or self.translation is None:
             return None
-        return self.translation.cursor_from(translation.TranslationRef(ref.bookid, ref.chapter, ref.verse))
+
+        try:
+            return self.translation.cursor_from(translation.TranslationRef(ref.bookid, ref.chapter, ref.verse))
+        except RuntimeError:
+            return None
 
     def _previous_row(self) -> ListItem | None:
         if not self.children:
@@ -373,7 +377,11 @@ class View(ListView):
         if cursor is None:
             return None
 
-        value = cursor.previous()
+        try:
+            value = cursor.previous()
+        except RuntimeError:
+            return None
+
         if value is None:
             return None
 
@@ -383,12 +391,23 @@ class View(ListView):
         if not self.children:
             return None
 
-        cursor = self._cursor_from_row(self.children[-1])
+        cursor = self.cursor
+        starts_at_current_row = False
+
+        if cursor is None:
+            cursor = self._cursor_from_row(self.children[-1])
+            starts_at_current_row = True
+
         if cursor is None:
             return None
 
-        cursor.next()
-        value = cursor.next()
+        try:
+            if starts_at_current_row:
+                cursor.next()
+            value = cursor.next()
+        except RuntimeError:
+            return None
+
         if value is None:
             return None
 
@@ -440,6 +459,33 @@ class View(ListView):
         if index != self.index:
             self.index = index
         return index
+
+    def _restore_visible_selection(self) -> None:
+        index = self._valid_index()
+        if index is None or not 0 <= index < len(self.children):
+            return
+
+        row = self.children[index]
+        if not isinstance(row, ListItem):
+            return
+
+        for child in self.children:
+            if isinstance(child, ListItem):
+                child.highlighted = child is row
+
+        if self.is_attached:
+            self.scroll_to_widget(
+                row,
+                animate=False,
+                immediate=True,
+                force=True,
+            )
+
+    def restore_visible_selection(self) -> None:
+        if self.is_attached:
+            self.call_after_refresh(self._restore_visible_selection)
+        else:
+            self._restore_visible_selection()
 
     def _strong_prefix(self, bookid: int) -> str:
         return "H" if bookid <= 39 else "G"
@@ -523,6 +569,9 @@ class View(ListView):
 
     async def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
         event.stop()
+
+    def on_resize(self, event: events.Resize) -> None:
+        self.restore_visible_selection()
 
     def on_mouse_down(self, event: events.MouseDown) -> None:
         if not running_in_browser():

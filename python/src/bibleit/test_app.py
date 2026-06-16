@@ -6,7 +6,7 @@ from unittest.mock import patch
 from tempfile import TemporaryDirectory
 import asyncio
 
-from textual.widgets import Button, Label, ListItem, ListView, Switch
+from textual.widgets import Button, Input, Label, ListItem, ListView, Switch
 
 try:
     from bibleit import translation
@@ -706,6 +706,25 @@ class ConfigTests(unittest.TestCase):
             options = screen._translation_options()
 
         self.assertEqual(options, [("TEST - Test", "TEST")])
+
+    def test_config_screen_saves_live_url_with_default_translation_select(self):
+        async def run():
+            with TemporaryDirectory() as temp:
+                path = f"{temp}/config"
+                with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                    with patch.object(translation, "get_installed", return_value={"NVIPT": FakeTranslation().header}):
+                        app = Bibleit()
+
+                        async with app.run_test() as pilot:
+                            app.push_screen(ConfigScreen())
+                            await pilot.pause()
+                            app.screen.query_one("#config-live-url", Input).value = "https://live.bibleit.app"
+                            await pilot.press("ctrl+s")
+                            await pilot.pause()
+
+                    self.assertEqual(load_config().get("LIVE_URL"), "https://live.bibleit.app")
+
+        asyncio.run(run())
 
     def test_theme_is_loaded_from_config(self):
         with TemporaryDirectory() as temp:

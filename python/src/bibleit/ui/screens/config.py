@@ -9,6 +9,10 @@ from bibleit import translation
 from bibleit.config import config_path, env_overrides, load_config, save_config, theme_is_dark
 
 
+def _select_blank():
+    return getattr(Select, "NULL", getattr(Select, "BLANK", None))
+
+
 class ConfigScreen(Screen):
     TEXT_CONFIGS = ("LIVE_TOKEN", "LIVE_URL")
 
@@ -59,7 +63,7 @@ class ConfigScreen(Screen):
                 self._translation_options(default_translation),
                 prompt="Auto",
                 allow_blank=True,
-                value=default_translation or Select.NULL,
+                value=default_translation or _select_blank(),
                 id="config-default-translation",
             )
 
@@ -94,7 +98,7 @@ class ConfigScreen(Screen):
             name: self.query_one(f"#config-{name.lower().replace('_', '-')}", Input).value for name in self.TEXT_CONFIGS
         }
         default_translation = self.query_one("#config-default-translation", Select).value
-        values["DEFAULT_TRANSLATION"] = "" if default_translation == Select.NULL else str(default_translation)
+        values["DEFAULT_TRANSLATION"] = "" if default_translation == _select_blank() else str(default_translation)
         values["THEME"] = "dark" if self.query_one("#config-theme-dark", Switch).value else "light"
         return values
 

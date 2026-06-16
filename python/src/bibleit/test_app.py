@@ -1487,10 +1487,10 @@ class LivePublisherTests(unittest.TestCase):
     def test_live_url_controls_remote_server(self):
         with patch.dict(
             "os.environ",
-            {"BIBLEIT_LIVE_URL": "https://bibleit.mittel.site/"},
+            {"BIBLEIT_LIVE_URL": "https://live.bibleit.app/"},
             clear=True,
         ):
-            self.assertEqual(LivePublisher().url, "https://bibleit.mittel.site")
+            self.assertEqual(LivePublisher().url, "https://live.bibleit.app")
 
     def test_live_url_takes_precedence_over_host_and_port(self):
         with patch.dict(

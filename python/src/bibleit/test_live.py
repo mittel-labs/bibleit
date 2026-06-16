@@ -61,7 +61,7 @@ class LiveVerseTest(unittest.TestCase):
         self.assertIn("bibleit live", rendered)
         self.assertIn("Live is coming soon", rendered)
         self.assertIn("https://mittel.site", rendered)
-        self.assertIn("https://bibleit.mittel.site", rendered)
+        self.assertIn("https://live.bibleit.app", rendered)
         self.assertIn("Scan to open", rendered)
         self.assertNotIn('id="textual"', rendered)
         self.assertNotIn("/textual/", rendered)

@@ -20,7 +20,10 @@
       <a href="#install">Install</a>
       <a href="#contribute">Contribute</a>
     </nav>
-    <a class="header-action" href="https://github.com/mittel-labs/bibleit">GitHub</a>
+    <div class="header-actions">
+      <a class="header-action" href="https://pypi.org/project/bibleit/">PyPI</a>
+      <a class="header-action" href="https://github.com/mittel-labs/bibleit">GitHub</a>
+    </div>
   </header>
 
   <main id="top">
@@ -56,6 +59,7 @@
         <div class="hero-actions">
           <a class="primary-action" href="#install">Install bibleit</a>
           <a class="secondary-action" href="https://github.com/mittel-labs/bibleit">View source</a>
+          <a class="secondary-action" href="https://pypi.org/project/bibleit/">PyPI package</a>
         </div>
       </div>
     </section>
@@ -145,20 +149,21 @@
       <div class="section-heading">
         <p class="eyebrow">Install</p>
         <h2>Run bibleit as a TUI or a command-line reader.</h2>
+        <p class="section-note">Available on <a href="https://pypi.org/project/bibleit/">PyPI</a> for macOS and Linux Python environments.</p>
       </div>
       <div class="command-grid">
         <article class="command-card">
           <h3>Install from PyPI</h3>
-          <pre><code>pip install bibleit</code></pre>
+          <pre><code>pip install bibleit</code><button class="copy-command" type="button" aria-label="Copy install command">Copy</button></pre>
         </article>
         <article class="command-card">
           <h3>Read from stdout</h3>
           <pre><code>bibleit -t KJV dan 9.2
-bibleit -t KJV john 3:16</code></pre>
+bibleit -t KJV john 3:16</code><button class="copy-command" type="button" aria-label="Copy CLI examples">Copy</button></pre>
         </article>
         <article class="command-card">
           <h3>Run live server</h3>
-          <pre><code>bibleit --live</code></pre>
+          <pre><code>bibleit --live</code><button class="copy-command" type="button" aria-label="Copy live server command">Copy</button></pre>
         </article>
       </div>
     </section>

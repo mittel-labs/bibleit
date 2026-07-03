@@ -8,6 +8,7 @@ from textual.widgets import Button
 
 from bibleit import translation
 from bibleit.live_publisher import running_in_browser
+from bibleit.listening import ListeningUnavailable, VoskListener
 from bibleit.navigation import (
     NavigationState,
     next_chapter_ref,
@@ -21,8 +22,10 @@ from bibleit.ui.view import View
 from bibleit.ui.screens.config import ConfigScreen
 from bibleit.ui.screens.find import Find
 from bibleit.ui.screens.history import HistoryScreen
+from bibleit.ui.screens.listen_history import ListenHistoryScreen
 from bibleit.ui.screens.shortcuts import ShortcutsScreen
 from bibleit.ui.screens.translations import Translations
+from bibleit.ui.screens.transcripts import TranscriptsScreen
 
 
 class BibleView(Horizontal):
@@ -38,6 +41,8 @@ class BibleView(Horizontal):
         self.live_connected = False
         self.live_connecting = False
         self.live_clients = 0
+        self.listening = False
+        self._listening_worker = None
 
     @property
     def views(self) -> list[View]:
@@ -239,6 +244,26 @@ class BibleView(Horizontal):
         else:
             self.app.push_screen(HistoryScreen())
 
+    def action_toggle_listen_history(self) -> None:
+        if running_in_browser():
+            return
+
+        if isinstance(self.app.screen, ListenHistoryScreen):
+            self.app.pop_screen()
+            self.focus()
+        else:
+            self.app.push_screen(ListenHistoryScreen())
+
+    def action_toggle_transcripts(self) -> None:
+        if running_in_browser():
+            return
+
+        if isinstance(self.app.screen, TranscriptsScreen):
+            self.app.pop_screen()
+            self.focus()
+        else:
+            self.app.push_screen(TranscriptsScreen())
+
     async def action_previous_verse(self):
         view = self._active_view()
 
@@ -419,6 +444,71 @@ class BibleView(Horizontal):
             if view is not None:
                 view.set_live_mode(False)
 
+    def action_toggle_listening(self) -> None:
+        if running_in_browser():
+            return
+
+        if self.listening:
+            self.disable_listening_now()
+            return
+
+        if not self.views:
+            self.notify(
+                "Please open a translation first",
+                severity="warning",
+            )
+            return
+
+        self.listening = True
+        self.refresh_status()
+        self._listening_worker = self.run_worker(
+            self._listen_for_references(),
+            exclusive=True,
+            group=f"listening-{id(self)}",
+            exit_on_error=False,
+        )
+
+    async def _listen_for_references(self) -> None:
+        active_view = self._active_view()
+        if active_view is None:
+            self.listening = False
+            self.refresh_status()
+            return
+
+        listener = VoskListener()
+        last_ref: translation.TranslationRef | None = None
+
+        try:
+            async for match in listener.matches(
+                active_view.translation,
+                self.state,
+                on_text=self.app.transcript_recorder.write,
+            ):
+                if not self.listening:
+                    break
+
+                if match.ref == last_ref:
+                    continue
+
+                last_ref = match.ref
+                self.app.record_listen_history(active_view.translation, match.ref)
+                if isinstance(self.app.screen, ListenHistoryScreen):
+                    self.app.screen.refresh_entries(keep_index=True)
+                self.notify(match.command, title="Listen History", timeout=2)
+
+        except ListeningUnavailable as error:
+            self.notify(str(error), title="Listening", severity="warning", timeout=5)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.notify(str(error), title="Listening", severity="error", timeout=5)
+        finally:
+            self.app.transcript_recorder.close()
+            self.listening = False
+            self._listening_worker = None
+            if self.is_attached:
+                self.refresh_status()
+
     def _start_live_status_worker(self) -> None:
         self.run_worker(
             self._watch_live_status(),
@@ -484,9 +574,24 @@ class BibleView(Horizontal):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "toggle_live" and running_in_browser():
             return False
+        if action == "toggle_listening" and running_in_browser():
+            return False
+        if action == "toggle_listen_history" and running_in_browser():
+            return False
+        if action == "toggle_transcripts" and running_in_browser():
+            return False
         if action == "open_config" and running_in_browser():
             return False
         return True
+
+    def disable_listening_now(self) -> None:
+        self.listening = False
+        if self._listening_worker is not None:
+            self._listening_worker.cancel()
+            self._listening_worker = None
+        self.app.transcript_recorder.close()
+        if self.is_attached:
+            self.refresh_status()
 
     def disable_live_now(self) -> None:
         if not self.state.live:
@@ -514,6 +619,7 @@ class BibleView(Horizontal):
         status.live_connected = self.live_connected
         status.live_connecting = self.live_connecting
         status.live_clients = self.live_clients
+        status.listening = self.listening
 
     def publish_live_state(self, *, history: bool = False):
         if not self.state.live or not self.views:

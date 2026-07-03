@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 import tomllib
 
-CONFIG_NAMES = ("LIVE_TOKEN", "LIVE_URL", "DEFAULT_TRANSLATION", "THEME")
-CONFIG_DIR = ".bibleit"
+CONFIG_NAMES = ("LIVE_TOKEN", "LIVE_URL", "DEFAULT_TRANSLATION", "THEME", "LISTENING_MODEL")
+CONFIG_DIR = Path.home() / ".bibleit"
 CONFIG_FILE = "config"
 THEMES = ("light", "dark")
 
@@ -15,7 +15,7 @@ def config_path() -> Path:
     if override:
         return Path(override).expanduser()
 
-    return Path.home() / CONFIG_DIR / CONFIG_FILE
+    return CONFIG_DIR / CONFIG_FILE
 
 
 def load_config() -> dict[str, str]:

@@ -14,11 +14,14 @@ from bibleit.navigation import NavigationState, RowRef, verse_reference_label
 from bibleit.ui.bible_view import BibleView
 from bibleit.ui.screens.config import ConfigScreen
 from bibleit.ui.screens.history import HistoryScreen
+from bibleit.ui.screens.listen_history import ListenHistoryScreen
 from bibleit.ui.screens.shortcuts import ShortcutsScreen
 from bibleit.ui.screens.strongs import StrongScreen
+from bibleit.ui.screens.transcripts import TranscriptsScreen
 from bibleit.ui.screens.welcome import WelcomeScreen
 from bibleit.ui.status import StatusBar
 from bibleit.ui.view import View
+from bibleit.transcripts import TranscriptRecorder
 
 __all__ = [
     "BibleView",
@@ -26,6 +29,7 @@ __all__ = [
     "ConfigScreen",
     "HistoryEntry",
     "HistoryScreen",
+    "ListenHistoryScreen",
     "LivePublisher",
     "NavigationState",
     "RowRef",
@@ -33,6 +37,7 @@ __all__ = [
     "ShortcutsScreen",
     "StatusBar",
     "StrongScreen",
+    "TranscriptsScreen",
     "View",
     "WelcomeScreen",
     "running_in_browser",
@@ -49,6 +54,8 @@ class Bibleit(App):
     def __init__(self):
         super().__init__()
         self.history = SessionHistory()
+        self.listen_history = SessionHistory()
+        self.transcript_recorder = TranscriptRecorder()
         self.dark_theme = theme_is_dark()
         atexit.register(self._disable_live_on_shutdown)
 
@@ -84,6 +91,7 @@ class Bibleit(App):
         except Exception:
             return
 
+        bible_view.disable_listening_now()
         bible_view.disable_live_now()
 
     def action_open_strong(self, code: str):
@@ -146,6 +154,23 @@ class Bibleit(App):
 
     def record_history_entry(self, entry: HistoryEntry) -> None:
         self.history.record(entry)
+
+    def record_listen_history(
+        self,
+        translation_: translation.Translation,
+        ref: translation.TranslationRef,
+    ) -> None:
+        chapter = ref.chapter or 1
+        verse = ref.verse_start or 1
+        label = verse_reference_label(translation_, ref.bookid, chapter, verse)
+        self.listen_history.record(
+            HistoryEntry(
+                bookid=ref.bookid,
+                chapter=chapter,
+                verse=verse,
+                label=label,
+            )
+        )
 
     def compose(self):
         with Horizontal(id="workspace"):

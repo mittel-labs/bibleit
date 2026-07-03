@@ -15,6 +15,7 @@ from ctypes import (
     c_uint32,
     byref,
 )
+from bibleit.config import CONFIG_DIR
 from bibleit._ffi import (
     libbibleit,
     BidxRef,
@@ -25,7 +26,7 @@ from bibleit._ffi import (
 )
 
 TIMEOUTS = (3, 10)
-TRANSLATIONS_DIR = Path.home() / ".bibleit"
+TRANSLATIONS_DIR = CONFIG_DIR / "translations"
 TRANSLATION_LANGUAGES_CONFIG_FILE_URI = (
     "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/languages.json"
 )

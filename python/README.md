@@ -13,7 +13,9 @@ built with Python, Textual, and libbibleit.
 - Strong's references with linked entries via `Ctrl+G`.
 - Live web viewer for sharing the active verse with viewers.
 - Live viewer controls for light/dark theme, font size, presentation mode, and translation selection.
-- Persistent local config for live URL/token and theme.
+- Listening mode with Vosk speech recognition for spoken Bible references.
+- Listen History and live transcripts saved under `~/.bibleit/recordings`.
+- Persistent local config for live URL/token, theme, default translation, and listening model.
 - Docker and Fly.io deployment support.
 
 ## Requirements
@@ -104,6 +106,9 @@ translation with `BIBLEIT_DEFAULT_TRANSLATION`, `BIBLEIT_TRANSLATION`, or
 | `Esc` | Restore panes when a translation is maximized |
 | `F2` | Toggle split layout |
 | `Ctrl+L` | Toggle live mode |
+| `Ctrl+Shift+L` | Toggle listening mode |
+| `Ctrl+Shift+H` | Open listen history |
+| `Ctrl+Shift+R` | Open listening transcripts |
 | `Ctrl+D` | Toggle theme |
 | `Ctrl+P` | Open config |
 | `?` | Show shortcuts |
@@ -115,12 +120,14 @@ shortcuts. Press any shortcut to dismiss it and continue.
 
 bibleit reads configuration from `~/.bibleit/config` as TOML. Environment
 variables with the `BIBLEIT_` prefix take precedence.
+Downloaded translations are cached in `~/.bibleit/translations`.
 
 | Config | Environment variable | Description |
 |---|---|---|
 | `LIVE_URL` | `BIBLEIT_LIVE_URL` | Live server URL used by the terminal app |
 | `LIVE_TOKEN` | `BIBLEIT_LIVE_TOKEN` | Optional token used to protect live control requests |
 | `DEFAULT_TRANSLATION` | `BIBLEIT_DEFAULT_TRANSLATION` | Default translation slug for CLI verse lookup |
+| `LISTENING_MODEL` | `BIBLEIT_LISTENING_MODEL` | Vosk model directory used by listening mode |
 | `THEME` | `BIBLEIT_THEME` | `light` or `dark` |
 
 Open the config screen with `Ctrl+P`.
@@ -133,6 +140,41 @@ THEME = "dark"
 ```
 
 Empty values are not written to the config file.
+
+## Listening Mode
+
+bibleit can listen for spoken Bible references and keep a searchable listen
+history. The feature uses [Vosk](https://alphacephei.com/vosk/) locally, so it
+does not send microphone audio to a remote service.
+
+Download a model from the [Vosk model list](https://alphacephei.com/vosk/models)
+and extract it under:
+
+```text
+~/.bibleit/models
+```
+
+For example:
+
+```text
+~/.bibleit/models/vosk-model-small-pt-0.3
+~/.bibleit/models/vosk-model-small-en-us-0.15
+~/.bibleit/models/vosk-model-small-de-0.15
+```
+
+Open config with `Ctrl+P`, choose `LISTENING_MODEL`, then press
+`Ctrl+Shift+L` to toggle listening mode. Switching between Portuguese, English,
+and German is just a matter of selecting a matching Vosk model; bibleit accepts
+common chapter/verse phrases in those languages, while recognition quality still
+depends on the model and microphone.
+
+Recognized references are stored in Listen History (`Ctrl+Shift+H`). Transcripts
+are written as text files in `~/.bibleit/recordings` and can be opened with
+`Ctrl+Shift+R`. Vosk diagnostics are appended to:
+
+```text
+~/.bibleit/recordings/vosk.debug.log
+```
 
 ## Live Mode
 

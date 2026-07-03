@@ -5,6 +5,7 @@ import re
 from unittest.mock import patch
 from tempfile import TemporaryDirectory
 import asyncio
+from pathlib import Path
 
 from textual.widgets import Button, Input, Label, ListItem, ListView, Switch
 
@@ -17,12 +18,14 @@ try:
         ConfigScreen,
         HistoryEntry,
         HistoryScreen,
+        ListenHistoryScreen,
         LivePublisher,
         NavigationState,
         RowRef,
         SessionHistory,
         ShortcutsScreen,
         StatusBar,
+        TranscriptsScreen,
         View,
         WelcomeScreen,
         running_in_browser,
@@ -36,7 +39,9 @@ try:
         previous_chapter_ref,
         select_navigation_completion,
     )
+    from bibleit.listening import spoken_reference_candidates, spoken_reference_matches
     from bibleit.panes import PaneRegistry
+    from bibleit.transcripts import TranscriptRecorder, list_transcripts, read_transcript
     from bibleit.text_find import (
         TextFindIndex,
         cached_find_index,
@@ -102,7 +107,15 @@ class FakeTranslation:
                     62,
                     5,
                 ),
+                "O Evangelho de Mateus": translation.TranslationChapter(
+                    40,
+                    40,
+                    "O Evangelho de Mateus",
+                    40,
+                    28,
+                ),
                 "Matthew": translation.TranslationChapter(40, 40, "Matthew", 40, 28),
+                "Matthäus": translation.TranslationChapter(40, 40, "Matthäus", 40, 28),
             },
         )
         self.strongs = {
@@ -166,6 +179,14 @@ class RefAwareFakeTranslation(FakeTranslation):
             return None
 
         return RowRef(bookid, int(match.group("chapter")), int(match.group("verse")))
+
+
+class VerseAwareFakeTranslation(RefAwareFakeTranslation):
+    def cursor_verse(self, ref: translation.TranslationRef):
+        rows = self.rows_by_book.get(ref.bookid, [])
+        target = RowRef(ref.bookid, ref.chapter or 1, ref.verse_start or 1)
+        matches = [row for row in rows if self._row_ref(row) == target]
+        return FakeCursor(matches)
 
 
 class AmbiguousFakeTranslation(FakeTranslation):
@@ -613,6 +634,105 @@ class NavigationCommandTests(unittest.TestCase):
         )
 
 
+class ListeningReferenceTests(unittest.TestCase):
+    def setUp(self):
+        self.translation = FakeTranslation()
+
+    def test_spoken_reference_candidates_convert_portuguese_numbers(self):
+        self.assertIn(
+            "daniel 9:2",
+            spoken_reference_candidates("vamos ler Daniel nove dois"),
+        )
+
+    def test_spoken_reference_matches_use_navigation_parser(self):
+        matches = spoken_reference_matches(
+            "vamos ler joao tres dezesseis",
+            self.translation,
+        )
+
+        self.assertEqual(
+            matches[0].ref,
+            translation.TranslationRef(62, 3, 16),
+        )
+
+    def test_spoken_reference_matches_reject_invalid_chapter(self):
+        matches = spoken_reference_matches(
+            "vamos ler carta de paulo aos corintios oitenta e nove oito",
+            self.translation,
+        )
+
+        self.assertEqual(matches, [])
+
+    def test_spoken_reference_matches_reject_missing_verse_when_available(self):
+        verse_translation = VerseAwareFakeTranslation(
+            {
+                27: [
+                    "Daniel 9:2 Test two.",
+                ]
+            }
+        )
+
+        self.assertEqual(
+            spoken_reference_matches("vamos ler daniel nove tres", verse_translation),
+            [],
+        )
+        self.assertEqual(
+            spoken_reference_matches("vamos ler daniel nove dois", verse_translation)[0].ref,
+            translation.TranslationRef(27, 9, 2),
+        )
+
+    def test_spoken_reference_matches_contextual_chapter_verse(self):
+        verse_translation = VerseAwareFakeTranslation(
+            {
+                40: [
+                    "O Evangelho de Mateus 24:15 Test fifteen.",
+                ]
+            }
+        )
+        text = (
+            "mas Jesus falando de Daniel no capitulo vinte e quatro "
+            "de Mateus no verso quinze diz assim"
+        )
+
+        self.assertIn("mateus 24:15", spoken_reference_candidates(text))
+        self.assertEqual(
+            spoken_reference_matches(text, verse_translation)[0].ref,
+            translation.TranslationRef(40, 24, 15),
+        )
+
+    def test_spoken_reference_matches_english_contextual_chapter_verse(self):
+        verse_translation = VerseAwareFakeTranslation(
+            {
+                40: [
+                    "Matthew 24:15 Test fifteen.",
+                ]
+            }
+        )
+        text = "jesus speaking of daniel in chapter twenty four of matthew verse fifteen"
+
+        self.assertIn("matthew 24:15", spoken_reference_candidates(text))
+        self.assertEqual(
+            spoken_reference_matches(text, verse_translation)[0].ref,
+            translation.TranslationRef(40, 24, 15),
+        )
+
+    def test_spoken_reference_matches_german_contextual_chapter_verse(self):
+        verse_translation = VerseAwareFakeTranslation(
+            {
+                40: [
+                    "Matthäus 24:15 Test fifteen.",
+                ]
+            }
+        )
+        text = "jesus spricht von daniel in kapitel vierundzwanzig von matthaus vers funfzehn"
+
+        self.assertIn("matthaus 24:15", spoken_reference_candidates(text))
+        self.assertEqual(
+            spoken_reference_matches(text, verse_translation)[0].ref,
+            translation.TranslationRef(40, 24, 15),
+        )
+
+
 class BrowserModeTests(unittest.TestCase):
     def test_running_in_browser_detects_textual_serve_driver(self):
         with patch.dict(
@@ -706,6 +826,13 @@ class ConfigTests(unittest.TestCase):
             options = screen._translation_options()
 
         self.assertEqual(options, [("TEST - Test", "TEST")])
+
+    def test_config_screen_uses_select_for_listening_model(self):
+        screen = ConfigScreen()
+        with patch("bibleit.ui.screens.config.available_model_paths", return_value=[]):
+            options = screen._listening_model_options("/tmp/vosk-model-small-pt")
+
+        self.assertEqual(options, [("/tmp/vosk-model-small-pt", "/tmp/vosk-model-small-pt")])
 
     def test_config_screen_saves_live_url_with_default_translation_select(self):
         async def run():
@@ -1343,6 +1470,123 @@ class ConfigTests(unittest.TestCase):
 
                 self.assertIsInstance(app.screen, HistoryScreen)
                 self.assertIsNotNone(app.screen.query_one("#history-title", Label))
+
+        asyncio.run(run())
+
+    def test_ctrl_shift_h_toggles_listen_history_screen(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.focus()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, ListenHistoryScreen)
+
+                await pilot.press("ctrl+shift+h")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, ListenHistoryScreen)
+
+                await pilot.press("ctrl+shift+h")
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, ListenHistoryScreen)
+
+        asyncio.run(run())
+
+    def test_listen_history_status_button_opens_listen_history_screen(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, ListenHistoryScreen)
+
+                status = app.query_exactly_one(StatusBar)
+                button = status.query_one("#action-listen-history", Button)
+                await status.on_button_pressed(Button.Pressed(button))
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, ListenHistoryScreen)
+                self.assertEqual(str(app.screen.query_one("#history-title", Label).render()), "Listen History")
+
+        asyncio.run(run())
+
+    def test_transcripts_status_button_opens_transcripts_screen(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, TranscriptsScreen)
+
+                status = app.query_exactly_one(StatusBar)
+                button = status.query_one("#action-transcripts", Button)
+                await status.on_button_pressed(Button.Pressed(button))
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, TranscriptsScreen)
+
+        asyncio.run(run())
+
+    def test_listening_records_listen_history_without_regular_history(self):
+        app = Bibleit()
+        fake_translation = FakeTranslation()
+
+        app.record_listen_history(fake_translation, translation.TranslationRef(27, 9, 2))
+
+        self.assertEqual([entry.label for entry in app.listen_history.entries()], ["Daniel 9:2"])
+        self.assertEqual(app.history.entries(), [])
+
+    def test_transcript_recorder_writes_recognized_text(self):
+        with TemporaryDirectory() as temp:
+            recorder = TranscriptRecorder(recordings_dir=Path(temp))
+
+            recorder.write("Daniel nove dois")
+
+            files = list_transcripts(Path(temp))
+            self.assertEqual(len(files), 1)
+            lines = read_transcript(files[0].path)
+            self.assertEqual(len(lines), 1)
+            self.assertTrue(lines[0].endswith(" Daniel nove dois"))
+
+    def test_listen_history_selection_navigates_and_records_history(self):
+        async def run():
+            app = Bibleit()
+            fake_translation = RefAwareFakeTranslation(
+                {
+                    27: [
+                        "Daniel 9:1 Test one.",
+                        "Daniel 9:2 Test two.",
+                    ]
+                }
+            )
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), fake_translation))
+                bible_view.panes.set_active(bible_view.views[0])
+                app.record_listen_history(fake_translation, translation.TranslationRef(27, 9, 2))
+                app.push_screen(ListenHistoryScreen())
+                await pilot.pause()
+
+                app.screen.action_go_to_selected()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, ListenHistoryScreen)
+                self.assertEqual(
+                    (bible_view.state.bookid, bible_view.state.chapter, bible_view.state.verse),
+                    (27, 9, 2),
+                )
+                self.assertEqual([entry.label for entry in app.history.entries()], ["Daniel 9:2"])
 
         asyncio.run(run())
 

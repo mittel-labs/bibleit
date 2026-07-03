@@ -16,8 +16,10 @@ dependencies = [
   "gnureadline; platform_system == 'Darwin'",
   "rapidfuzz",
   "requests",
+  "sounddevice",
   "textual",
   "unidecode",
+  "vosk",
 ]
 
 [project.scripts]

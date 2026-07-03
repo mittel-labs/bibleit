@@ -7,6 +7,7 @@ from textual.widgets import Button, Input, Label, Select, Switch
 
 from bibleit import translation
 from bibleit.config import config_path, env_overrides, load_config, save_config, theme_is_dark
+from bibleit.listening import available_model_paths
 
 
 def _select_blank():
@@ -73,6 +74,22 @@ class ConfigScreen(Screen):
                     classes="config-note",
                 )
 
+            yield Label("LISTENING_MODEL", classes="config-label")
+            listening_model = values.get("LISTENING_MODEL", "")
+            yield Select(
+                self._listening_model_options(listening_model),
+                prompt="Select a Vosk model",
+                allow_blank=True,
+                value=listening_model or _select_blank(),
+                id="config-listening-model",
+            )
+
+            if "LISTENING_MODEL" in overrides:
+                yield Label(
+                    "BIBLEIT_LISTENING_MODEL is set and will take precedence.",
+                    classes="config-note",
+                )
+
             with Horizontal(id="config-actions"):
                 yield Button("Save", id="config-save")
                 yield Button("Close", id="config-close")
@@ -93,12 +110,23 @@ class ConfigScreen(Screen):
             return label
         return f"{label[: limit - 1]}…"
 
+    def _listening_model_options(self, selected_path: str = "") -> list[tuple[str, str]]:
+        paths = {str(path): path for path in available_model_paths()}
+        options = [(path.name, value) for value, path in sorted(paths.items(), key=lambda item: item[1].name.lower())]
+
+        if selected_path and selected_path not in paths:
+            options.insert(0, (selected_path, selected_path))
+
+        return options
+
     def _values(self) -> dict[str, str]:
         values = {
             name: self.query_one(f"#config-{name.lower().replace('_', '-')}", Input).value for name in self.TEXT_CONFIGS
         }
         default_translation = self.query_one("#config-default-translation", Select).value
         values["DEFAULT_TRANSLATION"] = "" if default_translation == _select_blank() else str(default_translation)
+        listening_model = self.query_one("#config-listening-model", Select).value
+        values["LISTENING_MODEL"] = "" if listening_model == _select_blank() else str(listening_model)
         values["THEME"] = "dark" if self.query_one("#config-theme-dark", Switch).value else "light"
         return values
 

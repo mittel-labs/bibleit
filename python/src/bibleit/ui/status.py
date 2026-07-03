@@ -29,6 +29,7 @@ class StatusBar(Horizontal):
     live_connected = reactive(False)
     live_connecting = reactive(False)
     live_clients = reactive(0)
+    listening = reactive(False)
     compact = reactive(False)
     menu_open = reactive(False)
     command_mode = reactive(False)
@@ -53,10 +54,13 @@ class StatusBar(Horizontal):
         with Container(id="status-actions"):
             yield Button("Find", id="action-find")
             yield Button("History", id="action-history")
+            yield Button("Listen History", id="action-listen-history")
+            yield Button("Transcripts", id="action-transcripts")
             yield Button("Translations", id="action-translations")
             yield Button("Strongs", id="action-strongs")
             yield Button("Config", id="action-config")
             yield Button("Live", id="action-live")
+            yield Button("Listen", id="action-listening")
 
     def watch_translations(self):
         self._refresh()
@@ -80,6 +84,9 @@ class StatusBar(Horizontal):
         self._refresh()
 
     def watch_live_clients(self):
+        self._refresh()
+
+    def watch_listening(self):
         self._refresh()
 
     def watch_compact(self):
@@ -135,6 +142,7 @@ class StatusBar(Horizontal):
                     "[bold]bibleit[/]",
                     translation_text,
                     "[#d97706]STRONGS[/]" if self.strongs else None,
+                    "[#d97706]LISTENING[/]" if self.listening else None,
                     live_text,
                 ],
             )
@@ -145,10 +153,17 @@ class StatusBar(Horizontal):
         strongs_button = self.query_one("#action-strongs", Button)
         config_button = self.query_one("#action-config", Button)
         live_button = self.query_one("#action-live", Button)
+        listening_button = self.query_one("#action-listening", Button)
+        listen_history_button = self.query_one("#action-listen-history", Button)
+        transcripts_button = self.query_one("#action-transcripts", Button)
         strongs_button.set_class(self.strongs, "active")
         config_button.display = not running_in_browser()
         live_button.set_class(self.live, "active")
         live_button.disabled = running_in_browser()
+        listening_button.display = not running_in_browser()
+        listening_button.set_class(self.listening, "active")
+        listen_history_button.display = not running_in_browser()
+        transcripts_button.display = not running_in_browser()
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         from bibleit.ui.bible_view import BibleView
@@ -159,10 +174,13 @@ class StatusBar(Horizontal):
             "action-menu": self.action_toggle_menu,
             "action-find": bible_view.action_open_find,
             "action-history": bible_view.action_toggle_history,
+            "action-listen-history": bible_view.action_toggle_listen_history,
+            "action-transcripts": bible_view.action_toggle_transcripts,
             "action-translations": bible_view.action_open_translations,
             "action-strongs": bible_view.action_toggle_strongs,
             "action-config": bible_view.action_open_config,
             "action-live": bible_view.action_toggle_live,
+            "action-listening": bible_view.action_toggle_listening,
         }
 
         if event.button.id in actions:

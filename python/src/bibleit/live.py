@@ -171,6 +171,13 @@ async def index(request: web.Request) -> web.Response:
     )
 
 
+async def icon(_: web.Request) -> web.Response:
+    return web.Response(
+        body=files("bibleit").joinpath("bibleit-icon.png").read_bytes(),
+        content_type="image/png",
+    )
+
+
 async def current(request: web.Request) -> web.Response:
     hub = request.app[HUB_KEY]
     return web.json_response(
@@ -269,6 +276,7 @@ def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
     app[TITLE_KEY] = title
     app[TOKEN_KEY] = config_value("LIVE_TOKEN")
     app.router.add_get("/", index)
+    app.router.add_get("/bibleit-icon.png", icon)
     app.router.add_get("/api/current", current)
     app.router.add_post("/api/publish", publish)
     app.router.add_post("/api/live", live_mode)

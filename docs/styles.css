@@ -69,13 +69,9 @@ kbd {
 .brand-mark {
   width: 2.4rem;
   height: 2.4rem;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--dark);
-  color: #f4a454;
-  font-weight: 900;
+  display: block;
+  flex: 0 0 auto;
+  border-radius: 0.65rem;
 }
 
 .site-nav {

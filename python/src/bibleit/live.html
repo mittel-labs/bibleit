@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>{{ title }}</title>
+  <link rel="icon" type="image/png" href="/bibleit-icon.png">
+  <link rel="apple-touch-icon" href="/bibleit-icon.png">
   <style>
     html {
       touch-action: manipulation;
@@ -329,9 +331,18 @@
     .brand {
       margin-top: 0.6rem;
       color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
       font: 700 0.9rem/1 ui-sans-serif, system-ui, sans-serif;
       letter-spacing: 0.08em;
       text-transform: uppercase;
+    }
+
+    .brand-mark {
+      width: 1.2rem;
+      height: 1.2rem;
+      border-radius: 0.3rem;
     }
 
     :root[data-presentation="true"] .status {
@@ -441,15 +452,8 @@
     .splash-mark {
       width: clamp(3.5rem, 12vw, 4.5rem);
       height: clamp(3.5rem, 12vw, 4.5rem);
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--button-border);
-      border-radius: 999px;
-      background:
-        radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.38), transparent 38%),
-        color-mix(in srgb, var(--button-bg) 80%, var(--accent));
-      color: var(--accent);
-      font: 800 clamp(1.8rem, 6vw, 2.25rem)/1 ui-sans-serif, system-ui, sans-serif;
+      display: block;
+      border-radius: 1rem;
       box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.12);
     }
 
@@ -724,7 +728,7 @@
   <main id="live">
     <section id="splash" class="splash" aria-live="polite">
       <div class="splash-copy">
-        <div class="splash-mark">b</div>
+        <img class="splash-mark" src="/bibleit-icon.png" alt="bibleit">
         <div class="splash-kicker">bibleit live</div>
         <h1>Live is coming soon</h1>
         <p>Waiting for the presenter to start sharing the current verse.</p>
@@ -762,7 +766,7 @@
     <button id="theme" type="button" aria-label="Toggle color theme" title="Toggle color theme">◐</button>
     <div class="verses" id="verses"></div>
     <div class="status" id="status">Connected viewers follow the active verse automatically.</div>
-    <div class="brand">bibleit</div>
+    <div class="brand"><img class="brand-mark" src="/bibleit-icon.png" alt="">bibleit</div>
     <div id="history-panel" class="history-panel" aria-label="Verse history"></div>
   </main>
   <script>

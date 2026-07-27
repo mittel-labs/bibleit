@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 import json
 from types import SimpleNamespace
@@ -19,6 +20,7 @@ from bibleit.live import (
     create_app,
     current,
     handle_publisher_message,
+    icon,
     parse_verse_line,
     request_is_authorized,
     viewer_html,
@@ -59,6 +61,7 @@ class LiveVerseTest(unittest.TestCase):
         self.assertIn('id="live"', rendered)
         self.assertIn('id="splash"', rendered)
         self.assertIn("bibleit live", rendered)
+        self.assertIn('href="/bibleit-icon.png"', rendered)
         self.assertIn("Live is coming soon", rendered)
         self.assertIn("https://mittel.site", rendered)
         self.assertIn("https://live.bibleit.app", rendered)
@@ -71,6 +74,12 @@ class LiveVerseTest(unittest.TestCase):
         self.assertNotIn("__all__", rendered)
         self.assertIn('navigator.wakeLock.request("screen")', rendered)
         self.assertIn("visibilitychange", rendered)
+
+    def test_icon_response(self):
+        response = asyncio.run(icon(make_mocked_request("GET", "/bibleit-icon.png")))
+
+        self.assertEqual(response.content_type, "image/png")
+        self.assertGreater(len(response.body), 0)
 
     def test_control_requests_are_open_without_token(self):
         with TemporaryDirectory() as temp:

@@ -1,5 +1,5 @@
 app = "bibleit"
-primary_region = "iad"
+primary_region = "ams"
 
 [[vm]]
   size = "shared-cpu-1x"

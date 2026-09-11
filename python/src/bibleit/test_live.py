@@ -19,6 +19,7 @@ from bibleit.config import save_config
 from bibleit import live
 from bibleit.live import (
     HUB_KEY,
+    add_live_routes,
     TITLE_KEY,
     TOKEN_KEY,
     clean_verse_text,
@@ -83,6 +84,19 @@ class LiveVerseTest(unittest.TestCase):
         self.assertEqual(app[TITLE_KEY], "test live")
         self.assertIsNone(app[HUB_KEY].current)
         self.assertEqual(app[HUB_KEY].client_count(), 0)
+
+    def test_live_routes_mount_onto_an_existing_application(self):
+        app = web.Application()
+        app.router.add_get("/operator", lambda request: None)
+
+        add_live_routes(app, title="composed")
+
+        paths = {resource.canonical for resource in app.router.resources()}
+
+        self.assertEqual(app[TITLE_KEY], "composed")
+        self.assertIn("/operator", paths)
+        self.assertIn("/ws", paths)
+        self.assertIn("/api/publish", paths)
 
     def test_viewer_html_renders_template_with_escaped_title(self):
         rendered = viewer_html("bibleit <live>")

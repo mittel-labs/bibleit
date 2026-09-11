@@ -9,13 +9,25 @@ from textual.suggester import Suggester
 from unidecode import unidecode
 
 from bibleit import translation
+from bibleit.verse import RowRef
 
-
-@dataclass(frozen=True)
-class RowRef:
-    bookid: int
-    chapter: int
-    verse: int
+__all__ = [
+    "NavigationState",
+    "NavigationSuggester",
+    "RowRef",
+    "book_ids_for",
+    "book_name_for",
+    "chapter_count_for",
+    "complete_navigation_value",
+    "navigation_book_names",
+    "navigation_completion_candidates",
+    "navigation_suggestion_value",
+    "next_chapter_ref",
+    "parse_navigation_ref",
+    "previous_chapter_ref",
+    "select_navigation_completion",
+    "verse_reference_label",
+]
 
 
 @dataclass

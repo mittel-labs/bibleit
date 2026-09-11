@@ -5,58 +5,25 @@ import hmac
 import asyncio
 import json
 import os
-import re
-from dataclasses import asdict, dataclass
 from importlib.resources import files
 
 from aiohttp import web
 
 from bibleit.config import config_value
+from bibleit.live_payload import LiveVerse, parse_verse_line
+from bibleit.verse import clean_verse_text
 
 LIVE_APP_TITLE = "bibleit live"
-HTML_TAG_RE = re.compile(r"<[^>]+>")
 
-
-@dataclass(frozen=True)
-class LiveVerse:
-    translation: str
-    book: str
-    chapter: int
-    verse: int
-    text: str
-
-    @property
-    def reference(self) -> str:
-        return f"{self.book} {self.chapter}:{self.verse}"
-
-    def to_payload(self) -> dict:
-        return asdict(self) | {"reference": self.reference}
-
-
-def clean_verse_text(value: str) -> str:
-    value = html.unescape(value)
-    value = value.replace("<br>", " ").replace("<br/>", " ").replace("<br />", " ")
-    value = re.sub(r"<S>.*?</S>", "", value, flags=re.IGNORECASE | re.DOTALL)
-    value = HTML_TAG_RE.sub("", value)
-    return re.sub(r"\s+", " ", value).strip()
-
-
-def parse_verse_line(translation: str, value: str) -> LiveVerse | None:
-    match = re.match(
-        r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+(?P<text>.*)$",
-        value.strip(),
-        flags=re.DOTALL,
-    )
-    if not match:
-        return None
-
-    return LiveVerse(
-        translation=translation,
-        book=match.group("book"),
-        chapter=int(match.group("chapter")),
-        verse=int(match.group("verse")),
-        text=clean_verse_text(match.group("text")),
-    )
+__all__ = [
+    "LiveVerse",
+    "LiveHub",
+    "clean_verse_text",
+    "create_app",
+    "main",
+    "parse_verse_line",
+    "viewer_html",
+]
 
 
 class LiveHub:

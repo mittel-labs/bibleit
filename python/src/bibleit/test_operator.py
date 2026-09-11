@@ -64,6 +64,7 @@ class FakeTranslation:
             },
         )
         self.lines = LINES if lines is None else lines
+        self.strongs: dict[str, translation.StrongEntry] = {}
 
     def resolve_bookid(self, book_name: str):
         return self.header.resolve_bookid(book_name)

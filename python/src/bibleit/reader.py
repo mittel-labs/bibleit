@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from html import unescape
 from typing import Mapping, Protocol
 
 from bibleit import translation
 
 VERSE_LINE_RE = re.compile(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+(?P<text>(?s:.*))$")
-STRONG_RE = re.compile(r"<S>(.*?)</S>")
+HTML_TAG_RE = re.compile(r"<[^>]+>")
+STRONG_RE = re.compile(r"<S>(.*?)</S>", flags=re.IGNORECASE | re.DOTALL)
 OLD_TESTAMENT_LAST_BOOKID = 39
 DEFAULT_WINDOW = 25
 
@@ -61,6 +63,14 @@ def decode(value) -> str:
         return value
 
     return value.memoryview().tobytes().decode("utf-8", "replace")
+
+
+def clean_verse_text(value: str) -> str:
+    value = unescape(value)
+    value = STRONG_RE.sub("", value)
+    value = re.sub(r"<br\s*/?>", " ", value, flags=re.IGNORECASE)
+    value = HTML_TAG_RE.sub("", value)
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def parse_line(value: str) -> ParsedLine | None:

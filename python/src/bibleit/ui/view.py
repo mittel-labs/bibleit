@@ -8,7 +8,7 @@ from textual import events
 from textual.message import Message
 from textual.widgets import Label, ListItem, ListView
 
-from bibleit import translation
+from bibleit import reader, translation
 from bibleit.live_publisher import LivePublisher, running_in_browser
 from bibleit.navigation import NavigationState, RowRef
 from bibleit.ui.screens.translations import Translations
@@ -299,11 +299,7 @@ class View(ListView):
                 break
 
     def _target_row_ref(self, ref: translation.TranslationRef) -> RowRef:
-        return RowRef(
-            ref.bookid,
-            ref.chapter or 1,
-            ref.verse_start or 1,
-        )
+        return reader.target_row_ref(ref)
 
     def _load_cursor_rows_around(self, ref: translation.TranslationRef, index: int) -> int | None:
         target = self._target_row_ref(ref)
@@ -345,19 +341,7 @@ class View(ListView):
         return self._ref_from_text(getattr(row, "data", ""))
 
     def _ref_from_text(self, text: str) -> RowRef | None:
-        if self.translation is None:
-            return None
-
-        match = re.match(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+", text)
-        if not match:
-            return None
-
-        if bookid := self.translation.resolve_bookid(match.group("book")):
-            return RowRef(
-                bookid=bookid,
-                chapter=int(match.group("chapter")),
-                verse=int(match.group("verse")),
-            )
+        return reader.row_ref(self.translation, text)
 
     def _cursor_from_row(self, row: ListItem):
         ref = self._row_ref(row)

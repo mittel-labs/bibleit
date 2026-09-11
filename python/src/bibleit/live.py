@@ -7,7 +7,7 @@ import json
 import os
 from importlib.resources import files
 
-from aiohttp import web
+from aiohttp import WSCloseCode, web
 
 from bibleit.config import config_value
 from bibleit.live_payload import LiveVerse, parse_verse_line
@@ -35,6 +35,10 @@ class LiveHub:
         self.live = False
         self.clients: set[web.WebSocketResponse] = set()
         self.monitors: set[web.WebSocketResponse] = set()
+        self.publishers: set[web.WebSocketResponse] = set()
+
+    def sockets(self) -> set[web.WebSocketResponse]:
+        return self.clients | self.monitors | self.publishers
 
     def client_count(self) -> int:
         stale = {ws for ws in self.clients if ws.closed}
@@ -206,7 +210,7 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     if is_monitor:
         hub.monitors.add(ws)
     elif is_publisher:
-        pass
+        hub.publishers.add(ws)
     else:
         hub.clients.add(ws)
         await hub.broadcast_client_count()
@@ -231,11 +235,23 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     finally:
         hub.clients.discard(ws)
         hub.monitors.discard(ws)
+        hub.publishers.discard(ws)
 
         if not is_monitor and not is_publisher:
             await hub.broadcast_client_count()
 
     return ws
+
+
+async def close_hub_sockets(app: web.Application) -> None:
+    """Close viewer and publisher sockets so shutdown is not blocked.
+
+    aiohttp waits for request handlers to return before it finishes shutting
+    down, and a WebSocket handler only returns when its socket closes. Without
+    this, Ctrl+C hangs for as long as anyone is connected.
+    """
+    for ws in list(app[HUB_KEY].sockets()):
+        await ws.close(code=WSCloseCode.GOING_AWAY, message=b"bibleit is shutting down")
 
 
 def add_live_routes(app: web.Application, *, title: str = LIVE_APP_TITLE) -> web.Application:
@@ -253,6 +269,7 @@ def add_live_routes(app: web.Application, *, title: str = LIVE_APP_TITLE) -> web
     app.router.add_post("/api/publish", publish)
     app.router.add_post("/api/live", live_mode)
     app.router.add_get("/ws", websocket)
+    app.on_shutdown.append(close_hub_sockets)
     return app
 
 

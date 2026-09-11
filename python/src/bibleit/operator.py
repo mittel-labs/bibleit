@@ -69,8 +69,8 @@ class OperatorSession:
         self.sequence = 0
         self.before = before
         self.total = total
-        self.viewers = 0
-        self.connected = False
+        self.viewer_counts: dict[str, int] = {}
+        self.connected = any(isinstance(target, HubTarget) for target in self.targets)
         self.strongs = False
         self._listeners: set[asyncio.Queue] = set()
 
@@ -284,18 +284,18 @@ class OperatorSession:
 
         return payload
 
+    @property
+    def viewers(self) -> int:
+        return sum(self.viewer_counts.values())
+
+    def set_viewers(self, name: str, count: int) -> None:
+        self.viewer_counts[name] = max(0, count)
+
     def refresh_viewers(self) -> None:
         for target in self.targets:
-            counter = getattr(target, "viewers", None)
-
-            if counter is not None:
-                self.viewers = counter()
+            if isinstance(target, HubTarget):
+                self.set_viewers(target.name, target.viewers())
                 self.connected = True
-                return
-
-    def set_status(self, *, connected: bool, viewers: int) -> None:
-        self.connected = connected
-        self.viewers = viewers
 
     async def set_strongs(self, show: bool) -> None:
         self.strongs = bool(show)
@@ -312,6 +312,7 @@ class OperatorSession:
             "ref": self.reference_payload(),
             "live": self.state.live,
             "viewers": self.viewers,
+            "viewer_counts": dict(self.viewer_counts),
             "connected": self.connected,
             "strongs": self.strongs,
             "targets": [target.name for target in self.targets],

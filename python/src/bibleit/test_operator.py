@@ -368,6 +368,17 @@ class PublishTest(SessionTestCase):
         self.assertEqual(session.viewers, 7)
         self.assertTrue(session.connected)
 
+    def test_viewer_counts_are_kept_per_target(self):
+        session = OperatorSession(targets=[FakeTarget()])
+        session.set_viewers("local", 3)
+        session.set_viewers("relay", 12)
+
+        self.assertEqual(session.viewers, 15)
+        self.assertEqual(session.snapshot()["viewer_counts"], {"local": 3, "relay": 12})
+
+    def test_a_relay_only_session_starts_disconnected(self):
+        self.assertFalse(OperatorSession(targets=[FakeTarget()]).connected)
+
 
 class VersesTest(SessionTestCase):
     def test_returns_a_window_per_open_translation(self):

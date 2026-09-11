@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import html
 import ipaddress
 import os
 import socket
 import webbrowser
-from importlib.resources import files
 
 from aiohttp import web
 
@@ -14,26 +12,19 @@ from bibleit.config import config_value
 from bibleit.live import HUB_KEY, LIVE_APP_TITLE, TITLE_KEY, add_live_routes
 from bibleit.live_publisher import LivePublisher
 from bibleit.operator import HubTarget, OperatorError, OperatorSession, RelayTarget
+from bibleit.web import assets
 from bibleit.web.api import API_PREFIX, LOCAL_KEY, SESSION_KEY, add_operator_routes
 
 OPERATOR_PATH = "/operator"
+OPERATOR_PAGE = "operator.html"
 STATIC_PREFIX = f"{OPERATOR_PATH}/static"
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8000
 VIEWER_POLL_SECONDS = 1.0
 RELAY_RETRY_SECONDS = 3.0
 
-STATIC_TYPES = {
-    "operator.css": "text/css",
-    "operator.js": "application/javascript",
-}
-
 TASKS_KEY = web.AppKey("operator_tasks", list)
 HOST_KEY = web.AppKey("operator_host", str)
-
-
-def static_file(name: str) -> bytes:
-    return (files("bibleit.web") / "static" / name).read_bytes()
 
 
 def publish_targets(hub) -> list:
@@ -80,13 +71,7 @@ async def operator_guard(request: web.Request, handler):
 
 
 async def operator_index(request: web.Request) -> web.Response:
-    template = static_file("operator.html").decode("utf-8")
-    title = request.app[TITLE_KEY]
-
-    return web.Response(
-        text=template.replace("{{ title }}", html.escape(title)),
-        content_type="text/html",
-    )
+    return assets.page_response(OPERATOR_PAGE, request.app[TITLE_KEY])
 
 
 async def operator_addresses(request: web.Request) -> web.Response:
@@ -101,13 +86,7 @@ async def operator_addresses(request: web.Request) -> web.Response:
 
 
 async def operator_static(request: web.Request) -> web.Response:
-    name = request.match_info["name"]
-    content_type = STATIC_TYPES.get(name)
-
-    if content_type is None:
-        raise web.HTTPNotFound()
-
-    return web.Response(body=static_file(name), content_type=content_type)
+    return assets.static_response(request.match_info["name"])
 
 
 async def watch_viewers(app: web.Application) -> None:

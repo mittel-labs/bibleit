@@ -17,6 +17,7 @@ from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 import bibleit
 from bibleit.config import save_config
 from bibleit import live
+from bibleit.web import assets
 from bibleit.live import (
     HUB_KEY,
     add_live_routes,
@@ -82,6 +83,29 @@ class ShutdownTest(unittest.IsolatedAsyncioTestCase):
                 await ws.close()
 
 
+class ViewerAssetTest(unittest.IsolatedAsyncioTestCase):
+    async def test_serves_the_stylesheet_and_the_script(self):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": ""}):
+            app = create_app("test live")
+
+        async with TestClient(TestServer(app)) as client:
+            for path, content_type in (("/viewer.css", "text/css"), ("/viewer.js", "application/javascript")):
+                response = await client.get(path)
+
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.content_type, content_type)
+                self.assertGreater(len(await response.text()), 0)
+
+    async def test_refuses_an_unknown_asset(self):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": ""}):
+            app = create_app("test live")
+
+        async with TestClient(TestServer(app)) as client:
+            response = await client.get("/viewer.map")
+
+            self.assertEqual(response.status, 404)
+
+
 class LiveVerseTest(unittest.TestCase):
     def test_parse_verse_line(self):
         verse = parse_verse_line("KJV", "Genesis 1:1 In the beginning God created the heaven and the earth.")
@@ -125,26 +149,37 @@ class LiveVerseTest(unittest.TestCase):
         self.assertIn("/ws", paths)
         self.assertIn("/api/publish", paths)
 
-    def test_viewer_html_renders_template_with_escaped_title(self):
+    def test_viewer_page_escapes_the_title_and_links_its_assets(self):
         rendered = viewer_html("bibleit <live>")
 
         self.assertIn("<title>bibleit &lt;live&gt;</title>", rendered)
-        self.assertIn('id="live"', rendered)
-        self.assertIn('id="splash"', rendered)
-        self.assertIn("bibleit live", rendered)
+        self.assertIn('href="/viewer.css"', rendered)
+        self.assertIn('src="/viewer.js"', rendered)
         self.assertIn('href="/bibleit-icon.png"', rendered)
-        self.assertIn("Live is coming soon", rendered)
-        self.assertIn("https://mittel.site", rendered)
-        self.assertIn("https://live.bibleit.app", rendered)
-        self.assertIn("Scan to open", rendered)
+
+    def test_viewer_page_keeps_its_markup_out_of_the_assets(self):
+        """The page carries structure only; styling and behaviour are served
+        separately, so neither can drift back inline."""
+        rendered = viewer_html("bibleit live")
+
+        self.assertIn('id="splash"', rendered)
+        self.assertIn('id="verses"', rendered)
+        self.assertNotIn("<style", rendered)
+        self.assertNotIn("addEventListener", rendered)
+
+    def test_viewer_page_is_not_the_textual_web_page(self):
+        rendered = viewer_html("bibleit live")
+
         self.assertNotIn('id="textual"', rendered)
         self.assertNotIn("/textual/", rendered)
         self.assertNotIn("textualEnabled", rendered)
-        self.assertIn('id="translation-filter"', rendered)
-        self.assertIn("bibleit-selected-translations", rendered)
-        self.assertNotIn("__all__", rendered)
-        self.assertIn('navigator.wakeLock.request("screen")', rendered)
-        self.assertIn("visibilitychange", rendered)
+
+    def test_viewer_behaviour_lives_in_the_script(self):
+        script = assets.static_text("viewer.js")
+
+        self.assertIn("bibleit-selected-translations", script)
+        self.assertIn('navigator.wakeLock.request("screen")', script)
+        self.assertIn("visibilitychange", script)
 
     def test_icon_response(self):
         response = asyncio.run(icon(make_mocked_request("GET", "/bibleit-icon.png")))

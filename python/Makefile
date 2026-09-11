@@ -1,4 +1,4 @@
-.PHONY: run native native-clean repl lint fix-lint test build local-install-test FORCE
+.PHONY: run native native-clean repl lint fix-lint test test-ui web build local-install-test FORCE
 
 VENV_DIR:=.venv
 VENV_ACTIVATE:=. $(VENV_DIR)/bin/activate
@@ -61,6 +61,9 @@ run: $(VENV_DEPS_FILE) $(NATIVE_STAMP)
 live: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit.live)
 
+web: $(VENV_DEPS_FILE) $(NATIVE_STAMP)
+	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); python -m bibleit.web.server)
+
 run-dev: $(VENV_DEPS_FILE)
 	@$(VENV_ACTIVATE) && (cd $(SOURCE_DIR); textual run --dev bibleit.app:Bibleit)
 
@@ -75,6 +78,10 @@ shell:
 
 test: $(VENV_DEPS_FILE)
 	$(VENV_PY) -m unittest discover src
+
+test-ui: $(VENV_DEPS_FILE)
+	@$(VENV_ACTIVATE) && pip install -q playwright && python -m playwright install chromium
+	$(VENV_PY) -m unittest discover src -p "test_web_ui.py"
 
 build: $(VENV_DEPS_FILE)
 	@rm -rf dist

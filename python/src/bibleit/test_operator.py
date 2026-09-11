@@ -86,6 +86,18 @@ class FakeTranslation:
     def cursor_from(self, ref: translation.TranslationRef):
         return FakeCursor(self.lines, self._position(ref))
 
+    def read(self, ref: translation.TranslationRef):
+        target = reader.target_row_ref(ref)
+        lines = []
+
+        for line in self.lines:
+            row = reader.row_ref(self, line)
+
+            if row and row.bookid == target.bookid:
+                lines.append(line)
+
+        return FakeCursor(lines)
+
     def cursor_chapter(self, ref: translation.TranslationRef):
         target = reader.target_row_ref(ref)
         lines = []

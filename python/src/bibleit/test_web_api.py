@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from aiohttp import web
+from aiohttp import WSMsgType, web
 from aiohttp.test_utils import AioHTTPTestCase
 
 from bibleit import translation
@@ -302,6 +303,17 @@ class OperatorSocketTest(ApiTestCase):
 
                 self.assertEqual((await first.receive_json())["state"]["ref"]["verse"], 2)
                 self.assertEqual((await second.receive_json())["state"]["ref"]["verse"], 2)
+
+
+class ShutdownTest(ApiTestCase):
+    async def test_shutdown_closes_the_operator_socket(self):
+        ws = await self.client.ws_connect(f"{API_PREFIX}/operator")
+        await ws.receive_json()
+
+        await asyncio.wait_for(self.app.shutdown(), timeout=5)
+
+        self.assertTrue(ws.closed or (await ws.receive()).type is WSMsgType.CLOSE)
+        await ws.close()
 
 
 class MultipleTranslationTest(ApiTestCase):

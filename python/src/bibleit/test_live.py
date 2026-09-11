@@ -12,7 +12,7 @@ from unittest.mock import patch
 from tempfile import TemporaryDirectory
 
 from aiohttp import web
-from aiohttp.test_utils import make_mocked_request
+from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 import bibleit
 from bibleit.config import save_config
@@ -56,6 +56,30 @@ class RelayDependencyTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "")
+
+
+class ShutdownTest(unittest.IsolatedAsyncioTestCase):
+    async def test_shutdown_closes_open_sockets(self):
+        """aiohttp waits for handlers to return, and a socket handler only
+        returns when its socket closes. Without help, Ctrl+C hangs for as long
+        as a viewer is connected."""
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": ""}):
+            app = create_app("test live")
+
+        server = TestServer(app)
+        await server.start_server()
+
+        async with TestClient(server) as client:
+            viewer = await client.ws_connect("/ws")
+            monitor = await client.ws_connect("/ws?role=monitor")
+            publisher = await client.ws_connect("/ws?role=publisher")
+
+            self.assertEqual(len(app[HUB_KEY].sockets()), 3)
+
+            await asyncio.wait_for(server.close(), timeout=5)
+
+            for ws in (viewer, monitor, publisher):
+                await ws.close()
 
 
 class LiveVerseTest(unittest.TestCase):

@@ -5,7 +5,7 @@ import functools
 import json
 from dataclasses import asdict
 
-from aiohttp import WSMsgType, web
+from aiohttp import WSCloseCode, WSMsgType, web
 
 from bibleit import reader, translation
 from bibleit.config import CONFIG_NAMES, env_overrides, load_config, save_config
@@ -24,6 +24,7 @@ MAX_FIND_LIMIT = 500
 SESSION_KEY = web.AppKey("operator_session", OperatorSession)
 LOCAL_KEY = web.AppKey("operator_local", bool)
 INSTALLS_KEY = web.AppKey("operator_installs", set)
+SOCKETS_KEY = web.AppKey("operator_sockets", set)
 
 
 async def blocking(function, *args, **kwargs):
@@ -337,6 +338,7 @@ async def operator_websocket(request: web.Request) -> web.WebSocketResponse:
     await ws.prepare(request)
 
     queue = session.listen()
+    request.app[SOCKETS_KEY].add(ws)
     await ws.send_json({"type": "state", "state": session.snapshot()})
     pump = asyncio.create_task(pump_events(ws, queue))
 
@@ -359,12 +361,19 @@ async def operator_websocket(request: web.Request) -> web.WebSocketResponse:
                 await ws.send_json({"type": "error", "message": str(error)})
     finally:
         session.forget(queue)
+        request.app[SOCKETS_KEY].discard(ws)
         pump.cancel()
 
     return ws
 
 
 # -- wiring ----------------------------------------------------------------
+
+
+async def close_operator_sockets(app: web.Application) -> None:
+    """See `live.close_hub_sockets`: an open socket holds up shutdown."""
+    for ws in list(app[SOCKETS_KEY]):
+        await ws.close(code=WSCloseCode.GOING_AWAY, message=b"bibleit is shutting down")
 
 
 def add_operator_routes(
@@ -376,6 +385,8 @@ def add_operator_routes(
     app[SESSION_KEY] = session
     app[LOCAL_KEY] = local
     app[INSTALLS_KEY] = set()
+    app[SOCKETS_KEY] = set()
+    app.on_shutdown.append(close_operator_sockets)
 
     app.router.add_get(f"{API_PREFIX}/state", state)
     app.router.add_get(f"{API_PREFIX}/verses", verses)

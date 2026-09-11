@@ -86,8 +86,11 @@ class LiveVerseTest(unittest.TestCase):
         self.assertEqual(app[HUB_KEY].client_count(), 0)
 
     def test_live_routes_mount_onto_an_existing_application(self):
+        async def operator(request):
+            return web.Response(text="operator")
+
         app = web.Application()
-        app.router.add_get("/operator", lambda request: None)
+        app.router.add_get("/operator", operator)
 
         add_live_routes(app, title="composed")
 

@@ -11,6 +11,7 @@ from aiohttp import web
 from bibleit.config import config_value
 from bibleit.live import HUB_KEY, LIVE_APP_TITLE, TITLE_KEY, add_live_routes
 from bibleit.live_publisher import LivePublisher
+from bibleit import qr
 from bibleit.operator import HubTarget, OperatorError, OperatorSession, RelayTarget
 from bibleit.web import assets
 from bibleit.web.api import API_PREFIX, LOCAL_KEY, SESSION_KEY, add_operator_routes
@@ -83,6 +84,22 @@ async def operator_addresses(request: web.Request) -> web.Response:
     port = request.url.port or DEFAULT_PORT
 
     return web.json_response(addresses(request.app[HOST_KEY], port))
+
+
+async def operator_qr(request: web.Request) -> web.Response:
+    """The audience address as a QR code.
+
+    The viewer serves its own from `/qr.svg`, but the operator is on loopback,
+    so its code has to encode the address the room can actually reach.
+    """
+    port = request.url.port or DEFAULT_PORT
+    audience = addresses(request.app[HOST_KEY], port)["audience"]
+
+    return web.Response(
+        body=qr.svg(audience[-1]),
+        content_type="image/svg+xml",
+        headers={"Cache-Control": assets.CACHE_CONTROL},
+    )
 
 
 async def operator_static(request: web.Request) -> web.Response:
@@ -168,6 +185,7 @@ def create_operator_app(
     app.router.add_get(OPERATOR_PATH, operator_index)
     app.router.add_get(f"{STATIC_PREFIX}/{{name}}", operator_static)
     app.router.add_get(f"{API_PREFIX}/addresses", operator_addresses)
+    app.router.add_get(f"{API_PREFIX}/qr.svg", operator_qr)
     app.on_startup.append(start_session)
     app.on_cleanup.append(stop_session)
     return app

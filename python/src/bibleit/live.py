@@ -10,6 +10,7 @@ from aiohttp import WSCloseCode, web
 
 from bibleit.config import config_value
 from bibleit.live_payload import LiveVerse, parse_verse_line
+from bibleit import qr
 from bibleit.verse import clean_verse_text
 from bibleit.web import assets
 
@@ -144,6 +145,27 @@ async def viewer_asset(request: web.Request) -> web.Response:
     return assets.static_response(f"viewer.{request.match_info['kind']}")
 
 
+def viewer_url(request: web.Request) -> str:
+    """The address this page was reached at, which is the one worth sharing.
+
+    Behind a proxy that terminates TLS the request itself looks like plain
+    HTTP, so the forwarded scheme wins when it is present. A spoofed header
+    only changes the scheme inside a QR image.
+    """
+    forwarded = request.headers.get("X-Forwarded-Proto", "").split(",")[0].strip()
+    scheme = forwarded or request.url.scheme
+
+    return str(request.url.with_scheme(scheme).with_path("/").with_query(None))
+
+
+async def qr_code(request: web.Request) -> web.Response:
+    return web.Response(
+        body=qr.svg(viewer_url(request)),
+        content_type="image/svg+xml",
+        headers={"Cache-Control": assets.CACHE_CONTROL},
+    )
+
+
 async def icon(_: web.Request) -> web.Response:
     return web.Response(
         body=files("bibleit").joinpath("bibleit-icon.png").read_bytes(),
@@ -266,6 +288,7 @@ def add_live_routes(app: web.Application, *, title: str = LIVE_APP_TITLE) -> web
     app[TOKEN_KEY] = config_value("LIVE_TOKEN")
     app.router.add_get("/", index)
     app.router.add_get("/viewer.{kind:css|js}", viewer_asset)
+    app.router.add_get("/qr.svg", qr_code)
     app.router.add_get("/bibleit-icon.png", icon)
     app.router.add_get("/api/current", current)
     app.router.add_post("/api/publish", publish)

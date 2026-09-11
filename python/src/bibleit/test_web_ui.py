@@ -253,13 +253,18 @@ class PanelTest(OperatorUiTestCase):
 
         await expect(page.locator("#find-hint")).to_contain_text("Nothing")
 
-    async def test_share_panel_offers_an_audience_address(self):
+    async def test_share_panel_offers_an_audience_address_and_a_qr_code(self):
         page = await self.open_page()
 
         await page.get_by_role("button", name="Share", exact=True).click()
 
         await expect(page.locator("#share-url")).to_contain_text("http://")
         await expect(page.locator("#share-state")).to_contain_text("Not live yet")
+        await expect(page.locator("#share-qr")).to_be_visible()
+
+        rendered = await page.locator("#share-qr").evaluate("image => image.naturalWidth > 0")
+
+        self.assertTrue(rendered)
 
     async def test_settings_panel_loads_and_saves(self):
         page = await self.open_page()
@@ -290,6 +295,43 @@ class PanelTest(OperatorUiTestCase):
 
         await page.locator("body").press("Escape")
         await expect(page.locator("#panel")).to_be_hidden()
+
+
+class AudienceViewTest(OperatorUiTestCase):
+    async def audience(self):
+        page = await (await self.browser()).new_page()
+        page.on("pageerror", lambda error: self.page_errors.append(str(error)))
+        await page.goto(self.url("/"))
+        return page
+
+    async def test_waits_for_the_presenter_before_going_live(self):
+        page = await self.audience()
+
+        await expect(page.locator("#splash")).to_be_visible()
+        await expect(page.locator("#splash-status")).to_contain_text("Waiting for presenter")
+        await expect(page.locator("#verses")).to_be_hidden()
+
+    async def test_shows_a_scannable_code_for_its_own_address(self):
+        page = await self.audience()
+
+        await expect(page.locator("#splash-qr img")).to_be_visible()
+
+        rendered = await page.locator("#splash-qr img").evaluate("image => image.naturalWidth > 0")
+
+        self.assertTrue(rendered)
+
+    async def test_enlarges_the_code_on_a_click(self):
+        page = await self.audience()
+
+        await expect(page.locator("#qr-dialog")).to_be_hidden()
+
+        await page.locator("#splash-qr").click()
+
+        await expect(page.locator("#qr-dialog")).to_be_visible()
+
+        await page.locator("#qr-dialog-close").click()
+
+        await expect(page.locator("#qr-dialog")).to_be_hidden()
 
 
 class LibraryTest(OperatorUiTestCase):

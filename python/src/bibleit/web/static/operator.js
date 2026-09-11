@@ -631,6 +631,8 @@ async function loadShare() {
   const payload = await response.json();
   el("share-url").textContent = payload.audience[payload.audience.length - 1] || fallback;
   el("share-state").textContent = shareState(state.snapshot);
+  // The reachable address can change with the network, so ask again each time.
+  el("share-qr").src = `${API}/qr.svg?t=${Date.now()}`;
 }
 
 async function copyShare() {

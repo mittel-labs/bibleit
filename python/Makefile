@@ -4,7 +4,7 @@ VENV_DIR:=.venv
 VENV_ACTIVATE:=. $(VENV_DIR)/bin/activate
 VENV_PY:=$(VENV_DIR)/bin/python
 VENV_DEPS_FILE:=$(VENV_DIR)/.deps
-VENV_DEPS:=aiohttp flake8 black rapidfuzz requests textual textual-dev unidecode build hatchling hatch-vcs
+VENV_DEPS:=aiohttp flake8 black rapidfuzz requests segno textual textual-dev unidecode build hatchling hatch-vcs
 PYTHON_BIN?=$(or \
 	$(shell command -v python3.11 2>/dev/null),\
 	$(shell command -v python3.12 2>/dev/null),\

@@ -83,6 +83,35 @@ class ShutdownTest(unittest.IsolatedAsyncioTestCase):
                 await ws.close()
 
 
+class QrCodeTest(unittest.IsolatedAsyncioTestCase):
+    def app(self):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": ""}):
+            return create_app("test live")
+
+    async def test_encodes_the_address_the_page_was_reached_at(self):
+        async with TestClient(TestServer(self.app())) as client:
+            response = await client.get("/qr.svg")
+            body = await response.text()
+
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.content_type, "image/svg+xml")
+            self.assertIn("<svg", body)
+
+    def test_viewer_url_drops_the_path_and_query(self):
+        request = make_mocked_request("GET", "/?role=monitor", headers={"Host": "live.example:8000"})
+
+        self.assertEqual(live.viewer_url(request), "http://live.example:8000/")
+
+    def test_viewer_url_trusts_the_forwarded_scheme(self):
+        request = make_mocked_request(
+            "GET",
+            "/",
+            headers={"Host": "live.bibleit.app", "X-Forwarded-Proto": "https"},
+        )
+
+        self.assertEqual(live.viewer_url(request), "https://live.bibleit.app/")
+
+
 class ViewerAssetTest(unittest.IsolatedAsyncioTestCase):
     async def test_serves_the_stylesheet_and_the_script(self):
         with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": ""}):

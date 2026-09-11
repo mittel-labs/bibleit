@@ -5,7 +5,7 @@ ENV BIBLEIT_LIVE_HOST=0.0.0.0
 ENV BIBLEIT_LIVE_PORT=8000
 ENV BIBLEIT_LIVE_URL=http://127.0.0.1:8000
 
-RUN pip install aiohttp
+RUN pip install aiohttp segno
 
 WORKDIR /app
 

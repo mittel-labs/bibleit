@@ -643,6 +643,16 @@ body:not([data-strongs="true"]) .strong {
   white-space: nowrap;
 }
 
+.share-qr img {
+  display: block;
+  width: min(100%, 13rem);
+  height: auto;
+  margin: 0 auto;
+  border: 1px solid var(--rule);
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
 #settings-form {
   display: flex;
   flex-direction: column;

@@ -13,6 +13,7 @@ classifiers = [
 ]
 dependencies = [
   "aiohttp",
+  "segno",
   "gnureadline; platform_system == 'Darwin'",
   "rapidfuzz",
   "requests",

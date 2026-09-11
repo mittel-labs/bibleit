@@ -28,14 +28,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     namespace = parser.parse_args(args)
 
-    if namespace.tui:
-        return _run_tui()
+    served = _serve(namespace, parser)
 
-    if namespace.live is not None:
-        return _run_live(_live_values(namespace.live, parser))
-
-    if namespace.list_translations:
-        return _print_translations()
+    if served is not None:
+        return served
 
     if not namespace.reference:
         parser.error("reference is required unless --tui or --list-translations is used")
@@ -58,6 +54,26 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(_format_output(rows), end="")
     return 0
+
+
+def _serve(namespace: argparse.Namespace, parser: argparse.ArgumentParser) -> int | None:
+    """Run whichever long-lived surface was asked for, or None to read a reference."""
+    if namespace.tui:
+        return _run_tui()
+
+    if namespace.web is not None:
+        return _run_web(
+            _host_port(namespace.web, parser, "--web"),
+            open_browser=not namespace.no_browser,
+        )
+
+    if namespace.live is not None:
+        return _run_live(_host_port(namespace.live, parser, "--live"))
+
+    if namespace.list_translations:
+        return _print_translations()
+
+    return None
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -99,6 +115,18 @@ def _parser() -> argparse.ArgumentParser:
         metavar="HOST_PORT",
         help="Serve live endpoint, optionally overriding host and port: --live 0.0.0.0 8000.",
     )
+    parser.add_argument(
+        "-w",
+        "--web",
+        nargs="*",
+        metavar="HOST_PORT",
+        help="Open the web operator, optionally overriding host and port: --web 0.0.0.0 8000.",
+    )
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Do not open a browser window when starting --web.",
+    )
     return parser
 
 
@@ -109,9 +137,9 @@ def _run_tui() -> int:
     return 0
 
 
-def _live_values(values: Sequence[str], parser: argparse.ArgumentParser) -> Sequence[str]:
+def _host_port(values: Sequence[str], parser: argparse.ArgumentParser, flag: str) -> Sequence[str]:
     if len(values) not in (0, 2):
-        parser.error("--live expects HOST PORT")
+        parser.error(f"{flag} expects HOST PORT")
     return values
 
 
@@ -121,6 +149,15 @@ def _run_live(values: Sequence[str] = ()) -> int:
     host = values[0] if len(values) == 2 else None
     port = values[1] if len(values) == 2 else None
     live.main(host=host, port=port)
+    return 0
+
+
+def _run_web(values: Sequence[str] = (), *, open_browser: bool = True) -> int:
+    from bibleit.web import server
+
+    host = values[0] if len(values) == 2 else None
+    port = values[1] if len(values) == 2 else None
+    server.main(host=host, port=port, open_browser=open_browser)
     return 0
 
 

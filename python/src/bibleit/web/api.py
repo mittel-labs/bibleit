@@ -125,6 +125,26 @@ async def translation_install(request: web.Request) -> web.Response:
     return web.json_response({"slug": slug, "state": "installing"}, status=202)
 
 
+async def remember_default_translation(app: web.Application, slug: str) -> bool:
+    """Make the first translation someone installs the one that opens next time.
+
+    Only when nothing is configured yet, so it cannot quietly overwrite a
+    choice, and never for a remotely served operator, which has no business
+    writing this machine's configuration.
+    """
+    if not app[LOCAL_KEY]:
+        return False
+
+    if "DEFAULT_TRANSLATION" in env_overrides():
+        return False
+
+    if (await blocking(load_config)).get("DEFAULT_TRANSLATION"):
+        return False
+
+    await blocking(save_config, {"DEFAULT_TRANSLATION": slug})
+    return True
+
+
 async def run_install(app: web.Application, slug: str) -> None:
     session = app[SESSION_KEY]
 
@@ -134,7 +154,14 @@ async def run_install(app: web.Application, slug: str) -> None:
     except Exception as error:
         await session.notify({"type": "install", "slug": slug, "state": "failed", "error": str(error)})
     else:
-        await session.notify({"type": "install", "slug": slug, "state": "installed"})
+        await session.notify(
+            {
+                "type": "install",
+                "slug": slug,
+                "state": "installed",
+                "default": await remember_default_translation(app, slug),
+            }
+        )
     finally:
         app[INSTALLS_KEY].discard(slug)
 

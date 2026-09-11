@@ -366,13 +366,15 @@ class OperatorSession:
         if parsed.book not in bookids:
             bookids[parsed.book] = opened.resolve_bookid(parsed.book)
 
+        bookid = bookids[parsed.book]
+
         return {
-            "bookid": bookids[parsed.book],
+            "bookid": bookid,
             "book": parsed.book,
             "chapter": parsed.chapter,
             "verse": parsed.verse,
             "reference": parsed.reference,
-            "html": reader.render_html(parsed.text),
+            "html": reader.render_html(parsed.text, prefix=reader.strong_prefix(bookid or 1)),
             "text": reader.clean_verse_text(parsed.text),
         }
 

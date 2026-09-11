@@ -260,7 +260,13 @@ class RenderHtmlTest(unittest.TestCase):
     def test_marks_strongs_codes_for_the_client_to_toggle(self):
         rendered = reader.render_html("beginning <S>7225</S>")
 
-        self.assertEqual(rendered, 'beginning <span class="strong" data-code="7225">7225</span>')
+        self.assertEqual(rendered, 'beginning <span class="strong" data-code="H7225">7225</span>')
+
+    def test_carries_the_greek_prefix_when_asked(self):
+        rendered = reader.render_html("love <S>26</S>", prefix="G")
+
+        self.assertIn('data-code="G26"', rendered)
+        self.assertIn(">26</span>", rendered)
 
     def test_drops_empty_strongs_codes(self):
         self.assertEqual(reader.render_html("beginning <S> </S>"), "beginning ")

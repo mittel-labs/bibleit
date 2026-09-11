@@ -392,7 +392,7 @@ class VersesTest(SessionTestCase):
         row = self.session.verses(before=0, total=1)["columns"][0]["rows"][0]
 
         self.assertIn("<b>light</b>", row["html"])
-        self.assertIn('data-code="216"', row["html"])
+        self.assertIn('data-code="H216"', row["html"])
         self.assertEqual(row["text"], "Let light be.")
         self.assertEqual(row["bookid"], 1)
 

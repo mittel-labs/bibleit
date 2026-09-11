@@ -8,7 +8,7 @@ from unidecode import unidecode
 
 from bibleit import translation
 from bibleit.navigation import book_ids_for
-from bibleit.reader import clean_verse_text, decode, parse_line
+from bibleit.verse import clean_verse_text, decode, parse_line
 
 DEFAULT_FIND_INDEX_CACHE_SIZE = 4
 

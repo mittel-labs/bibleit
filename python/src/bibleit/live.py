@@ -11,7 +11,7 @@ from aiohttp import web
 
 from bibleit.config import config_value
 from bibleit.live_payload import LiveVerse, parse_verse_line
-from bibleit.reader import clean_verse_text
+from bibleit.verse import clean_verse_text
 
 LIVE_APP_TITLE = "bibleit live"
 

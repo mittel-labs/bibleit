@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Sequence
 
-from bibleit.reader import clean_verse_text, parse_line
+from bibleit.verse import clean_verse_text, parse_line
 
 
 @dataclass(frozen=True)

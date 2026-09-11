@@ -9,7 +9,7 @@ from textual.suggester import Suggester
 from unidecode import unidecode
 
 from bibleit import translation
-from bibleit.reader import RowRef
+from bibleit.verse import RowRef
 
 __all__ = [
     "NavigationState",

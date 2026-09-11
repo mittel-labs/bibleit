@@ -162,21 +162,7 @@ class View(ListView):
         return True
 
     def value_for_ref(self, ref: translation.TranslationRef) -> str | None:
-        try:
-            cursor = self.translation.cursor_from(ref)
-        except RuntimeError:
-            return None
-
-        value = cursor.next()
-
-        if value is None:
-            return None
-
-        row = self._decode_row(value)
-        if self._ref_from_text(row) != self._target_row_ref(ref):
-            return None
-
-        return row
+        return reader.verse_line(self.translation, ref)
 
     def _is_highlighting_state(self) -> bool:
         if self.index is None or not 0 <= self.index < len(self.children):
@@ -281,7 +267,7 @@ class View(ListView):
         return row
 
     def _decode_row(self, value) -> str:
-        return value.memoryview().tobytes().decode("utf-8", "replace")
+        return reader.decode(value)
 
     def _append_cursor_row(self) -> bool:
         if self.cursor is None:
@@ -302,40 +288,18 @@ class View(ListView):
         return reader.target_row_ref(ref)
 
     def _load_cursor_rows_around(self, ref: translation.TranslationRef, index: int) -> int | None:
-        target = self._target_row_ref(ref)
-        previous_rows: list[ListItem] = []
-        previous_cursor = self.translation.cursor_from(ref)
+        window = reader.window_around(
+            self.translation,
+            ref,
+            before=index,
+            total=self.INITIAL_ROWS,
+        )
+        self.cursor = window.cursor
 
-        for _ in range(max(0, index)):
-            value = previous_cursor.previous()
+        for line in window.lines:
+            self.append(self._make_row(line))
 
-            if value is None:
-                break
-
-            previous_rows.insert(0, self._make_row(self._decode_row(value)))
-
-        cursor = self.translation.cursor_from(ref)
-        self.cursor = cursor
-
-        remaining = max(1, self.INITIAL_ROWS - len(previous_rows))
-        rows = [*previous_rows]
-
-        for _ in range(remaining):
-            value = self.cursor.next()
-            if value is None:
-                break
-            rows.append(self._make_row(self._decode_row(value)))
-
-        target_index = None
-        for row_index, row in enumerate(rows):
-            if isinstance(row, ListItem) and self._row_ref(row) == target:
-                target_index = row_index
-                break
-
-        for row in rows:
-            self.append(row)
-
-        return target_index
+        return window.index
 
     def _row_ref(self, row: ListItem) -> RowRef | None:
         return self._ref_from_text(getattr(row, "data", ""))

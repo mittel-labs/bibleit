@@ -13,7 +13,7 @@ from typing import Sequence
 import aiohttp
 
 from bibleit.config import config_value
-from bibleit.live import parse_verse_line
+from bibleit import live_payload
 
 WEB_DRIVER = "textual.drivers.web_driver:WebDriver"
 
@@ -49,49 +49,23 @@ class LivePublisher:
         self.token = config_value("LIVE_TOKEN")
 
     def verse_payload(self, value: str, translation_slug: str) -> dict | None:
-        if not self.enabled:
-            return None
-
-        verses = self._parse_verses([(translation_slug, value)])
-
-        if not verses:
-            return None
-
-        self.sequence += 1
-        primary = verses[0]
-        return primary | {
-            "translations": verses,
-            "publisher_id": self.publisher_id,
-            "sequence": self.sequence,
-        }
+        return self.bundle_payload([(translation_slug, value)])
 
     def bundle_payload(self, values: Sequence[tuple[str, str]]) -> dict | None:
         if not self.enabled:
             return None
 
-        verses = self._parse_verses(values)
+        payload = live_payload.bundle_payload(
+            values,
+            publisher_id=self.publisher_id,
+            sequence=self.sequence + 1,
+        )
 
-        if not verses:
+        if payload is None:
             return None
 
         self.sequence += 1
-        primary = verses[0]
-        return primary | {
-            "translations": verses,
-            "publisher_id": self.publisher_id,
-            "sequence": self.sequence,
-        }
-
-    def _parse_verses(self, values: Sequence[tuple[str, str]]) -> list[dict]:
-        verses = []
-
-        for translation_slug, value in values:
-            verse = parse_verse_line(translation_slug, value)
-
-            if verse is not None:
-                verses.append(verse.to_payload())
-
-        return verses
+        return payload
 
     async def publish_payload(self, payload: dict) -> bool:
         if not self.enabled:

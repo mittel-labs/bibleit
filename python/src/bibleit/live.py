@@ -5,13 +5,13 @@ import hmac
 import asyncio
 import json
 import os
-from dataclasses import asdict, dataclass
 from importlib.resources import files
 
 from aiohttp import web
 
 from bibleit.config import config_value
-from bibleit.reader import clean_verse_text, parse_line
+from bibleit.live_payload import LiveVerse, parse_verse_line
+from bibleit.reader import clean_verse_text
 
 LIVE_APP_TITLE = "bibleit live"
 
@@ -24,37 +24,6 @@ __all__ = [
     "parse_verse_line",
     "viewer_html",
 ]
-
-
-@dataclass(frozen=True)
-class LiveVerse:
-    translation: str
-    book: str
-    chapter: int
-    verse: int
-    text: str
-
-    @property
-    def reference(self) -> str:
-        return f"{self.book} {self.chapter}:{self.verse}"
-
-    def to_payload(self) -> dict:
-        return asdict(self) | {"reference": self.reference}
-
-
-def parse_verse_line(translation: str, value: str) -> LiveVerse | None:
-    parsed = parse_line(value)
-
-    if parsed is None:
-        return None
-
-    return LiveVerse(
-        translation=translation,
-        book=parsed.book,
-        chapter=parsed.chapter,
-        verse=parsed.verse,
-        text=clean_verse_text(parsed.text),
-    )
 
 
 class LiveHub:

@@ -99,6 +99,21 @@ class ParseLineTest(unittest.TestCase):
     def test_returns_none_without_a_reference(self):
         self.assertIsNone(reader.parse_line("In the beginning."))
 
+    def test_uses_the_leading_reference_when_the_text_holds_another(self):
+        parsed = reader.parse_line("Genesis 1:1 Compare 2:3 and see.")
+
+        self.assertEqual(parsed.book, "Genesis")
+        self.assertEqual(parsed.chapter, 1)
+        self.assertEqual(parsed.verse, 1)
+        self.assertEqual(parsed.text, "Compare 2:3 and see.")
+
+    def test_keeps_numbered_books_intact(self):
+        parsed = reader.parse_line("1 Corinthians 13:4 Love is patient.")
+
+        self.assertEqual(parsed.book, "1 Corinthians")
+        self.assertEqual(parsed.chapter, 13)
+        self.assertEqual(parsed.verse, 4)
+
 
 class DecodeTest(unittest.TestCase):
     def test_passes_strings_through(self):

@@ -7,7 +7,7 @@ from typing import Mapping, Protocol
 
 from bibleit import translation
 
-VERSE_LINE_RE = re.compile(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+(?P<text>(?s:.*))$")
+VERSE_LINE_RE = re.compile(r"^(?P<book>.+?)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+(?P<text>(?s:.*))$")
 HTML_TAG_RE = re.compile(r"<[^>]+>")
 STRONG_RE = re.compile(r"<S>(.*?)</S>", flags=re.IGNORECASE | re.DOTALL)
 OLD_TESTAMENT_LAST_BOOKID = 39

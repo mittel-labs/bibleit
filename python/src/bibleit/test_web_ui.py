@@ -320,6 +320,20 @@ class AudienceViewTest(OperatorUiTestCase):
 
         self.assertTrue(rendered)
 
+    async def test_another_room_does_not_follow_this_operator(self):
+        """The operator drives its own hub, which is the default room."""
+        page = await self.open_page()
+        main = await self.audience()
+        other = await (await self.browser()).new_page()
+        await other.goto(self.url("/r/elsewhere"))
+
+        await page.get_by_role("button", name="Go live").click()
+        await page.get_by_role("button", name="Genesis 1:3").click()
+
+        await expect(main.locator(".verse")).to_contain_text("Let there be light")
+        await expect(other.locator("#splash")).to_be_visible()
+        await expect(other.locator(".verse")).to_have_count(0)
+
     async def test_enlarges_the_code_on_a_click(self):
         page = await self.audience()
 

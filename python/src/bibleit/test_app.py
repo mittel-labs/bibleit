@@ -1570,6 +1570,22 @@ class LivePublisherTests(unittest.TestCase):
                 "wss://live.example/base/ws?role=monitor",
             )
 
+    def test_publishes_to_the_default_room_without_configuration(self):
+        publisher = LivePublisher()
+        publisher.url = "http://live.test"
+        publisher.room = ""
+
+        self.assertEqual(publisher._room_query(), "")
+        self.assertNotIn("room", publisher._websocket_url(role="publisher"))
+
+    def test_carries_the_configured_room(self):
+        publisher = LivePublisher()
+        publisher.url = "http://live.test"
+        publisher.room = "sunday"
+
+        self.assertEqual(publisher._room_query(), "?room=sunday")
+        self.assertIn("room=sunday", publisher._websocket_url(role="publisher"))
+
     def test_verse_payload_adds_increasing_sequence(self):
         publisher = LivePublisher()
 

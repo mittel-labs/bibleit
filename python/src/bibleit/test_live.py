@@ -34,6 +34,147 @@ from bibleit.live import (
 )
 
 
+class RoomTest(unittest.TestCase):
+    def test_no_room_is_the_default_room(self):
+        self.assertEqual(live.normalize_room(None), live.DEFAULT_ROOM)
+        self.assertEqual(live.normalize_room(""), live.DEFAULT_ROOM)
+
+    def test_a_code_is_lowercased_and_trimmed(self):
+        self.assertEqual(live.normalize_room("  Sunday-Service  "), "sunday-service")
+
+    def test_a_code_with_unusable_characters_is_refused(self):
+        for value in ("with space", "slash/es", "-leading", "x" * 33, "../etc"):
+            with self.subTest(value=value):
+                with self.assertRaises(web.HTTPBadRequest):
+                    live.normalize_room(value)
+
+    def test_generated_codes_avoid_look_alike_characters(self):
+        code = live.new_room_code()
+
+        self.assertEqual(len(code), live.ROOM_CODE_LENGTH)
+        self.assertTrue(set(code) <= set(live.ROOM_ALPHABET))
+        self.assertEqual(live.normalize_room(code), code)
+
+    def test_rooms_keep_their_own_verse(self):
+        async def run():
+            rooms = live.LiveRooms()
+
+            await rooms.get("one").publish({"reference": "Genesis 1:1"})
+            await rooms.get("two").publish({"reference": "John 3:16"})
+
+            self.assertEqual(rooms.get("one").current["reference"], "Genesis 1:1")
+            self.assertEqual(rooms.get("two").current["reference"], "John 3:16")
+            self.assertIsNone(rooms.get("three").current)
+
+        asyncio.run(run())
+
+    def test_a_new_publisher_only_takes_over_its_own_room(self):
+        async def run():
+            rooms = live.LiveRooms()
+
+            await rooms.get("one").publish({"publisher_id": "a", "sequence": 5, "reference": "Genesis 1:5"})
+            await rooms.get("two").publish({"publisher_id": "b", "sequence": 1, "reference": "John 3:16"})
+
+            self.assertEqual(rooms.get("one").current["reference"], "Genesis 1:5")
+
+        asyncio.run(run())
+
+    def test_pruning_forgets_an_idle_room(self):
+        rooms = live.LiveRooms()
+        rooms.get("idle")
+        rooms.prune()
+
+        self.assertIsNone(rooms.existing("idle"))
+
+    def test_pruning_keeps_a_room_with_a_verse(self):
+        async def run():
+            rooms = live.LiveRooms()
+            await rooms.get("shared").publish({"reference": "Genesis 1:1"})
+            rooms.prune()
+
+            self.assertIsNotNone(rooms.existing("shared"))
+
+        asyncio.run(run())
+
+    def test_pruning_keeps_the_default_room(self):
+        rooms = live.LiveRooms()
+        rooms.get(live.DEFAULT_ROOM)
+        rooms.prune()
+
+        self.assertIsNotNone(rooms.existing(live.DEFAULT_ROOM))
+
+    def test_refuses_to_open_more_rooms_than_it_will_hold(self):
+        async def run():
+            rooms = live.LiveRooms()
+
+            for index in range(live.MAX_ROOMS):
+                await rooms.get(f"room{index}").publish({"reference": "Genesis 1:1"})
+
+            with self.assertRaises(web.HTTPServiceUnavailable):
+                rooms.get("one-too-many")
+
+        asyncio.run(run())
+
+
+class RoomRequestTest(unittest.IsolatedAsyncioTestCase):
+    def app(self):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": ""}):
+            return create_app("test live")
+
+    async def test_the_viewer_page_carries_its_room(self):
+        async with TestClient(TestServer(self.app())) as client:
+            default = await (await client.get("/")).text()
+            named = await (await client.get("/r/sunday")).text()
+
+            self.assertIn('data-room="main"', default)
+            self.assertIn('data-room="sunday"', named)
+
+    async def test_a_verse_published_to_a_room_stays_there(self):
+        app = self.app()
+
+        async with TestClient(TestServer(app)) as client:
+            await client.post("/api/publish?room=sunday", json={"reference": "Genesis 1:1"})
+
+            sunday = await (await client.get("/api/current?room=sunday")).json()
+            main = await (await client.get("/api/current")).json()
+
+            self.assertEqual(sunday["room"], "sunday")
+            self.assertEqual(sunday["verse"]["reference"], "Genesis 1:1")
+            self.assertIsNone(main["verse"])
+
+    async def test_going_live_in_a_room_leaves_the_others_alone(self):
+        app = self.app()
+
+        async with TestClient(TestServer(app)) as client:
+            await client.post("/api/live?room=sunday", json={"live": True})
+
+            self.assertTrue(app[live.ROOMS_KEY].get("sunday").live)
+            self.assertFalse(app[live.HUB_KEY].live)
+
+    async def test_an_unusable_room_code_is_refused(self):
+        async with TestClient(TestServer(self.app())) as client:
+            response = await client.get("/api/current?room=not%20valid")
+
+            self.assertEqual(response.status, 400)
+
+    async def test_a_viewer_only_hears_its_own_room(self):
+        app = self.app()
+
+        async with TestClient(TestServer(app)) as client:
+            listening = await client.ws_connect("/ws?room=sunday")
+
+            await app[live.ROOMS_KEY].get("other").publish({"reference": "John 3:16"})
+            await app[live.ROOMS_KEY].get("sunday").publish({"reference": "Genesis 1:1"})
+
+            # A viewer is greeted with the client count and the live mode first.
+            while (message := await listening.receive_json())["type"] != "verse":
+                pass
+
+            self.assertEqual(message["verse"]["reference"], "Genesis 1:1")
+
+            await listening.close()
+
+
 class RelayDependencyTest(unittest.TestCase):
     """The relay runs in a container with aiohttp and no native library.
 
@@ -97,10 +238,15 @@ class QrCodeTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.content_type, "image/svg+xml")
             self.assertIn("<svg", body)
 
-    def test_viewer_url_drops_the_path_and_query(self):
+    def test_viewer_url_drops_the_query(self):
         request = make_mocked_request("GET", "/?role=monitor", headers={"Host": "live.example:8000"})
 
         self.assertEqual(live.viewer_url(request), "http://live.example:8000/")
+
+    def test_viewer_url_keeps_the_room(self):
+        request = make_mocked_request("GET", "/r/sunday", headers={"Host": "live.example:8000"})
+
+        self.assertEqual(live.viewer_url(request), "http://live.example:8000/r/sunday")
 
     def test_viewer_url_trusts_the_forwarded_scheme(self):
         request = make_mocked_request(

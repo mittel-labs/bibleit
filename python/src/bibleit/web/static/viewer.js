@@ -512,7 +512,9 @@ if (document.fonts) {
 
 function connect() {
   const scheme = location.protocol === "https:" ? "wss" : "ws";
-  const socket = new WebSocket(`${scheme}://${location.host}/ws`);
+  const room = document.documentElement.dataset.room || "";
+  const query = room ? `?room=${encodeURIComponent(room)}` : "";
+  const socket = new WebSocket(`${scheme}://${location.host}/ws${query}`);
 
   socket.addEventListener("open", () => {
     status.textContent = "Connected";

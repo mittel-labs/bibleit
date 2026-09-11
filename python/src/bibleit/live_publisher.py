@@ -33,11 +33,12 @@ class LivePublisher:
         self.url = live_publish_url()
         self.timeout = float(os.getenv("BIBLEIT_LIVE_TIMEOUT", "0.5"))
         self.token = config_value("LIVE_TOKEN")
+        self.room = config_value("LIVE_ROOM")
         self.publisher_id = uuid.uuid4().hex
         self.sequence = 0
         self._publish_session: aiohttp.ClientSession | None = None
         self._publish_ws: aiohttp.ClientWebSocketResponse | None = None
-        self._publish_key: tuple[str, str | None] | None = None
+        self._publish_key: tuple[str, str | None, str] | None = None
 
     @property
     def enabled(self) -> bool:
@@ -47,6 +48,7 @@ class LivePublisher:
     def refresh_config(self) -> None:
         self.url = live_publish_url()
         self.token = config_value("LIVE_TOKEN")
+        self.room = config_value("LIVE_ROOM")
 
     def verse_payload(self, value: str, translation_slug: str) -> dict | None:
         return self.bundle_payload([(translation_slug, value)])
@@ -120,7 +122,7 @@ class LivePublisher:
 
         payload = json.dumps({"live": live}).encode("utf-8")
         request = urllib.request.Request(
-            f"{self.url}/api/live",
+            f"{self.url}/api/live{self._room_query()}",
             data=payload,
             headers=self._headers(),
             method="POST",
@@ -137,7 +139,7 @@ class LivePublisher:
             timeout = aiohttp.ClientTimeout(total=self.timeout)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(
-                    f"{self.url}{path}",
+                    f"{self.url}{path}{self._room_query()}",
                     json=payload,
                     headers=self._headers(),
                 ) as response:
@@ -155,7 +157,7 @@ class LivePublisher:
             return False
 
     async def _publisher_websocket(self) -> aiohttp.ClientWebSocketResponse:
-        key = (self.url, self.token)
+        key = (self.url, self.token, self.room)
 
         if self._publish_key != key:
             await self._close_publisher_websocket()
@@ -191,7 +193,16 @@ class LivePublisher:
 
         return headers
 
+    def _room_query(self) -> str:
+        room = self.room.strip()
+        return f"?{urlencode({'room': room})}" if room else ""
+
     def _websocket_url(self, **query: str) -> str:
+        room = self.room.strip()
+
+        if room:
+            query = query | {"room": room}
+
         parsed = urlsplit(self.url)
         scheme = "wss" if parsed.scheme == "https" else "ws"
         path = parsed.path.rstrip("/") + "/ws"

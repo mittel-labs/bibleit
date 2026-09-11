@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import re
 from typing import Iterable
 
 from textual import events
@@ -16,7 +15,6 @@ from bibleit.ui.screens.translations import Translations
 
 class View(ListView):
     INITIAL_ROWS = 25
-    STRONG_RE = re.compile(r"<S>(.*?)</S>")
 
     class Render(Message):
         def __init__(self, slug: str, value: Iterable[str]):
@@ -218,47 +216,21 @@ class View(ListView):
         )
 
     def _style_row(self, text: str) -> str:
-        text = re.sub(r"(.* \d+:\d+)", r"[bold]\1 [/]", text)
-        text = re.sub(r"<b>(.*?)</b>", r"[bold]\1[/]", text)
-        text = re.sub(r"<i>(.*?)</i>", r"[italic]\1[/]", text)
-
-        def replace_strong(match):
-            raw = match.group(1).strip()
-
-            if not self.translation:
-                return raw
-
-            prefix = "H"
-
-            if self.children:
-                ref = self._row_ref(self.children[0])
-
-                if ref:
-                    prefix = self._strong_prefix(ref.bookid)
-
-            code = f"{prefix}{raw}"
-
-            entry = self.translation.strongs.get(code)
-
-            if not entry:
-                return ""
-
-            if not self.show_strongs:
-                return ""
-
-            label = raw
-
-            return f"[#c96f00]" f"[@click=app.open_strong('{code}')]" f"ᴴ{label}" f"[/]"
-
-        text = text.replace("<br>", "\n").replace("<br/>", "\n")
-        text = self.STRONG_RE.sub(replace_strong, text)
-        text = re.sub(
-            r"<sup>(.*?)</sup>",
-            r"[dim italic]\1[/]",
+        return reader.render_textual_markup(
             text,
-            flags=re.IGNORECASE | re.DOTALL,
+            strongs=self.translation.strongs if self.translation else None,
+            show_strongs=self.show_strongs,
+            prefix=self._strong_prefix_for_rows(),
         )
-        return text
+
+    def _strong_prefix_for_rows(self) -> str:
+        if self.children:
+            ref = self._row_ref(self.children[0])
+
+            if ref:
+                return reader.strong_prefix(ref.bookid)
+
+        return "H"
 
     def _make_row(self, value: str) -> ListItem:
         label = Label(self._style_row(value), markup=True)
@@ -434,9 +406,6 @@ class View(ListView):
             self.call_after_refresh(self._restore_visible_selection)
         else:
             self._restore_visible_selection()
-
-    def _strong_prefix(self, bookid: int) -> str:
-        return "H" if bookid <= 39 else "G"
 
     def on_translations_open(self, event: Translations.Open):
         self.clear()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from html import unescape
+from html import escape, unescape
 from typing import TYPE_CHECKING, Mapping
 
 if TYPE_CHECKING:
@@ -10,6 +10,10 @@ if TYPE_CHECKING:
 
 VERSE_LINE_RE = re.compile(r"^(?P<book>.+?)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+(?P<text>(?s:.*))$")
 HTML_TAG_RE = re.compile(r"<[^>]+>")
+HTML_TOKEN_RE = re.compile(
+    r"<S>(?P<code>.*?)</S>" r"|<(?P<close>/?)(?P<tag>b|i|sup)\s*>" r"|(?P<br><br\s*/?>)" r"|<[^>]+>",
+    flags=re.IGNORECASE | re.DOTALL,
+)
 STRONG_RE = re.compile(r"<S>(.*?)</S>", flags=re.IGNORECASE | re.DOTALL)
 OLD_TESTAMENT_LAST_BOOKID = 39
 
@@ -60,6 +64,35 @@ def parse_line(value: str) -> ParsedLine | None:
         verse=int(match.group("verse")),
         text=match.group("text"),
     )
+
+
+def render_html(
+    value: str,
+    *,
+    show_unknown_tags: bool = False,
+) -> str:
+    parts = []
+    position = 0
+
+    for match in HTML_TOKEN_RE.finditer(value):
+        parts.append(escape(value[position : match.start()]))
+        position = match.end()
+
+        if (code := match.group("code")) is not None:
+            code = code.strip()
+
+            if code:
+                parts.append(f'<span class="strong" data-code="{escape(code, quote=True)}">{escape(code)}</span>')
+        elif tag := match.group("tag"):
+            tag = tag.lower()
+            parts.append(f"</{tag}>" if match.group("close") else f"<{tag}>")
+        elif match.group("br") is not None:
+            parts.append("<br>")
+        elif show_unknown_tags:
+            parts.append(escape(match.group(0)))
+
+    parts.append(escape(value[position:]))
+    return "".join(parts)
 
 
 def strong_prefix(bookid: int) -> str:

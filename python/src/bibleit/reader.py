@@ -8,12 +8,14 @@ from bibleit.verse import (
     HTML_TAG_RE,
     OLD_TESTAMENT_LAST_BOOKID,
     STRONG_RE,
+    HTML_TOKEN_RE,
     VERSE_LINE_RE,
     ParsedLine,
     RowRef,
     clean_verse_text,
     decode,
     parse_line,
+    render_html,
     render_textual_markup,
     strong_prefix,
 )
@@ -24,6 +26,7 @@ __all__ = [
     "Book",
     "DEFAULT_WINDOW",
     "HTML_TAG_RE",
+    "HTML_TOKEN_RE",
     "OLD_TESTAMENT_LAST_BOOKID",
     "ParsedLine",
     "ReadableTranslation",
@@ -36,7 +39,10 @@ __all__ = [
     "chapter_lines",
     "clean_verse_text",
     "decode",
+    "next_ref",
     "parse_line",
+    "previous_ref",
+    "render_html",
     "render_textual_markup",
     "row_ref",
     "strong_prefix",
@@ -109,6 +115,43 @@ def verse_line(translation_: ReadableTranslation, ref: translation.TranslationRe
         return None
 
     return line
+
+
+def next_ref(
+    translation_: ReadableTranslation,
+    ref: translation.TranslationRef,
+) -> RowRef | None:
+    try:
+        cursor = translation_.cursor_from(ref)
+    except RuntimeError:
+        return None
+
+    if cursor.next() is None:
+        return None
+
+    value = cursor.next()
+
+    if value is None:
+        return None
+
+    return row_ref(translation_, decode(value))
+
+
+def previous_ref(
+    translation_: ReadableTranslation,
+    ref: translation.TranslationRef,
+) -> RowRef | None:
+    try:
+        cursor = translation_.cursor_from(ref)
+    except RuntimeError:
+        return None
+
+    value = cursor.previous()
+
+    if value is None:
+        return None
+
+    return row_ref(translation_, decode(value))
 
 
 def window_around(

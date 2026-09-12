@@ -122,18 +122,28 @@ class SessionTestCase(unittest.TestCase):
         self.session = OperatorSession(targets=[self.target])
         self.translations = {"KJV": FakeTranslation()}
 
+        # Opening a translation would otherwise reach for whatever happens to
+        # be installed on the machine running the tests, which passes on a
+        # developer's laptop and fails everywhere else.
+        patcher = patch.object(translation, "open", side_effect=self.fake_open)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def fake_open(self, slug: str):
+        if slug not in self.translations:
+            raise ValueError(f"open failure: translation not found: {slug}")
+
+        return self.translations[slug]
+
     def run_async(self, coroutine):
         return asyncio.run(coroutine)
 
     def open(self, slug: str = "KJV"):
-        with patch.object(translation, "open", side_effect=lambda value: self.translations[value]):
-            self.run_async(self.session.open_translation(slug))
+        self.run_async(self.session.open_translation(slug))
 
     def open_and(self, coroutine_factory, slug: str = "KJV"):
         async def run():
-            with patch.object(translation, "open", side_effect=lambda value: self.translations[value]):
-                await self.session.open_translation(slug)
-
+            await self.session.open_translation(slug)
             await coroutine_factory()
 
         return self.run_async(run())

@@ -1,11 +1,12 @@
 # bibleit
 
-Interactive Bible reading for the terminal, plus a lightweight live web viewer,
-built with Python, Textual, and libbibleit.
+Interactive Bible reading for the terminal and the browser, plus a lightweight
+live view for audiences, built with Python, Textual, aiohttp, and libbibleit.
 
 ## Features
 
 - Terminal Bible reader with keyboard-first navigation.
+- Web operator with the same reading, searching and live control, for people who would rather not use a terminal.
 - Multiple translations open side by side or stacked vertically.
 - Synchronized cursor across open translation panes.
 - Go-to navigation with `g` or `@`, supporting verse, chapter/verse, and fuzzy book names.
@@ -50,7 +51,13 @@ Run the terminal application:
 make run
 ```
 
-Run the live web viewer:
+Run the web operator and the audience view together:
+
+```bash
+make web
+```
+
+Run only the relay, with no reader attached:
 
 ```bash
 make live
@@ -110,6 +117,64 @@ translation with `BIBLEIT_DEFAULT_TRANSLATION`, `BIBLEIT_TRANSLATION`, or
 
 At startup bibleit shows a small welcome screen with the most useful
 shortcuts. Press any shortcut to dismiss it and continue.
+
+## Web operator
+
+```bash
+bibleit --web
+```
+
+This starts one server and opens the operator in your browser. It prints two
+addresses: the operator, and the one to hand to the room.
+
+```text
+bibleit web
+
+  Operator   http://127.0.0.1:8000/operator
+  Audience   http://127.0.0.1:8000/
+             http://192.168.1.24:8000/   (share this one)
+```
+
+Pick a translation from the library the first time; it downloads once and then
+works offline, and becomes your default so the next launch opens straight into
+it. Press **Go live** and the verse you select follows onto every screen in the
+room. The share panel carries the address and a QR code for it.
+
+The server listens on every interface, because the audience view has to reach
+the phones and the projector. **The operator does not:** it can change settings
+and read the publish token, so `/operator` and `/api/v1` answer only on the
+machine running bibleit. Everything else answers to the whole network.
+
+By default the verse goes to this machine's own hub, which is all you need when
+the screens are on the same network. Set `LIVE_URL` and it goes to that relay as
+well, so viewers anywhere can follow; the viewer count is reported for each
+separately.
+
+| Shortcut | Action |
+|---|---|
+| `↑` / `↓` | Previous / next verse |
+| `,` / `.` | Previous / next chapter |
+| `Home` / `End` | Start / end of chapter |
+| `g` | Go to a reference |
+| `l` | Go live, or stop |
+| `t` | Library |
+| `b` | Books |
+| `f` | Find text |
+| `s` | Share |
+| `h` | Show Strong's numbers |
+| `d` | Light or dark |
+| `?` | Shortcuts |
+| `Esc` | Close |
+
+Single letters rather than the TUI's `Ctrl` combinations, because a browser
+keeps `Ctrl+T` and `Ctrl+L` for itself.
+
+Options:
+
+```bash
+bibleit --web 0.0.0.0 9000   # choose the address and port
+bibleit --web --no-browser   # start the server without opening a browser
+```
 
 ## Configuration
 
@@ -171,6 +236,15 @@ Run tests:
 make test
 ```
 
+Run the browser tests, which drive the operator in a real headless Chromium:
+
+```bash
+make test-ui
+```
+
+`make test` skips them unless the browser is installed, so it stays fast and
+needs no download.
+
 Run lint:
 
 ```bash
@@ -216,6 +290,8 @@ The live server supports the following environment variables:
 | `BIBLEIT_LIVE_URL` | unset | Public live server URL used by the terminal app |
 | `BIBLEIT_LIVE_TOKEN` | unset | Optional token used to protect live control requests |
 | `BIBLEIT_LIVE_TITLE` | `bibleit live` | Browser page title |
+| `BIBLEIT_WEB_HOST` | `0.0.0.0` | Bind address for `--web` |
+| `BIBLEIT_WEB_PORT` | `8000` | Port for `--web` |
 | `BIBLEIT_FIND_INDEX_CACHE_SIZE` | `4` | Max number of translation text indexes cached by Find |
 
 Example:

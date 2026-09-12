@@ -4,6 +4,8 @@ import hmac
 import asyncio
 import json
 import os
+import re
+import secrets
 from importlib.resources import files
 
 from aiohttp import WSCloseCode, web
@@ -16,10 +18,20 @@ from bibleit.web import assets
 
 LIVE_APP_TITLE = "bibleit live"
 VIEWER_PAGE = "viewer.html"
+DEFAULT_ROOM = "main"
+ROOM_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+# No look-alike characters: a code gets read aloud and typed on a phone.
+ROOM_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+ROOM_CODE_LENGTH = 6
+MAX_ROOMS = 256
 
 __all__ = [
+    "DEFAULT_ROOM",
+    "LiveRooms",
     "LiveVerse",
     "add_live_routes",
+    "new_room_code",
+    "normalize_room",
     "LiveHub",
     "clean_verse_text",
     "create_app",
@@ -109,7 +121,67 @@ class LiveHub:
         )
 
 
+def normalize_room(value: str | None) -> str:
+    if not value:
+        return DEFAULT_ROOM
+
+    room = value.strip().lower()
+
+    if not ROOM_RE.match(room):
+        raise web.HTTPBadRequest(reason="A room code is letters, digits, dashes or underscores")
+
+    return room
+
+
+def new_room_code() -> str:
+    return "".join(secrets.choice(ROOM_ALPHABET) for _ in range(ROOM_CODE_LENGTH))
+
+
+class LiveRooms:
+    """Every room is its own hub, so two presenters never share a screen."""
+
+    def __init__(self):
+        self.rooms: dict[str, LiveHub] = {}
+
+    def get(self, name: str) -> LiveHub:
+        if name not in self.rooms and len(self.rooms) >= MAX_ROOMS:
+            self.prune()
+
+            if len(self.rooms) >= MAX_ROOMS:
+                raise web.HTTPServiceUnavailable(reason="Too many live rooms are open")
+
+        return self.rooms.setdefault(name, LiveHub())
+
+    def existing(self, name: str) -> LiveHub | None:
+        return self.rooms.get(name)
+
+    def prune(self, name: str | None = None) -> None:
+        """Forget rooms nobody is connected to and nothing has been shared in.
+
+        A room that has a verse is kept, so a viewer who reloads still sees it.
+        """
+        names = [name] if name else list(self.rooms)
+
+        for candidate in names:
+            if candidate == DEFAULT_ROOM:
+                continue
+
+            hub = self.rooms.get(candidate)
+
+            if hub is not None and not hub.sockets() and hub.current is None:
+                del self.rooms[candidate]
+
+    def sockets(self) -> set[web.WebSocketResponse]:
+        found: set[web.WebSocketResponse] = set()
+
+        for hub in self.rooms.values():
+            found |= hub.sockets()
+
+        return found
+
+
 HUB_KEY = web.AppKey("hub", LiveHub)
+ROOMS_KEY = web.AppKey("rooms", LiveRooms)
 TITLE_KEY = web.AppKey("title", str)
 TOKEN_KEY = web.AppKey("token", str)
 
@@ -133,12 +205,23 @@ def require_authorized(request: web.Request) -> None:
         raise web.HTTPUnauthorized(text="Unauthorized")
 
 
-def viewer_html(title: str) -> str:
-    return assets.render_page(VIEWER_PAGE, title)
+def viewer_html(title: str, room: str = DEFAULT_ROOM) -> str:
+    return assets.render_page(VIEWER_PAGE, title=title, room=room)
+
+
+def request_room(request: web.Request) -> str:
+    return normalize_room(request.match_info.get("room") or request.query.get("room"))
+
+
+def request_hub(request: web.Request) -> LiveHub:
+    return request.app[ROOMS_KEY].get(request_room(request))
 
 
 async def index(request: web.Request) -> web.Response:
-    return assets.page_response(VIEWER_PAGE, request.app[TITLE_KEY])
+    room = request_room(request)
+    request.app[ROOMS_KEY].get(room)
+
+    return assets.page_response(VIEWER_PAGE, title=request.app[TITLE_KEY], room=room)
 
 
 async def viewer_asset(request: web.Request) -> web.Response:
@@ -148,14 +231,15 @@ async def viewer_asset(request: web.Request) -> web.Response:
 def viewer_url(request: web.Request) -> str:
     """The address this page was reached at, which is the one worth sharing.
 
-    Behind a proxy that terminates TLS the request itself looks like plain
-    HTTP, so the forwarded scheme wins when it is present. A spoofed header
-    only changes the scheme inside a QR image.
+    The path is kept, so a room's code travels with its code. Behind a proxy
+    that terminates TLS the request itself looks like plain HTTP, so the
+    forwarded scheme wins when it is present; a spoofed header only changes
+    the scheme inside a QR image.
     """
     forwarded = request.headers.get("X-Forwarded-Proto", "").split(",")[0].strip()
     scheme = forwarded or request.url.scheme
 
-    return str(request.url.with_scheme(scheme).with_path("/").with_query(None))
+    return str(request.url.with_scheme(scheme).with_query(None).with_fragment(None))
 
 
 async def qr_code(request: web.Request) -> web.Response:
@@ -174,9 +258,12 @@ async def icon(_: web.Request) -> web.Response:
 
 
 async def current(request: web.Request) -> web.Response:
-    hub = request.app[HUB_KEY]
+    room = request_room(request)
+    hub = request.app[ROOMS_KEY].get(room)
+
     return web.json_response(
         {
+            "room": room,
             "live": hub.live,
             "verse": hub.current,
             "clients": hub.client_count(),
@@ -187,20 +274,23 @@ async def current(request: web.Request) -> web.Response:
 async def publish(request: web.Request) -> web.Response:
     require_authorized(request)
     payload = await request.json()
-    await request.app[HUB_KEY].publish(payload)
-    return web.json_response({"ok": True})
+    await request_hub(request).publish(payload)
+    return web.json_response({"ok": True, "room": request_room(request)})
 
 
 async def live_mode(request: web.Request) -> web.Response:
     require_authorized(request)
     payload = await request.json()
     live = bool(payload.get("live"))
-    await request.app[HUB_KEY].set_live(live)
+    hub = request_hub(request)
+    await hub.set_live(live)
+
     return web.json_response(
         {
             "ok": True,
+            "room": request_room(request),
             "live": live,
-            "clients": request.app[HUB_KEY].client_count(),
+            "clients": hub.client_count(),
         }
     )
 
@@ -221,7 +311,8 @@ async def handle_publisher_message(hub: LiveHub, message: web.WSMessage) -> None
 
 
 async def websocket(request: web.Request) -> web.WebSocketResponse:
-    hub: LiveHub = request.app[HUB_KEY]
+    room = request_room(request)
+    hub: LiveHub = request.app[ROOMS_KEY].get(room)
     is_monitor = request.query.get("role") == "monitor"
     is_publisher = request.query.get("role") == "publisher"
 
@@ -263,6 +354,8 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
         if not is_monitor and not is_publisher:
             await hub.broadcast_client_count()
 
+        request.app[ROOMS_KEY].prune(room)
+
     return ws
 
 
@@ -273,7 +366,7 @@ async def close_hub_sockets(app: web.Application) -> None:
     down, and a WebSocket handler only returns when its socket closes. Without
     this, Ctrl+C hangs for as long as anyone is connected.
     """
-    for ws in list(app[HUB_KEY].sockets()):
+    for ws in list(app[ROOMS_KEY].sockets()):
         await ws.close(code=WSCloseCode.GOING_AWAY, message=b"bibleit is shutting down")
 
 
@@ -283,10 +376,13 @@ def add_live_routes(app: web.Application, *, title: str = LIVE_APP_TITLE) -> web
     Kept separate from `create_app` so one process can serve the audience
     viewer and the operator from the same port.
     """
-    app[HUB_KEY] = LiveHub()
+    rooms = LiveRooms()
+    app[ROOMS_KEY] = rooms
+    app[HUB_KEY] = rooms.get(DEFAULT_ROOM)
     app[TITLE_KEY] = title
     app[TOKEN_KEY] = config_value("LIVE_TOKEN")
     app.router.add_get("/", index)
+    app.router.add_get("/r/{room}", index)
     app.router.add_get("/viewer.{kind:css|js}", viewer_asset)
     app.router.add_get("/qr.svg", qr_code)
     app.router.add_get("/bibleit-icon.png", icon)

@@ -38,13 +38,18 @@ def static_response(name: str) -> web.Response:
     )
 
 
-def render_page(name: str, title: str) -> str:
-    return static_text(name).replace("{{ title }}", html.escape(title))
+def render_page(name: str, **values: str) -> str:
+    text = static_text(name)
+
+    for key, value in values.items():
+        text = text.replace(f"{{{{ {key} }}}}", html.escape(value))
+
+    return text
 
 
-def page_response(name: str, title: str) -> web.Response:
+def page_response(name: str, **values: str) -> web.Response:
     return web.Response(
-        text=render_page(name, title),
+        text=render_page(name, **values),
         content_type="text/html",
         headers={"Cache-Control": CACHE_CONTROL},
     )

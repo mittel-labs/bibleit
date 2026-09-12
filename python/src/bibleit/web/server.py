@@ -72,7 +72,7 @@ async def operator_guard(request: web.Request, handler):
 
 
 async def operator_index(request: web.Request) -> web.Response:
-    return assets.page_response(OPERATOR_PAGE, request.app[TITLE_KEY])
+    return assets.page_response(OPERATOR_PAGE, title=request.app[TITLE_KEY])
 
 
 async def operator_addresses(request: web.Request) -> web.Response:
@@ -206,6 +206,18 @@ def lan_address() -> str | None:
         return None
 
 
+def relay_address() -> str | None:
+    """Where the audience goes when the verse is published to a remote relay."""
+    url = config_value("LIVE_URL").strip().rstrip("/")
+
+    if not url:
+        return None
+
+    room = config_value("LIVE_ROOM").strip()
+
+    return f"{url}/r/{room}" if room else f"{url}/"
+
+
 def addresses(host: str, port: int) -> dict[str, list[str]]:
     local = f"http://127.0.0.1:{port}"
     audience = [f"{local}/"]
@@ -215,6 +227,11 @@ def addresses(host: str, port: int) -> dict[str, list[str]]:
 
         if address:
             audience.append(f"http://{address}:{port}/")
+
+    relay = relay_address()
+
+    if relay:
+        audience.append(relay)
 
     return {"operator": [f"{local}{OPERATOR_PATH}"], "audience": audience}
 

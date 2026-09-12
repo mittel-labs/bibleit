@@ -184,6 +184,7 @@ variables with the `BIBLEIT_` prefix take precedence.
 | Config | Environment variable | Description |
 |---|---|---|
 | `LIVE_URL` | `BIBLEIT_LIVE_URL` | Live server URL used by the terminal app |
+| `LIVE_ROOM` | `BIBLEIT_LIVE_ROOM` | Room to publish into on that server; the default room when unset |
 | `LIVE_TOKEN` | `BIBLEIT_LIVE_TOKEN` | Optional token used to protect live control requests |
 | `DEFAULT_TRANSLATION` | `BIBLEIT_DEFAULT_TRANSLATION` | Default translation slug for CLI verse lookup |
 | `THEME` | `BIBLEIT_THEME` | `light` or `dark` |
@@ -198,6 +199,24 @@ THEME = "dark"
 ```
 
 Empty values are not written to the config file.
+
+## Rooms
+
+One relay can carry several presentations at once. A room is a code in the
+address:
+
+```text
+https://live.bibleit.app/          the default room
+https://live.bibleit.app/r/sunday  a room of your own
+```
+
+Set `LIVE_ROOM` and everything you publish goes to that room; viewers open the
+matching address. Rooms never see each other's verses, so two groups sharing a
+relay cannot take over each other's screens. A room with nobody connected and
+nothing shared is forgotten.
+
+Pick something unguessable if the relay is public: the code is all that
+separates your room from someone else's.
 
 ## Live Mode
 

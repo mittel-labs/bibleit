@@ -70,6 +70,16 @@
     </header>
 
     <div class="panel-body" id="panel-library" hidden>
+      <form id="library-form" autocomplete="off">
+        <input
+          id="library-search"
+          type="search"
+          name="translation"
+          placeholder="Search translations — NIV, NVI, Almeida&hellip;"
+          aria-label="Search translations"
+          spellcheck="false"
+          autocapitalize="characters">
+      </form>
       <div id="library-open"></div>
       <p class="panel-hint" id="library-hint">Loading the catalogue&hellip;</p>
       <div id="library-catalogue"></div>

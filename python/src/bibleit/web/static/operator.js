@@ -21,7 +21,7 @@ const SHORTCUTS = [
 ];
 
 const PANELS = {
-  library: { title: "Library", open: loadLibrary },
+  library: { title: "Library", open: openLibrary },
   books: { title: "Books", open: loadBooks },
   find: { title: "Find", open: () => el("find-input").focus() },
   share: { title: "Share", open: loadShare },
@@ -32,6 +32,7 @@ const PANELS = {
 const state = {
   snapshot: null,
   greeted: false,
+  library: "",
   catalogue: null,
   books: [],
   book: null,
@@ -378,6 +379,27 @@ async function submitGoto(event) {
 
 /* ---------------- library ---------------- */
 
+// "Nova Versão" should answer to "versao", and NVIPT to "nvi".
+function searchable(value) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+function matches(entry, language, query) {
+  if (!query) return true;
+
+  return [entry.slug, entry.name, language].some((value) => searchable(value).includes(query));
+}
+
+function openLibrary() {
+  const search = el("library-search");
+  search.focus();
+  search.select();
+  loadLibrary();
+}
+
 async function loadLibrary() {
   renderOpen();
 
@@ -393,14 +415,6 @@ async function loadLibrary() {
   }
 
   state.catalogue = await response.json();
-
-  if (state.catalogue.installed.length) {
-    hint.hidden = true;
-  } else {
-    hint.textContent =
-      "Pick a language, then a translation. It downloads once — a few megabytes — and then works offline.";
-  }
-
   renderCatalogue();
 }
 
@@ -425,33 +439,71 @@ function renderOpen() {
   );
 }
 
-function renderCatalogue() {
-  const installed = new Set(state.catalogue.installed);
+function visibleEntries() {
   const open = new Set((state.snapshot?.translations || []).map((entry) => entry.slug));
-  const groups = [];
+  const query = searchable(state.library.trim());
+  const found = [];
 
   for (const language of state.catalogue.languages) {
-    const entries = language.translations.filter((entry) => !open.has(entry.slug));
+    const entries = language.translations.filter(
+      (entry) => !open.has(entry.slug) && matches(entry, language.name, query)
+    );
 
-    if (!entries.length) continue;
+    if (entries.length) found.push({ language: language.name, entries });
+  }
 
+  return found;
+}
+
+function renderLibraryHint(found) {
+  const hint = el("library-hint");
+  const query = state.library.trim();
+
+  if (query && !found.length) {
+    hint.hidden = false;
+    hint.textContent = `No translation matches “${query}”.`;
+    return;
+  }
+
+  if (!state.catalogue.installed.length) {
+    hint.hidden = false;
+    hint.textContent =
+      "Pick a language, then a translation. It downloads once — a few megabytes — and then works offline.";
+    return;
+  }
+
+  hint.hidden = true;
+}
+
+function activate(entry, isInstalled, button) {
+  if (isInstalled) {
+    send("open_translation", { slug: entry.slug });
+    closePanel();
+    return;
+  }
+
+  install(entry.slug, button);
+}
+
+function renderCatalogue() {
+  const installed = new Set(state.catalogue.installed);
+  const found = visibleEntries();
+  const groups = [];
+
+  renderLibraryHint(found);
+
+  for (const { language, entries } of found) {
     const title = document.createElement("p");
     title.className = "group-title";
-    title.textContent = language.name;
+    title.textContent = language;
     groups.push(title);
 
     for (const entry of entries) {
       const isInstalled = installed.has(entry.slug);
       groups.push(
-        renderEntry(entry.slug, entry.name, isInstalled ? "Open" : "Install", (button) => {
-          if (isInstalled) {
-            send("open_translation", { slug: entry.slug });
-            closePanel();
-            return;
-          }
-
-          install(entry.slug, button);
-        })
+        renderEntry(entry.slug, entry.name, isInstalled ? "Open" : "Install", (button) =>
+          activate(entry, isInstalled, button)
+        )
       );
     }
   }
@@ -484,15 +536,28 @@ function renderEntry(slug, name, label, action) {
   return row;
 }
 
-async function install(slug, button) {
-  button.disabled = true;
-  button.textContent = "Installing…";
+function entryButton(slug) {
+  return document.querySelector(`.entry[data-slug="${CSS.escape(slug)}"] button`);
+}
+
+async function install(slug, given) {
+  // Reached from Enter in the search box as well as from the row itself, so
+  // find the row when no button was handed over.
+  const button = given || entryButton(slug);
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Installing…";
+  }
 
   const response = await fetch(`${API}/translations/${encodeURIComponent(slug)}`, { method: "POST" });
 
   if (!response.ok) {
-    button.disabled = false;
-    button.textContent = "Install";
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Install";
+    }
+
     toast(await errorText(response), "error");
     return;
   }
@@ -947,6 +1012,27 @@ function start() {
   el("settings-form").addEventListener("submit", saveSettings);
   el("strong-close").addEventListener("click", () => {
     el("strong-card").hidden = true;
+  });
+
+  el("library-search").addEventListener("input", (event) => {
+    state.library = event.target.value;
+
+    if (state.catalogue) renderCatalogue();
+  });
+
+  el("library-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    if (!state.catalogue) return;
+
+    const found = visibleEntries();
+    const entries = found.flatMap((group) => group.entries);
+
+    // Typing a slug usually leaves exactly one: take it rather than making
+    // someone reach for the mouse.
+    if (entries.length === 1) {
+      activate(entries[0], state.catalogue.installed.includes(entries[0].slug), null);
+    }
   });
 
   el("find-input").addEventListener("input", () => {

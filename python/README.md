@@ -137,7 +137,9 @@ bibleit web
 
 Pick a translation from the library the first time; it downloads once and then
 works offline, and becomes your default so the next launch opens straight into
-it. Press **Go live** and the verse you select follows onto every screen in the
+it. The library opens with its search box focused, so pressing `t` and typing
+`niv` or `nvi` finds one — press Enter when a single translation is left and it
+opens, or installs. Press **Go live** and the verse you select follows onto every screen in the
 room. The share panel carries the address and a QR code for it.
 
 The server listens on every interface, because the audience view has to reach

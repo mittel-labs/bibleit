@@ -71,10 +71,25 @@ class OperatorUiTestCase(AioHTTPTestCase):
         session.translations.append(opened)
         session.active_slug = "KJV"
         self.session = session
+
+        # Opening a translation from the interface would otherwise reach for
+        # whatever is installed on the machine running the tests, which passes
+        # on a developer's laptop and fails everywhere else.
+        self.translations = {"KJV": opened}
+        self.opener = patch.object(translation, "open", side_effect=self.fake_open)
+        self.opener.start()
+
         return app
+
+    def fake_open(self, slug: str):
+        if slug not in self.translations:
+            raise ValueError(f"open failure: translation not found: {slug}")
+
+        return self.translations[slug]
 
     async def asyncTearDown(self):
         await super().asyncTearDown()
+        self.opener.stop()
         self.environment.stop()
         self.config.cleanup()
         self.assertEqual(self.page_errors, [])
@@ -396,6 +411,7 @@ class LibrarySearchTest(OperatorUiTestCase):
     }
 
     async def library(self, page):
+        self.translations["NVIPT"] = FakeTranslation("NVIPT", "Nova Versão Internacional", PT_LINES)
         await page.route(
             f"**{API_PREFIX}/translations",
             lambda route: route.fulfill(json=self.CATALOGUE),

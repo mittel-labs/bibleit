@@ -86,6 +86,18 @@ class FakeTranslation:
     def cursor_from(self, ref: translation.TranslationRef):
         return FakeCursor(self.lines, self._position(ref))
 
+    def read(self, ref: translation.TranslationRef):
+        target = reader.target_row_ref(ref)
+        lines = []
+
+        for line in self.lines:
+            row = reader.row_ref(self, line)
+
+            if row and row.bookid == target.bookid:
+                lines.append(line)
+
+        return FakeCursor(lines)
+
     def cursor_chapter(self, ref: translation.TranslationRef):
         target = reader.target_row_ref(ref)
         lines = []
@@ -368,6 +380,17 @@ class PublishTest(SessionTestCase):
         self.assertEqual(session.viewers, 7)
         self.assertTrue(session.connected)
 
+    def test_viewer_counts_are_kept_per_target(self):
+        session = OperatorSession(targets=[FakeTarget()])
+        session.set_viewers("local", 3)
+        session.set_viewers("relay", 12)
+
+        self.assertEqual(session.viewers, 15)
+        self.assertEqual(session.snapshot()["viewer_counts"], {"local": 3, "relay": 12})
+
+    def test_a_relay_only_session_starts_disconnected(self):
+        self.assertFalse(OperatorSession(targets=[FakeTarget()]).connected)
+
 
 class VersesTest(SessionTestCase):
     def test_returns_a_window_per_open_translation(self):
@@ -392,7 +415,7 @@ class VersesTest(SessionTestCase):
         row = self.session.verses(before=0, total=1)["columns"][0]["rows"][0]
 
         self.assertIn("<b>light</b>", row["html"])
-        self.assertIn('data-code="216"', row["html"])
+        self.assertIn('data-code="H216"', row["html"])
         self.assertEqual(row["text"], "Let light be.")
         self.assertEqual(row["bookid"], 1)
 

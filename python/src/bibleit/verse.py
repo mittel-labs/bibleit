@@ -69,8 +69,14 @@ def parse_line(value: str) -> ParsedLine | None:
 def render_html(
     value: str,
     *,
+    prefix: str = "H",
     show_unknown_tags: bool = False,
 ) -> str:
+    """Render verse markup as HTML.
+
+    Strong's codes carry the Hebrew or Greek prefix in `data-code`, the way the
+    dictionary keys them, and show the bare number the way the TUI does.
+    """
     parts = []
     position = 0
 
@@ -82,7 +88,8 @@ def render_html(
             code = code.strip()
 
             if code:
-                parts.append(f'<span class="strong" data-code="{escape(code, quote=True)}">{escape(code)}</span>')
+                full = escape(f"{prefix}{code}", quote=True)
+                parts.append(f'<span class="strong" data-code="{full}">{escape(code)}</span>')
         elif tag := match.group("tag"):
             tag = tag.lower()
             parts.append(f"</{tag}>" if match.group("close") else f"<{tag}>")

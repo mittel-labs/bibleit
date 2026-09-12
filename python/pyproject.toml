@@ -25,6 +25,10 @@ bibleit = "bibleit.cli:main"
 
 [project.optional-dependencies]
 dev = ["black", "flake8", "textual-dev"]
+# Browser tests. Kept out of `dev` because importing playwright is not enough:
+# the browser itself has to be downloaded with `playwright install chromium`,
+# and `make test` skips these tests when it has not been.
+ui-test = ["playwright"]
 
 [project.urls]
 "Homepage" = "https://github.com/fmamud/bibleit"

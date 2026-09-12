@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ title }} · operator</title>
+  <link rel="icon" type="image/png" href="/bibleit-icon.png">
+  <link rel="apple-touch-icon" href="/bibleit-icon.png">
+  <link rel="stylesheet" href="/operator/static/operator.css">
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">
+      <img src="/bibleit-icon.png" width="24" height="24" alt="">
+      <span>bibleit</span>
+    </div>
+
+    <form class="goto" id="goto-form" autocomplete="off">
+      <input
+        id="goto-input"
+        type="text"
+        name="reference"
+        placeholder="Go to a reference — try john 3:16"
+        aria-label="Go to a reference"
+        spellcheck="false"
+        autocapitalize="off">
+      <div class="candidates" id="candidates" hidden role="listbox" aria-label="Matching books"></div>
+    </form>
+
+    <output class="now" id="now" for="goto-input">No translation open</output>
+
+    <div class="bar-actions">
+      <button type="button" id="live-toggle" class="pill live">Go live</button>
+      <span class="viewers" id="viewers" hidden title="Connected viewers"></span>
+      <button type="button" class="pill" data-panel="library">Library</button>
+      <button type="button" class="pill" data-panel="books">Books</button>
+      <button type="button" class="pill" data-panel="find">Find</button>
+      <button type="button" class="pill" data-panel="share">Share</button>
+      <button type="button" class="pill" data-panel="settings" id="settings-button">Settings</button>
+      <button type="button" class="pill ghost" id="strongs-toggle" aria-pressed="false">Strong&rsquo;s</button>
+      <button type="button" class="pill ghost" id="theme-toggle" aria-label="Toggle light or dark">◐</button>
+      <button type="button" class="pill ghost" data-panel="help" aria-label="Keyboard shortcuts">?</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="columns" id="columns"></div>
+
+    <section class="welcome" id="welcome" hidden>
+      <h1>Open a translation to begin</h1>
+      <p>
+        bibleit keeps the verse you choose in step with every screen in the room.
+        Start by installing a translation — it downloads once and then works offline.
+      </p>
+      <button type="button" class="pill solid" data-panel="library">Open the library</button>
+    </section>
+  </main>
+
+  <nav class="stepper" aria-label="Verse navigation">
+    <button type="button" data-command="previous_chapter" aria-label="Previous chapter">&#8249;&#8249;</button>
+    <button type="button" data-command="previous_verse" aria-label="Previous verse">&#8249;</button>
+    <button type="button" data-command="next_verse" aria-label="Next verse">&#8250;</button>
+    <button type="button" data-command="next_chapter" aria-label="Next chapter">&#8250;&#8250;</button>
+  </nav>
+
+  <aside class="panel" id="panel" hidden aria-live="polite">
+    <header>
+      <h2 id="panel-title"></h2>
+      <button type="button" id="panel-close" aria-label="Close panel">&times;</button>
+    </header>
+
+    <div class="panel-body" id="panel-library" hidden>
+      <div id="library-open"></div>
+      <p class="panel-hint" id="library-hint">Loading the catalogue&hellip;</p>
+      <div id="library-catalogue"></div>
+    </div>
+
+    <div class="panel-body" id="panel-books" hidden>
+      <div class="grid" id="books-grid"></div>
+      <div class="grid chapters" id="chapters-grid" hidden></div>
+    </div>
+
+    <div class="panel-body" id="panel-find" hidden>
+      <form id="find-form" autocomplete="off">
+        <input
+          id="find-input"
+          type="search"
+          name="query"
+          placeholder="Find words in the open translation"
+          aria-label="Find text">
+      </form>
+      <p class="panel-hint" id="find-hint">Type at least two letters.</p>
+      <div id="find-results"></div>
+    </div>
+
+    <div class="panel-body" id="panel-share" hidden>
+      <p class="panel-hint">Anyone on this network can open the audience view:</p>
+      <div class="share-row">
+        <code id="share-url"></code>
+        <button type="button" class="pill" id="share-copy">Copy</button>
+      </div>
+      <p class="panel-hint" id="share-state"></p>
+      <a class="pill ghost" id="share-open" href="/" target="_blank" rel="noreferrer">Open the audience view</a>
+    </div>
+
+    <div class="panel-body" id="panel-settings" hidden>
+      <form id="settings-form">
+        <label>
+          <span>Default translation</span>
+          <input type="text" id="config-DEFAULT_TRANSLATION" name="DEFAULT_TRANSLATION" spellcheck="false">
+        </label>
+        <label>
+          <span>Relay address</span>
+          <input type="text" id="config-LIVE_URL" name="LIVE_URL" spellcheck="false"
+                 placeholder="https://live.bibleit.app">
+        </label>
+        <label>
+          <span>Relay token</span>
+          <input type="text" id="config-LIVE_TOKEN" name="LIVE_TOKEN" spellcheck="false">
+        </label>
+        <label>
+          <span>Theme</span>
+          <input type="text" id="config-THEME" name="THEME" spellcheck="false" placeholder="light or dark">
+        </label>
+        <button type="submit" class="pill solid">Save settings</button>
+        <p class="panel-hint" id="settings-hint"></p>
+      </form>
+    </div>
+
+    <div class="panel-body" id="panel-help" hidden>
+      <dl class="shortcuts" id="shortcuts"></dl>
+    </div>
+  </aside>
+
+  <div class="strong-card" id="strong-card" hidden>
+    <button type="button" id="strong-close" aria-label="Close">&times;</button>
+    <div id="strong-body"></div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <script type="module" src="/operator/static/operator.js"></script>
+</body>
+</html>

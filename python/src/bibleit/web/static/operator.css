@@ -583,7 +583,8 @@ body:not([data-strongs="true"]) .strong {
   font-variant-numeric: tabular-nums;
 }
 
-#find-input {
+#find-input,
+#library-search {
   width: 100%;
   height: 2.3rem;
   padding: 0 0.7rem;

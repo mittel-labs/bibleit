@@ -11,7 +11,7 @@ from aiohttp.test_utils import AioHTTPTestCase
 from bibleit import translation
 from bibleit.test_operator import PT_LINES, FakeTranslation
 from bibleit.text_find import clear_find_index_cache
-from bibleit.web.api import SESSION_KEY
+from bibleit.web.api import API_PREFIX, SESSION_KEY
 from bibleit.web.server import create_operator_app
 
 try:
@@ -71,10 +71,25 @@ class OperatorUiTestCase(AioHTTPTestCase):
         session.translations.append(opened)
         session.active_slug = "KJV"
         self.session = session
+
+        # Opening a translation from the interface would otherwise reach for
+        # whatever is installed on the machine running the tests, which passes
+        # on a developer's laptop and fails everywhere else.
+        self.translations = {"KJV": opened}
+        self.opener = patch.object(translation, "open", side_effect=self.fake_open)
+        self.opener.start()
+
         return app
+
+    def fake_open(self, slug: str):
+        if slug not in self.translations:
+            raise ValueError(f"open failure: translation not found: {slug}")
+
+        return self.translations[slug]
 
     async def asyncTearDown(self):
         await super().asyncTearDown()
+        self.opener.stop()
         self.environment.stop()
         self.config.cleanup()
         self.assertEqual(self.page_errors, [])
@@ -372,6 +387,124 @@ class LibraryTest(OperatorUiTestCase):
         await page.get_by_label("Close NVIPT").click()
 
         await expect(page.locator(".column")).to_have_count(1)
+
+
+class LibrarySearchTest(OperatorUiTestCase):
+    CATALOGUE = {
+        "installed": ["KJV", "NVIPT"],
+        "languages": [
+            {
+                "name": "English",
+                "translations": [
+                    {"slug": "KJV", "name": "King James", "installed": True},
+                    {"slug": "NIV", "name": "New International Version", "installed": False},
+                ],
+            },
+            {
+                "name": "Portuguese",
+                "translations": [
+                    {"slug": "NVIPT", "name": "Nova Versão Internacional", "installed": True},
+                    {"slug": "ARA", "name": "Almeida Revista e Atualizada", "installed": False},
+                ],
+            },
+        ],
+    }
+
+    async def library(self, page):
+        self.translations["NVIPT"] = FakeTranslation("NVIPT", "Nova Versão Internacional", PT_LINES)
+        await page.route(
+            f"**{API_PREFIX}/translations",
+            lambda route: route.fulfill(json=self.CATALOGUE),
+        )
+        await page.get_by_role("button", name="Library", exact=True).click()
+        await page.wait_for_selector("#library-catalogue .entry")
+        return page.locator("#library-catalogue .entry")
+
+    async def test_the_search_box_takes_focus_when_the_library_opens(self):
+        page = await self.open_page()
+        await self.library(page)
+
+        self.assertEqual(await page.evaluate("document.activeElement.id"), "library-search")
+
+    async def test_filters_by_slug(self):
+        page = await self.open_page()
+        entries = await self.library(page)
+
+        await page.fill("#library-search", "niv")
+
+        await expect(entries).to_have_count(1)
+        await expect(entries.locator("b")).to_have_text("NIV")
+
+    async def test_filters_by_name_ignoring_accents(self):
+        page = await self.open_page()
+        entries = await self.library(page)
+
+        await page.fill("#library-search", "versao")
+
+        await expect(entries).to_have_count(1)
+        await expect(entries.locator("b")).to_have_text("NVIPT")
+
+    async def test_filters_by_language(self):
+        page = await self.open_page()
+        entries = await self.library(page)
+
+        await page.fill("#library-search", "portug")
+
+        await expect(entries).to_have_count(2)
+
+    async def test_reports_when_nothing_matches(self):
+        page = await self.open_page()
+        entries = await self.library(page)
+
+        await page.fill("#library-search", "klingon")
+
+        await expect(entries).to_have_count(0)
+        await expect(page.locator("#library-hint")).to_contain_text("No translation matches")
+
+    async def test_enter_opens_the_only_installed_match(self):
+        page = await self.open_page()
+        await self.library(page)
+
+        await page.fill("#library-search", "nvipt")
+        await page.press("#library-search", "Enter")
+
+        await expect(page.locator(".column")).to_have_count(2)
+        await expect(page.locator("#panel")).to_be_hidden()
+
+    async def test_enter_installs_the_only_uninstalled_match(self):
+        page = await self.open_page()
+        posted = []
+        await page.route(
+            f"**{API_PREFIX}/translations/ARA",
+            lambda route: posted.append(route.request.method) or route.fulfill(json={"slug": "ARA"}, status=202),
+        )
+        await self.library(page)
+
+        await page.fill("#library-search", "ara")
+        await page.press("#library-search", "Enter")
+
+        await expect(page.locator('.entry[data-slug="ARA"] button')).to_have_text("Installing…")
+        self.assertEqual(posted, ["POST"])
+
+    async def test_enter_does_nothing_when_the_search_is_ambiguous(self):
+        page = await self.open_page()
+        await self.library(page)
+
+        await page.fill("#library-search", "n")
+        await page.press("#library-search", "Enter")
+
+        await expect(page.locator("#panel")).to_be_visible()
+        await expect(page.locator(".column")).to_have_count(1)
+
+    async def test_an_open_translation_leaves_the_catalogue(self):
+        page = await self.open_page()
+        entries = await self.library(page)
+
+        await page.fill("#library-search", "kjv")
+
+        # KJV is already open, so it belongs under "Open now" instead.
+        await expect(entries).to_have_count(0)
+        await expect(page.locator("#library-open .entry b")).to_have_text("KJV")
 
 
 class StrongsTest(OperatorUiTestCase):

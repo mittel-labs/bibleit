@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html
 import hmac
 import asyncio
 import json
@@ -11,9 +10,12 @@ from aiohttp import WSCloseCode, web
 
 from bibleit.config import config_value
 from bibleit.live_payload import LiveVerse, parse_verse_line
+from bibleit import qr
 from bibleit.verse import clean_verse_text
+from bibleit.web import assets
 
 LIVE_APP_TITLE = "bibleit live"
+VIEWER_PAGE = "viewer.html"
 
 __all__ = [
     "LiveVerse",
@@ -132,14 +134,35 @@ def require_authorized(request: web.Request) -> None:
 
 
 def viewer_html(title: str) -> str:
-    template = files("bibleit").joinpath("live.html").read_text(encoding="utf-8")
-    return template.replace("{{ title }}", html.escape(title))
+    return assets.render_page(VIEWER_PAGE, title)
 
 
 async def index(request: web.Request) -> web.Response:
+    return assets.page_response(VIEWER_PAGE, request.app[TITLE_KEY])
+
+
+async def viewer_asset(request: web.Request) -> web.Response:
+    return assets.static_response(f"viewer.{request.match_info['kind']}")
+
+
+def viewer_url(request: web.Request) -> str:
+    """The address this page was reached at, which is the one worth sharing.
+
+    Behind a proxy that terminates TLS the request itself looks like plain
+    HTTP, so the forwarded scheme wins when it is present. A spoofed header
+    only changes the scheme inside a QR image.
+    """
+    forwarded = request.headers.get("X-Forwarded-Proto", "").split(",")[0].strip()
+    scheme = forwarded or request.url.scheme
+
+    return str(request.url.with_scheme(scheme).with_path("/").with_query(None))
+
+
+async def qr_code(request: web.Request) -> web.Response:
     return web.Response(
-        text=viewer_html(request.app[TITLE_KEY]),
-        content_type="text/html",
+        body=qr.svg(viewer_url(request)),
+        content_type="image/svg+xml",
+        headers={"Cache-Control": assets.CACHE_CONTROL},
     )
 
 
@@ -264,6 +287,8 @@ def add_live_routes(app: web.Application, *, title: str = LIVE_APP_TITLE) -> web
     app[TITLE_KEY] = title
     app[TOKEN_KEY] = config_value("LIVE_TOKEN")
     app.router.add_get("/", index)
+    app.router.add_get("/viewer.{kind:css|js}", viewer_asset)
+    app.router.add_get("/qr.svg", qr_code)
     app.router.add_get("/bibleit-icon.png", icon)
     app.router.add_get("/api/current", current)
     app.router.add_post("/api/publish", publish)

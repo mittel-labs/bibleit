@@ -1,39 +1,31 @@
 from __future__ import annotations
 
 import asyncio
-import html
 import ipaddress
 import os
 import socket
 import webbrowser
-from importlib.resources import files
 
 from aiohttp import web
 
 from bibleit.config import config_value
 from bibleit.live import HUB_KEY, LIVE_APP_TITLE, TITLE_KEY, add_live_routes
 from bibleit.live_publisher import LivePublisher
+from bibleit import qr
 from bibleit.operator import HubTarget, OperatorError, OperatorSession, RelayTarget
+from bibleit.web import assets
 from bibleit.web.api import API_PREFIX, LOCAL_KEY, SESSION_KEY, add_operator_routes
 
 OPERATOR_PATH = "/operator"
+OPERATOR_PAGE = "operator.html"
 STATIC_PREFIX = f"{OPERATOR_PATH}/static"
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8000
 VIEWER_POLL_SECONDS = 1.0
 RELAY_RETRY_SECONDS = 3.0
 
-STATIC_TYPES = {
-    "operator.css": "text/css",
-    "operator.js": "application/javascript",
-}
-
 TASKS_KEY = web.AppKey("operator_tasks", list)
 HOST_KEY = web.AppKey("operator_host", str)
-
-
-def static_file(name: str) -> bytes:
-    return (files("bibleit.web") / "static" / name).read_bytes()
 
 
 def publish_targets(hub) -> list:
@@ -80,13 +72,7 @@ async def operator_guard(request: web.Request, handler):
 
 
 async def operator_index(request: web.Request) -> web.Response:
-    template = static_file("operator.html").decode("utf-8")
-    title = request.app[TITLE_KEY]
-
-    return web.Response(
-        text=template.replace("{{ title }}", html.escape(title)),
-        content_type="text/html",
-    )
+    return assets.page_response(OPERATOR_PAGE, request.app[TITLE_KEY])
 
 
 async def operator_addresses(request: web.Request) -> web.Response:
@@ -100,14 +86,24 @@ async def operator_addresses(request: web.Request) -> web.Response:
     return web.json_response(addresses(request.app[HOST_KEY], port))
 
 
+async def operator_qr(request: web.Request) -> web.Response:
+    """The audience address as a QR code.
+
+    The viewer serves its own from `/qr.svg`, but the operator is on loopback,
+    so its code has to encode the address the room can actually reach.
+    """
+    port = request.url.port or DEFAULT_PORT
+    audience = addresses(request.app[HOST_KEY], port)["audience"]
+
+    return web.Response(
+        body=qr.svg(audience[-1]),
+        content_type="image/svg+xml",
+        headers={"Cache-Control": assets.CACHE_CONTROL},
+    )
+
+
 async def operator_static(request: web.Request) -> web.Response:
-    name = request.match_info["name"]
-    content_type = STATIC_TYPES.get(name)
-
-    if content_type is None:
-        raise web.HTTPNotFound()
-
-    return web.Response(body=static_file(name), content_type=content_type)
+    return assets.static_response(request.match_info["name"])
 
 
 async def watch_viewers(app: web.Application) -> None:
@@ -189,6 +185,7 @@ def create_operator_app(
     app.router.add_get(OPERATOR_PATH, operator_index)
     app.router.add_get(f"{STATIC_PREFIX}/{{name}}", operator_static)
     app.router.add_get(f"{API_PREFIX}/addresses", operator_addresses)
+    app.router.add_get(f"{API_PREFIX}/qr.svg", operator_qr)
     app.on_startup.append(start_session)
     app.on_cleanup.append(stop_session)
     return app

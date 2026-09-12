@@ -9,6 +9,7 @@ from aiohttp import WSMsgType, web
 from aiohttp.test_utils import AioHTTPTestCase
 
 from bibleit import translation
+from bibleit.config import load_config, save_config
 from bibleit.operator import OperatorSession
 from bibleit.test_operator import PT_LINES, FakeTarget, FakeTranslation
 from bibleit.web.api import API_PREFIX, add_operator_routes
@@ -187,7 +188,47 @@ class TranslationCatalogueTest(ApiTestCase):
 
         install.assert_called_once_with("ASV")
         get_index.assert_called_once_with("ASV")
-        self.assertEqual(event, {"type": "install", "slug": "ASV", "state": "installed"})
+        self.assertEqual(event["type"], "install")
+        self.assertEqual(event["slug"], "ASV")
+        self.assertEqual(event["state"], "installed")
+
+    async def test_install_adopts_the_first_translation_as_the_default(self):
+        queue = self.session.listen()
+
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+
+            with (
+                patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True),
+                patch.object(translation, "is_installed", return_value=False),
+                patch.object(translation, "install"),
+                patch.object(translation, "get_index"),
+            ):
+                await self.post_json("/translations/ASV", None, expect=202)
+                event = await queue.get()
+
+                self.assertTrue(event["default"])
+                self.assertEqual(load_config()["DEFAULT_TRANSLATION"], "ASV")
+
+    async def test_install_leaves_a_chosen_default_alone(self):
+        queue = self.session.listen()
+
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"DEFAULT_TRANSLATION": "KJV"})
+
+                with (
+                    patch.object(translation, "is_installed", return_value=False),
+                    patch.object(translation, "install"),
+                    patch.object(translation, "get_index"),
+                ):
+                    await self.post_json("/translations/ASV", None, expect=202)
+                    event = await queue.get()
+
+                self.assertFalse(event["default"])
+                self.assertEqual(load_config()["DEFAULT_TRANSLATION"], "KJV")
 
     async def test_install_reports_failure_to_listeners(self):
         queue = self.session.listen()

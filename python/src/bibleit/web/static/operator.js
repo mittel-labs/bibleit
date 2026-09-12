@@ -31,6 +31,7 @@ const PANELS = {
 
 const state = {
   snapshot: null,
+  greeted: false,
   catalogue: null,
   books: [],
   book: null,
@@ -115,6 +116,14 @@ function applySnapshot(snapshot) {
   const previous = state.snapshot;
   state.snapshot = snapshot;
   renderBar();
+
+  // Nothing open on arrival means a first run: the library is the only useful
+  // thing to show. Once only, so it cannot reopen after being dismissed.
+  if (!state.greeted) {
+    state.greeted = true;
+
+    if (!snapshot.translations.length) openPanel("library");
+  }
 
   if (!previous || slugsOf(previous) !== slugsOf(snapshot)) {
     loadVerses();
@@ -384,7 +393,14 @@ async function loadLibrary() {
   }
 
   state.catalogue = await response.json();
-  hint.hidden = true;
+
+  if (state.catalogue.installed.length) {
+    hint.hidden = true;
+  } else {
+    hint.textContent =
+      "Pick a language, then a translation. It downloads once — a few megabytes — and then works offline.";
+  }
+
   renderCatalogue();
 }
 
@@ -486,7 +502,11 @@ async function install(slug, button) {
 
 function installed(event) {
   if (event.state === "installed") {
-    toast(`${event.slug} is ready.`);
+    toast(
+      event.default
+        ? `${event.slug} is ready, and will open automatically next time.`
+        : `${event.slug} is ready.`
+    );
     send("open_translation", { slug: event.slug });
     if (state.panel === "library") loadLibrary();
   }
@@ -631,6 +651,8 @@ async function loadShare() {
   const payload = await response.json();
   el("share-url").textContent = payload.audience[payload.audience.length - 1] || fallback;
   el("share-state").textContent = shareState(state.snapshot);
+  // The reachable address can change with the network, so ask again each time.
+  el("share-qr").src = `${API}/qr.svg?t=${Date.now()}`;
 }
 
 async function copyShare() {

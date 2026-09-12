@@ -7,7 +7,7 @@ import json
 import os
 from importlib.resources import files
 
-from aiohttp import web
+from aiohttp import WSCloseCode, web
 
 from bibleit.config import config_value
 from bibleit.live_payload import LiveVerse, parse_verse_line
@@ -17,6 +17,7 @@ LIVE_APP_TITLE = "bibleit live"
 
 __all__ = [
     "LiveVerse",
+    "add_live_routes",
     "LiveHub",
     "clean_verse_text",
     "create_app",
@@ -34,6 +35,10 @@ class LiveHub:
         self.live = False
         self.clients: set[web.WebSocketResponse] = set()
         self.monitors: set[web.WebSocketResponse] = set()
+        self.publishers: set[web.WebSocketResponse] = set()
+
+    def sockets(self) -> set[web.WebSocketResponse]:
+        return self.clients | self.monitors | self.publishers
 
     def client_count(self) -> int:
         stale = {ws for ws in self.clients if ws.closed}
@@ -205,7 +210,7 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     if is_monitor:
         hub.monitors.add(ws)
     elif is_publisher:
-        pass
+        hub.publishers.add(ws)
     else:
         hub.clients.add(ws)
         await hub.broadcast_client_count()
@@ -230,6 +235,7 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     finally:
         hub.clients.discard(ws)
         hub.monitors.discard(ws)
+        hub.publishers.discard(ws)
 
         if not is_monitor and not is_publisher:
             await hub.broadcast_client_count()
@@ -237,8 +243,23 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     return ws
 
 
-def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
-    app = web.Application()
+async def close_hub_sockets(app: web.Application) -> None:
+    """Close viewer and publisher sockets so shutdown is not blocked.
+
+    aiohttp waits for request handlers to return before it finishes shutting
+    down, and a WebSocket handler only returns when its socket closes. Without
+    this, Ctrl+C hangs for as long as anyone is connected.
+    """
+    for ws in list(app[HUB_KEY].sockets()):
+        await ws.close(code=WSCloseCode.GOING_AWAY, message=b"bibleit is shutting down")
+
+
+def add_live_routes(app: web.Application, *, title: str = LIVE_APP_TITLE) -> web.Application:
+    """Mount the viewer, the hub and the publish endpoints onto an application.
+
+    Kept separate from `create_app` so one process can serve the audience
+    viewer and the operator from the same port.
+    """
     app[HUB_KEY] = LiveHub()
     app[TITLE_KEY] = title
     app[TOKEN_KEY] = config_value("LIVE_TOKEN")
@@ -248,7 +269,12 @@ def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
     app.router.add_post("/api/publish", publish)
     app.router.add_post("/api/live", live_mode)
     app.router.add_get("/ws", websocket)
+    app.on_shutdown.append(close_hub_sockets)
     return app
+
+
+def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
+    return add_live_routes(web.Application(), title=title)
 
 
 def main(host: str | None = None, port: str | int | None = None) -> None:

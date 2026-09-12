@@ -210,6 +210,71 @@ class WindowAroundTest(unittest.TestCase):
         self.assertEqual(reader.decode(window.cursor.next()), GENESIS_LINES[2])
 
 
+class StepTest(unittest.TestCase):
+    def test_next_ref_follows_the_current_verse(self):
+        translation_ = FakeTranslation(GENESIS_LINES, cursor_index=1)
+
+        self.assertEqual(
+            reader.next_ref(translation_, translation.TranslationRef(1, 1, 2)),
+            RowRef(1, 1, 3),
+        )
+
+    def test_next_ref_returns_none_at_the_end(self):
+        translation_ = FakeTranslation(GENESIS_LINES, cursor_index=3)
+
+        self.assertIsNone(reader.next_ref(translation_, translation.TranslationRef(1, 1, 4)))
+
+    def test_previous_ref_precedes_the_current_verse(self):
+        translation_ = FakeTranslation(GENESIS_LINES, cursor_index=2)
+
+        self.assertEqual(
+            reader.previous_ref(translation_, translation.TranslationRef(1, 1, 3)),
+            RowRef(1, 1, 2),
+        )
+
+    def test_previous_ref_returns_none_at_the_start(self):
+        translation_ = FakeTranslation(GENESIS_LINES)
+
+        self.assertIsNone(reader.previous_ref(translation_, translation.TranslationRef(1, 1, 1)))
+
+    def test_stepping_returns_none_when_the_cursor_fails(self):
+        translation_ = FakeTranslation(GENESIS_LINES, raise_on_cursor=True)
+        ref = translation.TranslationRef(1, 1, 1)
+
+        self.assertIsNone(reader.next_ref(translation_, ref))
+        self.assertIsNone(reader.previous_ref(translation_, ref))
+
+
+class RenderHtmlTest(unittest.TestCase):
+    def test_keeps_emphasis_and_breaks(self):
+        rendered = reader.render_html("Let <b>there</b> be <i>light</i><br>and light was.")
+
+        self.assertEqual(rendered, "Let <b>there</b> be <i>light</i><br>and light was.")
+
+    def test_keeps_superscript(self):
+        self.assertEqual(reader.render_html("Light<sup>2</sup>"), "Light<sup>2</sup>")
+
+    def test_escapes_verse_text(self):
+        self.assertEqual(reader.render_html("Shem & Ham <3"), "Shem &amp; Ham &lt;3")
+
+    def test_marks_strongs_codes_for_the_client_to_toggle(self):
+        rendered = reader.render_html("beginning <S>7225</S>")
+
+        self.assertEqual(rendered, 'beginning <span class="strong" data-code="7225">7225</span>')
+
+    def test_drops_empty_strongs_codes(self):
+        self.assertEqual(reader.render_html("beginning <S> </S>"), "beginning ")
+
+    def test_drops_unknown_markup(self):
+        self.assertEqual(reader.render_html("a <em>b</em> c"), "a b c")
+
+    def test_can_show_unknown_markup_as_text(self):
+        self.assertEqual(
+            reader.render_html("a <em>b</em> c", show_unknown_tags=True),
+            "a &lt;em&gt;b&lt;/em&gt; c",
+        )
+
+
 class ChapterTest(unittest.TestCase):
     def test_chapter_last_ref_returns_the_final_verse(self):
         translation_ = FakeTranslation(GENESIS_LINES)

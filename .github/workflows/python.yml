@@ -35,6 +35,9 @@ jobs:
       - name: Build and test local wheel install
         run: make install-local
 
+      - name: Install browser for standalone UI tests
+        run: python -m playwright install --with-deps chromium
+
       - name: Lint
         run: make lint
 

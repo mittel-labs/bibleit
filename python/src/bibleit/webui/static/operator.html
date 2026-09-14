@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} operator</title>
+  <link rel="icon" href="/bibleit-icon.png">
+  <link rel="stylesheet" href="/operator/static/operator.css">
+  <script defer src="/operator/static/operator.js"></script>
+</head>
+<body>
+  <header class="bar">
+    <div><p class="eyebrow">Bibleit operator</p><h1 id="now">Connecting…</h1></div>
+    <div class="bar-actions"><span id="viewers" hidden>0 viewers</span><button id="live" disabled>Go live</button></div>
+  </header>
+  <main>
+    <section class="tools" aria-label="Operator controls">
+      <form id="goto-form"><label class="sr-only" for="goto">Bible reference</label><input id="goto" placeholder="Go to a reference — John 3:16" autocomplete="off"><div id="candidates" hidden></div></form>
+      <button id="library">Library</button><button id="books">Books</button><button id="find">Find</button><button id="share">Share</button><button id="strongs" aria-pressed="false">Strong's</button>
+    </section>
+    <p id="toast" role="status" hidden></p>
+    <section id="welcome" class="welcome" hidden><span>✦</span><h2>Open your first translation</h2><p>Choose an installed translation, or install one from the library.</p><button id="welcome-library">Open library</button></section>
+    <section id="columns" class="columns"></section>
+    <nav class="stepper" aria-label="Verse navigation"><button data-command="previous_chapter" aria-label="Previous chapter">«</button><button data-command="previous_verse" aria-label="Previous verse">‹</button><button data-command="next_verse" aria-label="Next verse">›</button><button data-command="next_chapter" aria-label="Next chapter">»</button></nav>
+  </main>
+  <div id="panel" class="panel-backdrop" hidden><aside class="panel" role="dialog" aria-modal="true" aria-labelledby="panel-title"><header><h2 id="panel-title"></h2><button id="panel-close" aria-label="Close">×</button></header><div id="panel-body"></div></aside></div>
+</body>
+</html>

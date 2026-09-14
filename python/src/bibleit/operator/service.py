@@ -220,6 +220,10 @@ class OperatorService:
     def books(self, slug: str | None = None):
         return tuple(self.reading.books(self._opened(slug)))
 
+    def translation(self, slug: str | None = None) -> TranslationInfo:
+        opened = self._opened(slug)
+        return TranslationInfo(opened.slug, opened.header.name)
+
     def resolve(self, value: str, slug: str | None = None) -> ResolveResult:
         return self.reading.resolve(self._opened(slug), value, self.session.state)
 

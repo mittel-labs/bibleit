@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-from typing import Callable, Sequence
+from typing import Sequence
 
 from rapidfuzz import fuzz, process
-from textual.suggester import Suggester
 from unidecode import unidecode
 
 from bibleit import translation
 from bibleit.verse import RowRef
 
-__all__ = [
+__all__ = [  # noqa: F822 - NavigationSuggester is provided lazily by __getattr__
     "NavigationState",
     "NavigationSuggester",
     "RowRef",
@@ -291,14 +290,23 @@ def select_navigation_completion(value: str, completion: str) -> str:
     return f"{completion}{tail}{separator}"
 
 
-class NavigationSuggester(Suggester):
-    def __init__(self, translation_getter: Callable[[], translation.Translation | None]):
-        super().__init__(use_cache=False, case_sensitive=True)
-        self.translation_getter = translation_getter
+def __getattr__(name: str):
+    """Load the Textual-only adapter without coupling navigation consumers to it."""
+    if name != "NavigationSuggester":
+        raise AttributeError(name)
 
-    async def get_suggestion(self, value: str) -> str | None:
-        translation_ = self.translation_getter()
-        if translation_ is None:
-            return None
+    from textual.suggester import Suggester
 
-        return navigation_suggestion_value(value, translation_)
+    class NavigationSuggester(Suggester):
+        def __init__(self, translation_getter):
+            super().__init__(use_cache=False, case_sensitive=True)
+            self.translation_getter = translation_getter
+
+        async def get_suggestion(self, value: str) -> str | None:
+            translation_ = self.translation_getter()
+            if translation_ is None:
+                return None
+            return navigation_suggestion_value(value, translation_)
+
+    globals()[name] = NavigationSuggester
+    return NavigationSuggester

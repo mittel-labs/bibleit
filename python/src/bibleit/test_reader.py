@@ -165,6 +165,27 @@ class VerseLineTest(unittest.TestCase):
         self.assertIsNone(reader.verse_line(translation_, translation.TranslationRef(1, 1, 1)))
 
 
+class RenderHtmlTest(unittest.TestCase):
+    def test_preserves_supported_markup_and_escapes_other_html(self):
+        rendered = reader.render_html("Let <b>light</b><br><script>bad()</script> & shine")
+
+        self.assertEqual(rendered, "Let <b>light</b><br>bad() &amp; shine")
+
+    def test_strongs_data_code_carries_the_requested_prefix(self):
+        self.assertEqual(
+            reader.render_html("Jesus <S>2424</S>", prefix="G"),
+            'Jesus <span class="strong" data-code="G2424">2424</span>',
+        )
+
+
+class StepReferenceTest(unittest.TestCase):
+    def test_steps_forward_and_backward(self):
+        ref = translation.TranslationRef(1, 1, 2)
+
+        self.assertEqual(reader.next_ref(FakeTranslation(GENESIS_LINES, 1), ref), RowRef(1, 1, 3))
+        self.assertEqual(reader.previous_ref(FakeTranslation(GENESIS_LINES, 1), ref), RowRef(1, 1, 1))
+
+
 class WindowAroundTest(unittest.TestCase):
     def test_reads_forward_from_the_reference(self):
         translation_ = FakeTranslation(GENESIS_LINES)

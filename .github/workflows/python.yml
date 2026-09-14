@@ -36,7 +36,7 @@ jobs:
         run: make install-local
 
       - name: Install browser for standalone UI tests
-        run: python -m playwright install --with-deps chromium
+        run: .venv/bin/python -m playwright install --with-deps chromium
 
       - name: Lint
         run: make lint

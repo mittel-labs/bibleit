@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import re
 from typing import Iterable
 
 from textual import events
 from textual.message import Message
 from textual.widgets import Label, ListItem, ListView
 
-from bibleit import translation
+from bibleit import reader, translation
 from bibleit.live_publisher import LivePublisher, running_in_browser
 from bibleit.navigation import NavigationState, RowRef
 from bibleit.ui.screens.translations import Translations
@@ -16,7 +15,6 @@ from bibleit.ui.screens.translations import Translations
 
 class View(ListView):
     INITIAL_ROWS = 25
-    STRONG_RE = re.compile(r"<S>(.*?)</S>")
 
     class Render(Message):
         def __init__(self, slug: str, value: Iterable[str]):
@@ -162,21 +160,7 @@ class View(ListView):
         return True
 
     def value_for_ref(self, ref: translation.TranslationRef) -> str | None:
-        try:
-            cursor = self.translation.cursor_from(ref)
-        except RuntimeError:
-            return None
-
-        value = cursor.next()
-
-        if value is None:
-            return None
-
-        row = self._decode_row(value)
-        if self._ref_from_text(row) != self._target_row_ref(ref):
-            return None
-
-        return row
+        return reader.verse_line(self.translation, ref)
 
     def _is_highlighting_state(self) -> bool:
         if self.index is None or not 0 <= self.index < len(self.children):
@@ -232,47 +216,21 @@ class View(ListView):
         )
 
     def _style_row(self, text: str) -> str:
-        text = re.sub(r"(.* \d+:\d+)", r"[bold]\1 [/]", text)
-        text = re.sub(r"<b>(.*?)</b>", r"[bold]\1[/]", text)
-        text = re.sub(r"<i>(.*?)</i>", r"[italic]\1[/]", text)
-
-        def replace_strong(match):
-            raw = match.group(1).strip()
-
-            if not self.translation:
-                return raw
-
-            prefix = "H"
-
-            if self.children:
-                ref = self._row_ref(self.children[0])
-
-                if ref:
-                    prefix = self._strong_prefix(ref.bookid)
-
-            code = f"{prefix}{raw}"
-
-            entry = self.translation.strongs.get(code)
-
-            if not entry:
-                return ""
-
-            if not self.show_strongs:
-                return ""
-
-            label = raw
-
-            return f"[#c96f00]" f"[@click=app.open_strong('{code}')]" f"ᴴ{label}" f"[/]"
-
-        text = text.replace("<br>", "\n").replace("<br/>", "\n")
-        text = self.STRONG_RE.sub(replace_strong, text)
-        text = re.sub(
-            r"<sup>(.*?)</sup>",
-            r"[dim italic]\1[/]",
+        return reader.render_textual_markup(
             text,
-            flags=re.IGNORECASE | re.DOTALL,
+            strongs=self.translation.strongs if self.translation else None,
+            show_strongs=self.show_strongs,
+            prefix=self._strong_prefix_for_rows(),
         )
-        return text
+
+    def _strong_prefix_for_rows(self) -> str:
+        if self.children:
+            ref = self._row_ref(self.children[0])
+
+            if ref:
+                return reader.strong_prefix(ref.bookid)
+
+        return "H"
 
     def _make_row(self, value: str) -> ListItem:
         label = Label(self._style_row(value), markup=True)
@@ -281,7 +239,7 @@ class View(ListView):
         return row
 
     def _decode_row(self, value) -> str:
-        return value.memoryview().tobytes().decode("utf-8", "replace")
+        return reader.decode(value)
 
     def _append_cursor_row(self) -> bool:
         if self.cursor is None:
@@ -299,65 +257,27 @@ class View(ListView):
                 break
 
     def _target_row_ref(self, ref: translation.TranslationRef) -> RowRef:
-        return RowRef(
-            ref.bookid,
-            ref.chapter or 1,
-            ref.verse_start or 1,
-        )
+        return reader.target_row_ref(ref)
 
     def _load_cursor_rows_around(self, ref: translation.TranslationRef, index: int) -> int | None:
-        target = self._target_row_ref(ref)
-        previous_rows: list[ListItem] = []
-        previous_cursor = self.translation.cursor_from(ref)
+        window = reader.window_around(
+            self.translation,
+            ref,
+            before=index,
+            total=self.INITIAL_ROWS,
+        )
+        self.cursor = window.cursor
 
-        for _ in range(max(0, index)):
-            value = previous_cursor.previous()
+        for line in window.lines:
+            self.append(self._make_row(line))
 
-            if value is None:
-                break
-
-            previous_rows.insert(0, self._make_row(self._decode_row(value)))
-
-        cursor = self.translation.cursor_from(ref)
-        self.cursor = cursor
-
-        remaining = max(1, self.INITIAL_ROWS - len(previous_rows))
-        rows = [*previous_rows]
-
-        for _ in range(remaining):
-            value = self.cursor.next()
-            if value is None:
-                break
-            rows.append(self._make_row(self._decode_row(value)))
-
-        target_index = None
-        for row_index, row in enumerate(rows):
-            if isinstance(row, ListItem) and self._row_ref(row) == target:
-                target_index = row_index
-                break
-
-        for row in rows:
-            self.append(row)
-
-        return target_index
+        return window.index
 
     def _row_ref(self, row: ListItem) -> RowRef | None:
         return self._ref_from_text(getattr(row, "data", ""))
 
     def _ref_from_text(self, text: str) -> RowRef | None:
-        if self.translation is None:
-            return None
-
-        match = re.match(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+", text)
-        if not match:
-            return None
-
-        if bookid := self.translation.resolve_bookid(match.group("book")):
-            return RowRef(
-                bookid=bookid,
-                chapter=int(match.group("chapter")),
-                verse=int(match.group("verse")),
-            )
+        return reader.row_ref(self.translation, text)
 
     def _cursor_from_row(self, row: ListItem):
         ref = self._row_ref(row)
@@ -486,9 +406,6 @@ class View(ListView):
             self.call_after_refresh(self._restore_visible_selection)
         else:
             self._restore_visible_selection()
-
-    def _strong_prefix(self, bookid: int) -> str:
-        return "H" if bookid <= 39 else "G"
 
     def on_translations_open(self, event: Translations.Open):
         self.clear()

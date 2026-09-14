@@ -6,7 +6,7 @@ from textual import events
 from textual.containers import Horizontal
 from textual.widgets import Button
 
-from bibleit import translation
+from bibleit import reader, translation
 from bibleit.live_publisher import running_in_browser
 from bibleit.navigation import (
     NavigationState,
@@ -322,19 +322,7 @@ class BibleView(Horizontal):
             self._set_maximized_view(None)
 
     def _chapter_end_ref(self, view: View) -> translation.TranslationRef | None:
-        try:
-            cursor = view.translation.cursor_chapter(translation.TranslationRef(self.state.bookid, self.state.chapter))
-        except RuntimeError:
-            return None
-
-        last_ref = None
-        while value := cursor.next():
-            last_ref = view._ref_from_text(view._decode_row(value))
-
-        if last_ref is None:
-            return None
-
-        return translation.TranslationRef(last_ref.bookid, last_ref.chapter, last_ref.verse)
+        return reader.chapter_last_ref(view.translation, self.state.bookid, self.state.chapter)
 
     def action_chapter_start(self):
         view = self._active_view()

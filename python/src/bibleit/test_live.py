@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import subprocess
+import sys
 import unittest
 import json
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 from tempfile import TemporaryDirectory
@@ -10,6 +14,7 @@ from tempfile import TemporaryDirectory
 from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
+import bibleit
 from bibleit.config import save_config
 from bibleit import live
 from bibleit.live import (
@@ -25,6 +30,31 @@ from bibleit.live import (
     request_is_authorized,
     viewer_html,
 )
+
+
+class RelayDependencyTest(unittest.TestCase):
+    """The relay runs in a container with aiohttp and no native library.
+
+    `python -m bibleit.live` must therefore stay clear of the translation
+    layer, which loads `libbibleit` at import time and pulls in `requests`.
+    """
+
+    FORBIDDEN = ("bibleit.translation", "bibleit._ffi", "bibleit.reader", "requests", "textual")
+
+    def test_the_relay_imports_without_the_reading_layer(self):
+        program = "import sys, bibleit.live; print(' '.join(sorted(set(sys.modules) & set(FORBIDDEN)))) "
+        program = f"FORBIDDEN = {self.FORBIDDEN!r}\n{program}"
+        root = Path(bibleit.__file__).resolve().parent.parent
+
+        result = subprocess.run(
+            [sys.executable, "-c", program],
+            capture_output=True,
+            text=True,
+            env=os.environ | {"PYTHONPATH": str(root)},
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "")
 
 
 class LiveVerseTest(unittest.TestCase):

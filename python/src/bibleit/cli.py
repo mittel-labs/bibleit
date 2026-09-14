@@ -20,7 +20,7 @@ TAG_RE = re.compile(r"<[^>]+>")
 DEFAULT_TRANSLATION_SLUG = "KJV"
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
         return _run_tui()
@@ -33,6 +33,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if namespace.live is not None:
         return _run_live(_live_values(namespace.live, parser))
+
+    if namespace.web is not None:
+        return _run_web(_web_values(namespace.web, parser))
 
     if namespace.list_translations:
         return _print_translations()
@@ -99,6 +102,12 @@ def _parser() -> argparse.ArgumentParser:
         metavar="HOST_PORT",
         help="Serve live endpoint, optionally overriding host and port: --live 0.0.0.0 8000.",
     )
+    parser.add_argument(
+        "--web",
+        nargs="*",
+        metavar="HOST_PORT",
+        help="Open the standalone web operator, optionally overriding host and port.",
+    )
     return parser
 
 
@@ -121,6 +130,24 @@ def _run_live(values: Sequence[str] = ()) -> int:
     host = values[0] if len(values) == 2 else None
     port = values[1] if len(values) == 2 else None
     live.main(host=host, port=port)
+    return 0
+
+
+def _web_values(values: Sequence[str], parser: argparse.ArgumentParser) -> Sequence[str]:
+    if len(values) not in (0, 2):
+        parser.error("--web expects HOST PORT")
+    return values
+
+
+def _run_web(values: Sequence[str] = ()) -> int:
+    try:
+        from bibleit import standalone
+    except RuntimeError as error:
+        print(f"bibleit: {error}", file=sys.stderr)
+        return 1
+    host = values[0] if len(values) == 2 else None
+    port = values[1] if len(values) == 2 else None
+    standalone.main(host=host, port=port)
     return 0
 
 

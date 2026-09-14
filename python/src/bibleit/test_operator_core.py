@@ -4,6 +4,7 @@ import asyncio
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 from bibleit import reader, translation
 from bibleit.operator import (
@@ -350,7 +351,13 @@ def guarded(name, *args, **kwargs):
 builtins.__import__ = guarded
 import bibleit.operator
 """
-        completed = subprocess.run([sys.executable, "-c", script], check=False, capture_output=True, text=True)
+        completed = subprocess.run(
+            [sys.executable, "-c", script],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).resolve().parents[1],
+        )
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
 

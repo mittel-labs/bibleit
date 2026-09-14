@@ -48,6 +48,22 @@ Start the live web server:
 bibleit --live 0.0.0.0 8000
 ```
 
+Run the standalone browser operator and audience viewer:
+
+```sh
+pip install 'bibleit[web]'
+bibleit --web 0.0.0.0 8000
+```
+
+Embed the operator API in a host-owned FastAPI application:
+
+```sh
+pip install 'bibleit[fastapi]'
+```
+
+See [`docs/fastapi-integration.md`](docs/fastapi-integration.md) for the router
+factory and authorization hooks.
+
 ## libbibleit
 
 `libbibleit` is the native core used by the Python package to read indexed Bible translation files efficiently. The Python package builds and bundles this library so users can install `bibleit` from PyPI and run the TUI or CLI without manually compiling the native layer.

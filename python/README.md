@@ -62,6 +62,21 @@ Then open:
 http://localhost:8000
 ```
 
+Run the standalone web operator and audience viewer on one port:
+
+```bash
+pip install '.[web]'
+bibleit --web 0.0.0.0 8000
+```
+
+The operator is available at `http://127.0.0.1:8000/operator`; audience
+devices use the share address shown there. Operator and API routes are
+loopback-only in the default standalone composition.
+
+For a host-owned FastAPI app, install `.[fastapi]` and use
+`bibleit.integrations.fastapi.create_operator_router` instead. That adapter
+does not include or serve this UI.
+
 Run the installed package directly:
 
 ```bash

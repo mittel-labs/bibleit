@@ -30,7 +30,14 @@ from bibleit.operator.models import (
     VerseWindow,
     parse_command,
 )
-from bibleit.operator.ports import ConfigStore, OpenedTranslation, ReadingService, TaskSpawner, TranslationCatalog
+from bibleit.operator.ports import (
+    ConfigStore,
+    OpenedTranslation,
+    PublishTarget,
+    ReadingService,
+    TaskSpawner,
+    TranslationCatalog,
+)
 from bibleit.operator.session import MAX_TOTAL, EventSubscription, OperatorSession
 from bibleit.text_find import find_translation_text
 
@@ -237,6 +244,17 @@ class OperatorService:
         if entry is None:
             raise OperatorError(f"No Strong's entry for {code.upper().strip()}")
         return entry
+
+    async def set_viewers(self, name: str, count: int, *, connected: bool | None = None) -> None:
+        self.session.set_viewers(name, count)
+        if connected is not None:
+            self.session.connected = connected
+        await self.session.notify_state()
+
+    def add_publish_target(self, target: PublishTarget) -> None:
+        if not any(existing.name == target.name for existing in self.session.targets):
+            self.session.targets.append(target)
+            self.session.refresh_viewers()
 
     async def config(self) -> dict[str, str]:
         if self.config_store is None:

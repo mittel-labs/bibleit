@@ -17,6 +17,7 @@ LIVE_APP_TITLE = "bibleit live"
 
 __all__ = [
     "LiveVerse",
+    "add_live_routes",
     "LiveHub",
     "clean_verse_text",
     "create_app",
@@ -237,8 +238,8 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     return ws
 
 
-def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
-    app = web.Application()
+def add_live_routes(app: web.Application, *, title: str = LIVE_APP_TITLE) -> web.Application:
+    """Mount the audience viewer and relay endpoints on an application."""
     app[HUB_KEY] = LiveHub()
     app[TITLE_KEY] = title
     app[TOKEN_KEY] = config_value("LIVE_TOKEN")
@@ -249,6 +250,10 @@ def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
     app.router.add_post("/api/live", live_mode)
     app.router.add_get("/ws", websocket)
     return app
+
+
+def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
+    return add_live_routes(web.Application(), title=title)
 
 
 def main(host: str | None = None, port: str | int | None = None) -> None:

@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from bibleit.operator import OperatorError, parse_command
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ApiModel(BaseModel):
@@ -113,14 +111,6 @@ class StrongRead(ApiModel):
 class CommandRequest(ApiModel):
     command: str
     params: dict[str, Any] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def validate_contract(self):
-        try:
-            parse_command(self.command, self.params)
-        except OperatorError as error:
-            raise ValueError(str(error)) from error
-        return self
 
 
 class InstallRead(ApiModel):

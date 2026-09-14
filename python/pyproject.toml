@@ -24,7 +24,8 @@ dependencies = [
 bibleit = "bibleit.cli:main"
 
 [project.optional-dependencies]
-dev = ["black", "flake8", "textual-dev"]
+fastapi = ["fastapi>=0.115,<1"]
+dev = ["black", "flake8", "httpx2", "textual-dev"]
 
 [project.urls]
 "Homepage" = "https://github.com/fmamud/bibleit"

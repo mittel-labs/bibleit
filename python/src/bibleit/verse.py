@@ -77,7 +77,7 @@ def render_html(
     position = 0
 
     for match in HTML_TOKEN_RE.finditer(value):
-        parts.append(escape(value[position : match.start()]))
+        parts.append(escape(unescape(value[position : match.start()])))
         position = match.end()
 
         if (code := match.group("code")) is not None:
@@ -93,7 +93,7 @@ def render_html(
         elif show_unknown_tags:
             parts.append(escape(match.group(0)))
 
-    parts.append(escape(value[position:]))
+    parts.append(escape(unescape(value[position:])))
     return "".join(parts)
 
 

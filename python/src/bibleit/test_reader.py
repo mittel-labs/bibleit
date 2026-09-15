@@ -177,6 +177,9 @@ class RenderHtmlTest(unittest.TestCase):
             'Jesus <span class="strong" data-code="G2424">2424</span>',
         )
 
+    def test_decodes_entities_before_escaping_literal_text(self):
+        self.assertEqual(reader.render_html("God &amp; love"), "God &amp; love")
+
 
 class StepReferenceTest(unittest.TestCase):
     def test_steps_forward_and_backward(self):

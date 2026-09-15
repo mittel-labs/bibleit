@@ -12,3 +12,7 @@ class CapabilityError(OperatorError):
 
 class PublishError(OperatorError):
     """A publish target rejected a state transition."""
+
+    def __init__(self, message: str, *, committed_sequence: int | None = None):
+        super().__init__(message)
+        self.committed_sequence = committed_sequence

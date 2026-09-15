@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
+from copy import deepcopy
 from contextlib import suppress
 from dataclasses import replace
+from functools import wraps
 
 from bibleit import live_payload, reader, translation
 from bibleit.navigation import (
@@ -47,6 +49,42 @@ DEFAULT_TOTAL = 40
 MAX_TOTAL = 400
 
 
+class _MutationLock:
+    """An asyncio lock that permits nested public session calls in one task."""
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._owner: asyncio.Task | None = None
+        self._depth = 0
+
+    async def __aenter__(self) -> _MutationLock:
+        task = asyncio.current_task()
+        if task is None:
+            raise RuntimeError("OperatorSession mutations require an asyncio task")
+        if self._owner is task:
+            self._depth += 1
+            return self
+        await self._lock.acquire()
+        self._owner = task
+        self._depth = 1
+        return self
+
+    async def __aexit__(self, *_exc) -> None:
+        self._depth -= 1
+        if self._depth == 0:
+            self._owner = None
+            self._lock.release()
+
+
+def _serialized(method):
+    @wraps(method)
+    async def wrapped(self, *args, **kwargs):
+        async with self._mutations:
+            return await method(self, *args, **kwargs)
+
+    return wrapped
+
+
 class HubTarget:
     name = "local"
 
@@ -74,7 +112,8 @@ class RelayTarget:
             raise PublishError("The relay rejected the verse payload")
 
     async def set_live(self, live: bool) -> None:
-        await self.publisher.set_live(live)
+        if not await self.publisher.set_live(live):
+            raise PublishError("The relay rejected the live-state change")
 
 
 class EventSubscription(AsyncIterator[OperatorEvent]):
@@ -84,6 +123,7 @@ class EventSubscription(AsyncIterator[OperatorEvent]):
         self._session = session
         self._queue = queue
         self._closed = False
+        self._close_sentinel = object()
 
     def __aiter__(self) -> EventSubscription:
         return self
@@ -91,21 +131,30 @@ class EventSubscription(AsyncIterator[OperatorEvent]):
     async def __anext__(self) -> OperatorEvent:
         if self._closed:
             raise StopAsyncIteration
-        return await self._queue.get()
+        event = await self._queue.get()
+        if event is self._close_sentinel:
+            raise StopAsyncIteration
+        return event
 
     async def get(self) -> OperatorEvent:
         return await self.__anext__()
 
     def get_nowait(self) -> OperatorEvent:
-        return self._queue.get_nowait()
+        event = self._queue.get_nowait()
+        if event is self._close_sentinel:
+            raise StopAsyncIteration
+        return event
 
     def empty(self) -> bool:
-        return self._queue.empty()
+        return self._closed or self._queue.empty()
 
     def close(self) -> None:
         if not self._closed:
             self._closed = True
             self._session.unsubscribe(self)
+            if self._queue.full():
+                self._queue.get_nowait()
+            self._queue.put_nowait(self._close_sentinel)
 
     async def __aenter__(self) -> EventSubscription:
         return self
@@ -131,6 +180,7 @@ class OperatorSession:
         self.targets: list[PublishTarget] = list(targets)
         self.publisher_id = uuid.uuid4().hex
         self.sequence = 0
+        self._last_payload: dict | None = None
         self.before = before
         self.total = total
         self.viewer_counts: dict[str, int] = {}
@@ -138,6 +188,7 @@ class OperatorSession:
         self.strongs = False
         self._subscriptions: set[EventSubscription] = set()
         self._opener = opener
+        self._mutations = _MutationLock()
 
     def find(self, slug: str) -> OpenedTranslation | None:
         return next((opened for opened in self.translations if opened.slug == slug), None)
@@ -151,6 +202,7 @@ class OperatorSession:
             raise OperatorError("Open a translation first")
         return active
 
+    @_serialized
     async def add_translation(self, opened: OpenedTranslation) -> None:
         if self.find(opened.slug) is not None:
             with suppress(Exception):
@@ -164,13 +216,16 @@ class OperatorSession:
             self._align_state(opened)
         try:
             await self.publish()
-        except Exception:
+        except Exception as error:
             self.translations, self.active_slug, self.state, self.sequence = previous
+            if isinstance(error, PublishError) and error.committed_sequence is not None:
+                self.sequence = error.committed_sequence
             with suppress(Exception):
                 opened.close()
             raise
         await self.notify_state()
 
+    @_serialized
     async def open_translation(self, slug: str) -> None:
         """Compatibility helper; new applications should open through OperatorService."""
         if self.find(slug) is not None:
@@ -181,6 +236,7 @@ class OperatorSession:
             raise OperatorError(str(error)) from error
         await self.add_translation(opened)
 
+    @_serialized
     async def close_translation(self, slug: str) -> None:
         opened = self.find(slug)
         if opened is None:
@@ -191,13 +247,16 @@ class OperatorSession:
             self.active_slug = self.translations[0].slug if self.translations else None
         try:
             await self.publish()
-        except Exception:
+        except Exception as error:
             self.translations, self.active_slug, self.sequence = previous
+            if isinstance(error, PublishError) and error.committed_sequence is not None:
+                self.sequence = error.committed_sequence
             raise
         with suppress(Exception):
             opened.close()
         await self.notify_state()
 
+    @_serialized
     async def set_active(self, slug: str) -> None:
         if self.find(slug) is None:
             raise OperatorError(f"Translation not open: {slug}")
@@ -222,6 +281,7 @@ class OperatorSession:
                 return candidate
         return None
 
+    @_serialized
     async def goto(self, value: str) -> None:
         active = self.require_active()
         try:
@@ -239,7 +299,11 @@ class OperatorSession:
             self.active_slug = old_active
             raise
 
+    @_serialized
     async def goto_ref(self, ref: translation.TranslationRef, *, history: bool = False) -> None:
+        ref = translation.TranslationRef(ref.bookid, ref.chapter or 1, ref.verse_start or 1)
+        if self._translation_with_ref(ref) is None:
+            raise OperatorError(f"Reference not found: {ref.bookid} {ref.chapter}:{ref.verse_start}")
         previous = (replace(self.state), self.sequence)
         self.state.bookid = ref.bookid
         self.state.chapter = ref.chapter or 1
@@ -247,8 +311,10 @@ class OperatorSession:
         self.state.index = 0
         try:
             await self.publish(history=history)
-        except Exception:
+        except Exception as error:
             self.state, self.sequence = previous
+            if isinstance(error, PublishError) and error.committed_sequence is not None:
+                self.sequence = error.committed_sequence
             raise
         await self.notify_state()
 
@@ -256,34 +322,43 @@ class OperatorSession:
         if row is not None:
             await self.goto_ref(translation.TranslationRef(row.bookid, row.chapter, row.verse))
 
+    @_serialized
     async def next_verse(self) -> None:
         await self._step(reader.next_ref(self.require_active(), self.current_ref()))
 
+    @_serialized
     async def previous_verse(self) -> None:
         await self._step(reader.previous_ref(self.require_active(), self.current_ref()))
 
+    @_serialized
     async def chapter_start(self) -> None:
         self.require_active()
         await self.goto_ref(translation.TranslationRef(self.state.bookid, self.state.chapter, 1))
 
+    @_serialized
     async def chapter_end(self) -> None:
         ref = reader.chapter_last_ref(self.require_active(), self.state.bookid, self.state.chapter)
         if ref is None:
             raise OperatorError("Chapter end not found")
         await self.goto_ref(ref)
 
+    @_serialized
     async def next_chapter(self) -> None:
         ref = next_chapter_ref(self.require_active(), self.state)
         if ref is not None:
             await self.goto_ref(ref)
 
+    @_serialized
     async def previous_chapter(self) -> None:
         ref = previous_chapter_ref(self.require_active(), self.state)
         if ref is not None:
             await self.goto_ref(ref)
 
+    @_serialized
     async def set_live(self, live: bool) -> None:
         live = bool(live)
+        if live:
+            self.require_active()
         previous_live, previous_sequence = self.state.live, self.sequence
         changed = []
         try:
@@ -295,6 +370,8 @@ class OperatorSession:
                 await self.publish()
         except Exception as error:
             self.state.live, self.sequence = previous_live, previous_sequence
+            if isinstance(error, PublishError) and error.committed_sequence is not None:
+                self.sequence = error.committed_sequence
             for target in reversed(changed):
                 with suppress(Exception):
                     await target.set_live(previous_live)
@@ -304,6 +381,7 @@ class OperatorSession:
         self.refresh_viewers()
         await self.notify_state()
 
+    @_serialized
     async def publish(self, *, history: bool = False) -> dict | None:
         if not self.state.live or not self.translations:
             return None
@@ -318,15 +396,47 @@ class OperatorSession:
             return None
         if history:
             payload["history"] = True
+        delivered = []
         try:
             for target in self.targets:
                 await target.publish(payload)
+                delivered.append(target)
         except Exception as error:
-            if isinstance(error, OperatorError):
-                raise
-            raise PublishError(f"Could not publish verse: {error}") from error
+            committed_sequence = await self._compensate(delivered, next_sequence)
+            message = f"Could not publish verse: {error}"
+            raise PublishError(message, committed_sequence=committed_sequence) from error
         self.sequence = next_sequence
+        self._last_payload = payload
         return payload
+
+    async def _compensate(self, delivered: list[PublishTarget], failed_sequence: int) -> int | None:
+        """Restore targets that received a payload which was not delivered everywhere."""
+        if not delivered:
+            return None
+        if self._last_payload is None:
+            for target in delivered:
+                with suppress(Exception):
+                    await target.set_live(False)
+            return failed_sequence
+
+        compensation_sequence = failed_sequence + 1
+        payload = deepcopy(self._last_payload)
+        payload["sequence"] = compensation_sequence
+        payload.pop("history", None)
+        failed = []
+        for target in delivered:
+            try:
+                await target.publish(payload)
+            except Exception as error:
+                failed.append(f"{target.name}: {error}")
+        self.sequence = compensation_sequence
+        self._last_payload = payload
+        if failed:
+            raise PublishError(
+                f"Could not compensate published targets ({'; '.join(failed)})",
+                committed_sequence=compensation_sequence,
+            )
+        return compensation_sequence
 
     @property
     def viewers(self) -> int:
@@ -342,6 +452,7 @@ class OperatorSession:
                 self.set_viewers(target.name, counter())
                 self.connected = True
 
+    @_serialized
     async def set_strongs(self, show: bool) -> None:
         self.strongs = bool(show)
         await self.notify_state()
@@ -453,6 +564,7 @@ class OperatorSession:
     async def notify_state(self) -> None:
         await self.notify(StateEvent(self.state_model()))
 
+    @_serialized
     async def execute(self, command: OperatorCommand) -> None:
         match command:
             case Goto(value):
@@ -482,11 +594,17 @@ class OperatorSession:
             case SetStrongs(strongs):
                 await self.set_strongs(strongs)
 
+    @_serialized
     async def command(self, name: str, params: dict | None = None) -> None:
         """Deprecated compatibility wrapper for string-and-dict callers."""
         await self.execute(parse_command(name, params))
 
+    @_serialized
     async def close(self) -> None:
+        for target in self.targets:
+            with suppress(Exception):
+                await target.set_live(False)
+        self.state.live = False
         for subscription in tuple(self._subscriptions):
             subscription.close()
         for opened in self.translations:

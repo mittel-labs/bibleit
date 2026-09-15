@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import subprocess
 import sys
 import unittest
@@ -8,10 +9,12 @@ from bibleit import reader, translation
 from bibleit.operator import (
     CapabilityError,
     CommandValidationError,
+    OperatorError,
     OperatorCapabilities,
     OperatorService,
     OperatorSession,
     PublishError,
+    RelayTarget,
 )
 from bibleit.operator.models import GotoReference, InstallEvent, StateEvent, parse_command
 
@@ -130,20 +133,34 @@ class FakeCatalog:
 
 
 class FakeTarget:
-    name = "relay"
-
-    def __init__(self):
+    def __init__(self, name="relay"):
+        self.name = name
         self.payloads = []
         self.live_values = []
         self.fail_publish = False
+        self.block_next_publish = False
+        self.fail_blocked_publish = False
+        self.publish_started = asyncio.Event()
+        self.release_publish = asyncio.Event()
 
     async def publish(self, payload):
+        if self.block_next_publish:
+            self.block_next_publish = False
+            self.publish_started.set()
+            await self.release_publish.wait()
+            if self.fail_blocked_publish:
+                raise OSError("offline")
         if self.fail_publish:
             raise OSError("offline")
         self.payloads.append(payload)
 
     async def set_live(self, live):
         self.live_values.append(live)
+
+
+class RejectedRelayPublisher:
+    async def set_live(self, _live):
+        return False
 
 
 class OperatorCoreTests(unittest.IsolatedAsyncioTestCase):
@@ -190,6 +207,77 @@ class OperatorCoreTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.service.state().ref, old_state.ref)
         self.assertEqual(self.service.state().sequence, old_state.sequence)
+
+    async def test_partial_multi_target_publish_is_compensated_without_reusing_sequence(self):
+        first = FakeTarget("first")
+        second = FakeTarget("second")
+        session = OperatorSession(targets=[first, second])
+        service = OperatorService(session=session, catalog=self.catalog)
+        await service.open_translation("KJV")
+        await session.set_live(True)
+        committed = first.payloads[-1]
+        second.fail_publish = True
+
+        with self.assertRaises(PublishError):
+            await session.goto_ref(translation.TranslationRef(1, 1, 2))
+
+        self.assertEqual(service.state().ref.verse, 1)
+        self.assertEqual(session.sequence, 3)
+        self.assertEqual([payload["sequence"] for payload in first.payloads], [1, 2, 3])
+        self.assertEqual(first.payloads[-1]["translations"], committed["translations"])
+        await service.close()
+
+    async def test_goto_ref_rejects_references_not_present_in_an_open_translation(self):
+        await self.service.open_translation("KJV")
+        old_state = self.service.state()
+
+        with self.assertRaisesRegex(OperatorError, "Reference not found"):
+            await self.session.goto_ref(translation.TranslationRef(999, 1, 1))
+
+        self.assertEqual(self.service.state().ref, old_state.ref)
+        self.assertEqual(self.service.state().sequence, old_state.sequence)
+
+    async def test_failed_publish_cannot_rollback_a_later_concurrent_transition(self):
+        await self.service.open_translation("KJV")
+        await self.session.set_live(True)
+        original_sequence = self.session.sequence
+        self.target.block_next_publish = True
+        self.target.fail_blocked_publish = True
+
+        failing = asyncio.create_task(self.session.goto_ref(translation.TranslationRef(1, 1, 2)))
+        await self.target.publish_started.wait()
+        succeeding = asyncio.create_task(self.session.goto_ref(translation.TranslationRef(1, 1, 3)))
+        self.target.release_publish.set()
+
+        with self.assertRaises(PublishError):
+            await failing
+        await succeeding
+
+        self.assertEqual(self.service.state().ref.verse, 3)
+        self.assertEqual(self.service.state().sequence, original_sequence + 1)
+
+    async def test_close_disables_live_targets_before_releasing_translations(self):
+        await self.service.open_translation("KJV")
+        await self.session.set_live(True)
+
+        await self.service.close()
+
+        self.assertFalse(self.session.state.live)
+        self.assertEqual(self.target.live_values[-1], False)
+
+    async def test_relay_target_rejects_unacknowledged_live_state_changes(self):
+        with self.assertRaisesRegex(PublishError, "live-state"):
+            await RelayTarget(RejectedRelayPublisher()).set_live(True)
+
+    async def test_closing_session_unblocks_waiting_subscription_consumers(self):
+        subscription = self.service.subscribe(include_initial=False)
+        waiting = asyncio.create_task(subscription.get())
+        await asyncio.sleep(0)
+
+        await self.session.close()
+
+        with self.assertRaises(StopAsyncIteration):
+            await waiting
 
     async def test_subscribers_receive_typed_events_and_can_unsubscribe(self):
         subscription = self.service.subscribe()

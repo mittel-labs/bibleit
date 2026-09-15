@@ -21,6 +21,8 @@ result to `service.execute`. The string/dictionary `command` method remains a
 compatibility boundary only. State is always represented by `OperatorState`;
 subscribers receive `StateEvent` and `InstallEvent` values through an async
 `EventSubscription`. Call `subscription.close()` when a consumer disconnects.
+Closing a session also closes its subscriptions and wakes consumers blocked in
+iteration.
 
 `OperatorState` is the single state contract. It contains the opened
 translation summaries, active slug, current `Reference`, live/Strong's flags,
@@ -28,6 +30,11 @@ aggregate and per-target viewer counts, connectivity, publish-target names,
 and the committed publish sequence. `StateEvent` contains that exact model.
 `InstallEvent` contains a translation slug, an `installing`, `installed`,
 `failed`, `cancelled`, or `removed` state, and an optional error message.
+
+Publish targets must treat a payload's `publisher_id` and `sequence` as
+idempotency keys. If a multi-target fan-out fails after one target has accepted
+the candidate payload, the session compensates those targets with the last
+committed payload under a new sequence number before restoring local state.
 
 The typed command union covers reference navigation, verse/chapter stepping,
 opening/closing/selecting translations, live mode, and Strong's visibility.

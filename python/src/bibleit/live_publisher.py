@@ -76,11 +76,11 @@ class LivePublisher:
 
         return await self._post("/api/publish", payload)
 
-    async def set_live(self, live: bool) -> None:
+    async def set_live(self, live: bool) -> bool:
         if not self.enabled:
-            return
+            return False
 
-        await self._post("/api/live", {"live": live})
+        return await self._post("/api/live", {"live": live})
 
     async def close(self) -> None:
         await self._close_publisher_websocket()

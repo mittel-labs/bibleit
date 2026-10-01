@@ -52,7 +52,7 @@ bibleit --live 0.0.0.0 8000
 
 `libbibleit` is the native core used by the Python package to read indexed Bible translation files efficiently. The Python package builds and bundles this library so users can install `bibleit` from PyPI and run the TUI or CLI without manually compiling the native layer.
 
-The native code lives in [`libbibleit/`](libbibleit/) and the Python package lives in [`python/`](python/).
+The native code is included as the [`libbibleit/`](libbibleit/) Git submodule, pinned to a stable release; clone this repository with `--recurse-submodules` (or run `git submodule update --init --recursive`) before building from source. The Python package lives in [`python/`](python/).
 
 ## Website
 
@@ -63,7 +63,7 @@ The project website is published with GitHub Pages from [`docs/`](docs/):
 ## Project Layout
 
 - [`python/`](python/) - Python package, Textual app, CLI, live server, tests.
-- [`libbibleit/`](libbibleit/) - Native translation/index reader.
+- [`libbibleit/`](libbibleit/) - Native translation/index reader Git submodule.
 - [`docs/`](docs/) - Static project website for GitHub Pages.
 
 ## Contributing

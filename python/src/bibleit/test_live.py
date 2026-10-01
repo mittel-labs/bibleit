@@ -21,9 +21,12 @@ from bibleit.live import (
     HUB_KEY,
     TITLE_KEY,
     TOKEN_KEY,
+    apple_touch_icon,
     clean_verse_text,
     create_app,
     current,
+    favicon_ico,
+    favicon_png,
     handle_publisher_message,
     icon,
     parse_verse_line,
@@ -91,7 +94,9 @@ class LiveVerseTest(unittest.TestCase):
         self.assertIn('id="live"', rendered)
         self.assertIn('id="splash"', rendered)
         self.assertIn("bibleit live", rendered)
-        self.assertIn('href="/bibleit-icon.png"', rendered)
+        self.assertIn('href="/favicon-32.png"', rendered)
+        self.assertIn('href="/favicon.ico"', rendered)
+        self.assertIn('href="/apple-touch-icon.png"', rendered)
         self.assertIn("Live is coming soon", rendered)
         self.assertIn("https://mittel.site", rendered)
         self.assertIn("https://live.bibleit.app", rendered)
@@ -110,6 +115,18 @@ class LiveVerseTest(unittest.TestCase):
 
         self.assertEqual(response.content_type, "image/png")
         self.assertGreater(len(response.body), 0)
+
+    def test_favicon_responses(self):
+        png = asyncio.run(favicon_png(make_mocked_request("GET", "/favicon-32.png")))
+        ico = asyncio.run(favicon_ico(make_mocked_request("GET", "/favicon.ico")))
+        apple = asyncio.run(apple_touch_icon(make_mocked_request("GET", "/apple-touch-icon.png")))
+
+        self.assertEqual(png.content_type, "image/png")
+        self.assertEqual(ico.content_type, "image/x-icon")
+        self.assertEqual(apple.content_type, "image/png")
+        self.assertGreater(len(png.body), 0)
+        self.assertGreater(len(ico.body), 0)
+        self.assertGreater(len(apple.body), 0)
 
     def test_control_requests_are_open_without_token(self):
         with TemporaryDirectory() as temp:

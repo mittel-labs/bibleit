@@ -138,6 +138,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .venv
 env/
 venv/
@@ -222,16 +224,6 @@ versions
 
 diff.*
 .DS_Store
-
-
-### zig ###
-# Zig programming language
-
-.zig-cache/
-zig-out/
-build/
-build-*/
-docgen_tmp/
 
 config/*.bt
 **/_version.py

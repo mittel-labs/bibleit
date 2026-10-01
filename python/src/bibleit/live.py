@@ -145,6 +145,27 @@ async def icon(_: web.Request) -> web.Response:
     )
 
 
+async def favicon_png(_: web.Request) -> web.Response:
+    return web.Response(
+        body=files("bibleit").joinpath("favicon-32.png").read_bytes(),
+        content_type="image/png",
+    )
+
+
+async def favicon_ico(_: web.Request) -> web.Response:
+    return web.Response(
+        body=files("bibleit").joinpath("favicon.ico").read_bytes(),
+        content_type="image/x-icon",
+    )
+
+
+async def apple_touch_icon(_: web.Request) -> web.Response:
+    return web.Response(
+        body=files("bibleit").joinpath("apple-touch-icon.png").read_bytes(),
+        content_type="image/png",
+    )
+
+
 async def current(request: web.Request) -> web.Response:
     hub = request.app[HUB_KEY]
     return web.json_response(
@@ -244,6 +265,9 @@ def create_app(title: str = LIVE_APP_TITLE) -> web.Application:
     app[TOKEN_KEY] = config_value("LIVE_TOKEN")
     app.router.add_get("/", index)
     app.router.add_get("/bibleit-icon.png", icon)
+    app.router.add_get("/favicon-32.png", favicon_png)
+    app.router.add_get("/favicon.ico", favicon_ico)
+    app.router.add_get("/apple-touch-icon.png", apple_touch_icon)
     app.router.add_get("/api/current", current)
     app.router.add_post("/api/publish", publish)
     app.router.add_post("/api/live", live_mode)

@@ -11,6 +11,7 @@ The library exposes a C API for:
 - **Looking up** single verses by reference.
 - **Iterating** over ranges, chapters, or entire books.
 - **Reading** verse text lines from the translation file.
+- **Searching** verse text with a case- and accent-insensitive native index.
 
 ## Features
 
@@ -18,6 +19,8 @@ The library exposes a C API for:
 - Zero allocations during iteration.
 - Struct-of-Arrays index for cache-friendly lookups.
 - Works with any translation text file where verses are line-separated.
+- Persistent `.bt.bsearch` sidecar indexes rebuild automatically when their
+  translation source changes.
 - Free and open source
 
 ## How to build
@@ -30,6 +33,12 @@ This produces:
 
 - `libbibleit.a` (static library)
 - `libbibleit.so` or `libbibleit.dylib` (shared library, platform-specific)
+
+Run the native search test with:
+
+```bash
+make test
+```
 
 ## File formats
 
@@ -125,3 +134,24 @@ int main(void) {
 ```
 
 For more concrete examples, please check [example.c](src/example.c) file.
+
+## Search
+
+`bt_search` searches the verse text only: reference labels such as `John 3:16`
+do not affect matches. It normalizes case and common Latin accents, so a query
+for `joao` can match `João`. Results are delivered through a visitor callback
+until the requested limit is reached or the visitor returns a non-zero value.
+
+```c
+static int print_match(bt_record_view verse, void *context) {
+    (void)context;
+    printf("%.*s\n", (int)verse.len, verse.ptr);
+    return 0;
+}
+
+size_t results = bt_search(ft, "pastor", 6, 10, print_match, NULL);
+```
+
+Opening a translation prepares or loads its adjacent `.bt.bsearch` index. The
+search index is an implementation detail; callers only need to keep the
+translation file writable if they want the sidecar to be persisted.

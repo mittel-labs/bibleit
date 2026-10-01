@@ -76,6 +76,8 @@ bidx_create_rc bidx_create(const char* bidx_path, const char* translation_path);
 int            bidx_version(const bidx_file* f);
 size_t         bidx_count(const bidx_file* f);
 bidx_lookup_rc bidx_read(const bidx_file* f, bidx_ref r, uint32_t* offset);
+bool           bidx_has_book(const bidx_file* f, uint8_t book);
+bool           bidx_has_chapter(const bidx_file* f, uint8_t book, uint8_t chapter);
 
 bidx_rc        bidx_iter_init(bidx_iter* it, const bidx_file* f, bidx_ref from);
 bidx_rc        bidx_iter_init_book(bidx_iter* it, const bidx_file* f, uint8_t book);

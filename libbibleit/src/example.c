@@ -126,6 +126,18 @@ static void iter_chapter(const bidx_file* f, const bt_file* ft) {
     }
 }
 
+static int print_search_match(bt_record_view verse, void* context) {
+    (void)context;
+    printf("%.*s\n", (int)verse.len, verse.ptr);
+    return 0;
+}
+
+static void search_text(const bt_file* ft) {
+    test_header("example search: pastor (first 10 results)");
+    size_t count = bt_search(ft, "pastor", 6, 10, print_search_match, NULL);
+    printf("%zu result(s)\n", count);
+}
+
 int main(void) {
     const char* bidx_path = "build/KJV.bidx";
     const char* translation_path = "build/KJV.bt";
@@ -150,6 +162,7 @@ int main(void) {
     iter_range_reverse(f, ft);
     iter_book(f, ft);
     iter_chapter(f, ft);
+    search_text(ft);
     iter_from(f, ft);
     invalid_ref(f);
 

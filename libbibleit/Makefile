@@ -25,7 +25,7 @@ else
                  ln -sf $(SHLIB_FULL) $(SHLIB_SONAME) && ln -sf $(SHLIB_SONAME) $(SHLIB)
 endif
 
-.PHONY: all build clean
+.PHONY: all build clean test
 all: build
 build: libbibleit.a $(SHLIB)
 
@@ -41,6 +41,10 @@ $(SHLIB): $(OBJS)
 
 clean:
 	rm -rf build libbibleit.a libbibleit.so* libbibleit.dylib
+
+test: libbibleit.a
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o build/test_search test/test_search.c ./libbibleit.a
+	./build/test_search
 
 .PHONY: example
 example: build/example

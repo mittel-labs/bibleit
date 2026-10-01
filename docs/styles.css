@@ -762,3 +762,62 @@ kbd {
     margin-left: 0;
   }
 }
+
+/* Bibleit identity: quiet parchment, near-black ink, and a single warm star. */
+:root {
+  color-scheme: light;
+  --ink: #17191d;
+  --paper: #f5f2eb;
+  --paper-strong: #fffdf8;
+  --muted: #716f69;
+  --line: rgba(23, 25, 29, 0.13);
+  --accent: #b97827;
+  --accent-strong: #f0b347;
+  --green: #45675c;
+  --blue: #485f9f;
+  --dark: #111318;
+  --dark-soft: #1b1d23;
+  --shadow: 0 1.25rem 3rem rgba(23, 25, 29, 0.12);
+}
+
+body { background: var(--paper); }
+.site-header { background: rgba(245, 242, 235, 0.9); }
+.brand { gap: 0.55rem; font-size: 1.15rem; font-weight: 850; letter-spacing: -0.055em; }
+.brand-mark {
+  width: 1.7rem;
+  height: 1.7rem;
+  display: grid;
+  place-items: center;
+  color: var(--accent-strong);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.hero {
+  min-height: min(760px, calc(100vh - 4.5rem));
+  background: var(--dark);
+  background-image: radial-gradient(ellipse at 76% 38%, rgba(240, 179, 71, 0.09), transparent 36%);
+}
+.hero::after {
+  background: linear-gradient(90deg, rgba(17, 19, 24, 0.98) 0%, rgba(17, 19, 24, 0.9) 42%, rgba(17, 19, 24, 0.48) 100%);
+}
+.eyebrow { color: var(--accent); letter-spacing: 0.16em; }
+.hero .eyebrow, .live-section .eyebrow { color: var(--accent-strong); }
+h1, h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: -0.035em; }
+h1 { max-width: 10ch; }
+.primary-action { background: var(--accent-strong); color: #19150f; }
+.verse-line.active { background: #f0b347; }
+.status-line { color: var(--accent-strong); }
+.live-card span, .section-note a, .phone-content small { color: var(--accent); }
+.feature-grid article, .command-card, .contribute-section { border-radius: 0.8rem; }
+.icon { background: #1d2825; color: var(--accent-strong); }
+.live-section { background: #19211f; }
+.phone-preview { background: #111816; }
+.command-card pre { background: #111318; }
+.copy-command:hover, .copy-command:focus-visible { border-color: var(--accent-strong); background: rgba(240, 179, 71, 0.18); }
+.copy-command[data-copied] { background: var(--accent-strong); }
+
+@media (max-width: 720px) {
+  .hero { min-height: auto; padding-top: 5rem; padding-bottom: 4rem; }
+  .hero-copy { width: 100%; }
+  .hero-visual { top: auto; right: -1rem; bottom: 1rem; width: min(22rem, 72vw); min-height: 0; opacity: 0.18; }
+}

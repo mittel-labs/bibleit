@@ -1,0 +1,10 @@
+{application, bibleit_server,
+ [{description, "bibleit server"},
+  {vsn, {file, "VERSION"}},
+  {modules, [bibleit_server, bibleit_server_boot, bibleit_server_app, bibleit_server_sup, bibleit_api, bibleit_account, bibleit_authorization, bibleit_plan,
+             bibleit_live_store, bibleit_live_registry, bibleit_live_session, bibleit_live_session_sup, bibleit_translation, bibleit_translation_available, bibleit_translation_catalog, bibleit_translation_fetcher, bibleit_translation_registry, bibleit_translation_nif, bibleit_protocol,
+             bibleit_tcp_listener, bibleit_tls_listener, bibleit_ssh_listener, bibleit_ssh_identity, bibleit_ssh_key_cb, bibleit_ssh_channel, bibleit_tcp_connection, bibleit_rate_limiter, bibleit_proxy_protocol,
+             bibleit_http_listener, bibleit_http_handler, bibleit_http_ws, bibleit_http_auth, bibleit_http_session, bibleit_http_oauth, bibleit_email_account, bibleit_resend_mailer]},
+  {registered, [bibleit_live_registry, bibleit_tcp_listener, bibleit_tls_listener, bibleit_ssh_listener, bibleit_ssh_identity, bibleit_rate_limiter, bibleit_http_listener]},
+  {applications, [kernel, stdlib, crypto, inets, ssl, ssh, cowboy, jargon]},
+  {mod, {bibleit_server_app, []}}]}.

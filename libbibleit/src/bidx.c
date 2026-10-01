@@ -240,6 +240,10 @@ bool bidx_has_chapter(const bidx_file* f, uint8_t book, uint8_t chapter) {
            f->start_index[book][chapter] != SIZE_MAX && f->verse_count[book][chapter] > 0;
 }
 
+size_t bidx_chapter_verse_count(const bidx_file* f, uint8_t book, uint8_t chapter) {
+    return bidx_has_chapter(f, book, chapter) ? f->verse_count[book][chapter] : 0;
+}
+
 static ptrdiff_t bidx_iter_ref(const bidx_file* f, bidx_ref r) {
     if (!f || r.book <= 0 || r.chapter <= 0) return -1;
     size_t base = f->start_index[r.book][r.chapter];

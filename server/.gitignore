@@ -1,0 +1,9 @@
+/ebin/
+/_build/
+/priv/bibleit_translation
+/priv/bibleit_translation_nif.so
+/priv/config/
+/priv/*.pem
+/.data/
+erl_crash.dump
+priv/ssh/

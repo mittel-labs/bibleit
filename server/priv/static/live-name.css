@@ -1,0 +1,22 @@
+.live-name {
+  margin: .35rem 0 0;
+  color: var(--muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: .9rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.brand {
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  max-width: calc(100vw - 12rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand span:first-child { color: var(--accent); }
+.brand span { color: inherit; }

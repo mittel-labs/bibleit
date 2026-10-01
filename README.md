@@ -42,17 +42,32 @@ Read a chapter:
 bibleit -t KJV dan 9
 ```
 
-Start the live web server:
+## Bibleit server and Live web application
 
-```sh
-bibleit --live 0.0.0.0 8000
-```
+[`server/`](server/) contains `bibleit_server`, the Erlang/OTP service for
+translation access, live sessions, permissions, optional Live secrets, the
+space-based TCP protocol, native SSH access, and the Cowboy HTTP/WebSocket
+application that presents Lives to browsers.
+
+For local development, start the OTP service and open
+`http://localhost:8080/lives/<id>`. Detailed configuration, command examples,
+and browser URLs are in the [server README](server/README.md).
 
 ## libbibleit
 
 `libbibleit` is the native core used by the Python package to read indexed Bible translation files efficiently. The Python package builds and bundles this library so users can install `bibleit` from PyPI and run the TUI or CLI without manually compiling the native layer.
 
-The native code lives in [`libbibleit/`](libbibleit/) and the Python package lives in [`python/`](python/).
+The native code lives in [`libbibleit/`](libbibleit/) and the Python package
+lives in [`python/`](python/). The existing Python live endpoint remains
+available while `bibleit_server` evolves independently.
+
+## Native server CLI
+
+The `cli/` directory contains the native Go client for the TLS line protocol.
+It proves possession of an OpenSSH Ed25519 private key against a server
+challenge; it does not use browser device login or save bearer credentials.
+Build it with `make cli`; see [`cli/README.md`](cli/README.md) for connection
+and key setup.
 
 ## Website
 
@@ -62,8 +77,9 @@ The project website is published with GitHub Pages from [`docs/`](docs/):
 
 ## Project Layout
 
-- [`python/`](python/) - Python package, Textual app, CLI, live server, tests.
-- [`libbibleit/`](libbibleit/) - Native translation/index reader.
+- [`python/`](python/) - Python package, Textual app, CLI, and tests.
+- [`server/`](server/) - Erlang/OTP multi-live service, TCP/TLS/SSH protocols, and Cowboy web application.
+- [`libbibleit/`](libbibleit/) - Native translation/index reader and search engine.
 - [`docs/`](docs/) - Static project website for GitHub Pages.
 
 ## Contributing

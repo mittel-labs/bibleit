@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-live="false" data-widget="false">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#10151d">
+    <title>bibleit live</title>
+    <link rel="stylesheet" href="/assets/live.css">
+    <link rel="stylesheet" href="/assets/live-name.css">
+  </head>
+  <body>
+    <main>
+      <section class="splash" id="splash">
+        <div class="cross">✦</div>
+        <p class="eyebrow">BIBLEIT LIVE</p>
+        <p class="live-name" id="splash-live-name" hidden></p>
+        <h1 id="splash-title">Waiting for the next verse.</h1>
+        <p id="connection-status">Connecting to the live session…</p>
+        <form id="secret-form" class="secret-form" hidden>
+          <label for="secret">Live secret</label>
+          <div>
+            <input id="secret" name="secret" type="password" autocomplete="off" placeholder="Paste the live secret" required>
+            <button type="submit">Join</button>
+          </div>
+        </form>
+      </section>
+      <section class="viewer" aria-live="polite">
+        <div class="toolbar" aria-label="Viewer controls">
+          <button id="theme" type="button" title="Toggle theme" aria-label="Toggle theme">◐</button>
+          <button id="font-size" type="button" title="Change type size" aria-label="Change type size">A</button>
+          <button id="presentation" type="button" title="Presentation mode" aria-label="Presentation mode">⛶</button>
+        </div>
+        <div class="brand"><span>✦</span><span id="viewer-live-name">bibleit live</span></div>
+        <div class="verses" id="verses"></div>
+      </section>
+    </main>
+    <script src="/assets/live.js" defer></script>
+  </body>
+</html>

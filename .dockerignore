@@ -12,3 +12,8 @@
 libbibleit/libbibleit.a
 libbibleit/libbibleit.dylib
 libbibleit/libbibleit.so*
+**/ebin
+**/_build
+server/priv/bibleit_translation_nif.so
+server/priv/bibleit_translation
+server/priv/config

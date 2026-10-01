@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0c111b">
+    <meta name="description" content="Bibleit is a live scripture presentation server.">
+    <title>Bibleit — Scripture, shared in the moment</title>
+    <link rel="stylesheet" href="/docs/index.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span>✦</span> bibleit</a>
+      <nav aria-label="Primary navigation">
+        <a href="#protocol">Protocol</a>
+        <a href="#live">Live</a>
+        <a class="sign-in" href="/auth/login">Sign in</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">SCRIPTURE, SHARED IN THE MOMENT</p>
+        <h1>Present the<br><em>living</em> word.</h1>
+        <p class="lede">Bibleit is a focused server for reading, searching, and presenting Scripture together—over TCP, the web, and a beautiful live view.</p>
+        <div class="actions">
+          <a class="button primary" href="/auth/signup">Create an account <span>→</span></a>
+          <a class="button secondary" href="/auth/login">Open dashboard</a>
+        </div>
+      </section>
+
+      <section class="terminal" id="protocol" aria-label="Bibleit protocol example">
+        <div class="terminal-bar"><i></i><i></i><i></i><span>bibleit server</span></div>
+        <pre><code><b>›</b> auth login bt_…
+<strong>OK</strong> actor="felipe"
+
+<b>›</b> live create sunday-service
+<strong>OK</strong> id="…" name="sunday-service"
+
+<b>›</b> live … stack push read nvipt salmos 23:1
+<strong>OK</strong> event=verse translations=1</code></pre>
+      </section>
+
+      <section class="features" id="live">
+        <article><p class="number">01</p><h2>Read naturally.</h2><p>Read a verse, chapter, or book by number or normalized name. Search translation text without leaving the connection.</p></article>
+        <article><p class="number">02</p><h2>Present together.</h2><p>Build a Live stack and let every viewer receive the same verse payload instantly through the browser.</p></article>
+        <article><p class="number">03</p><h2>Stay in control.</h2><p>Actors, roles, token permissions, quotas, and secret-protected Lives keep the right people in the right places.</p></article>
+      </section>
+
+      <section class="callout">
+        <p class="eyebrow">READY WHEN YOU ARE</p>
+        <h2>Your next live<br>starts here.</h2>
+        <a class="button primary" href="/auth/signup">Get started <span>→</span></a>
+      </section>
+    </main>
+    <footer><a class="brand" href="/"><span>✦</span> bibleit</a><p>Built for Scripture in community.</p></footer>
+  </body>
+</html>

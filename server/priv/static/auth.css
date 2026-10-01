@@ -1,0 +1,23 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #0c111b; color: #f6f1e8; }
+* { box-sizing: border-box; }
+body { min-height: 100vh; margin: 0; background: radial-gradient(circle at 12% 15%, #342316 0, transparent 30rem), radial-gradient(circle at 88% 88%, #0d3542 0, transparent 32rem), #0c111b; }
+a { color: inherit; }
+.auth-shell { width: min(100% - 2rem, 31rem); min-height: 100vh; margin: auto; padding: 2rem 0; display: flex; flex-direction: column; justify-content: center; }
+.brand { display: inline-flex; align-items: center; gap: .5rem; color: #fff9ef; font-weight: 800; font-size: 1.25rem; text-decoration: none; letter-spacing: -.04em; }
+.brand span, .eyebrow { color: #ffbd52; }
+.auth-shell > .brand { position: absolute; top: 2rem; }
+.auth-card { padding: clamp(2rem, 7vw, 3.25rem); border: 1px solid #374252; border-radius: 1.5rem; background: rgb(21 29 42 / .88); box-shadow: 0 2rem 5rem rgb(0 0 0 / .28); }
+.eyebrow { margin: 0 0 .8rem; font-size: .72rem; font-weight: 800; letter-spacing: .18em; }
+h1 { margin: 0; font-family: Iowan Old Style, Georgia, serif; font-size: clamp(2.5rem, 7vw, 3.7rem); line-height: .98; letter-spacing: -.06em; }
+.subtitle { margin: 1.15rem 0 2rem; color: #b5c0d0; font-size: 1rem; line-height: 1.55; }
+.oauth, button { width: 100%; min-height: 3.35rem; display: flex; justify-content: center; align-items: center; gap: .7rem; border-radius: .75rem; border: 1px solid #536075; background: #1d2635; color: #f9f7f1; font-size: 1rem; font-weight: 700; text-decoration: none; cursor: pointer; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.oauth-options { display: grid; gap: .75rem; }
+.oauth:hover, button:hover { transform: translateY(-1px); border-color: #ffbd52; background: #273247; }
+.provider-logo { width: 1.45rem; height: 1.45rem; flex: none; }
+.divider { display: flex; align-items: center; gap: .9rem; margin: 1.55rem 0; color: #8f9ab0; font-size: .85rem; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #364052; }
+form { display: grid; gap: .65rem; } label { font-size: .86rem; font-weight: 700; color: #dfe5ed; } input { min-height: 3.35rem; padding: 0 1rem; border: 1px solid #536075; border-radius: .75rem; background: #101724; color: #fff; font: inherit; } input:focus { outline: 2px solid #ffbd52; outline-offset: 2px; } button { margin-top: .55rem; border-color: #d9932c; background: linear-gradient(135deg, #e69d2d, #ffbd52); color: #1b150c; }
+.switch, .help, .footnote { color: #aab5c6; line-height: 1.55; } .switch { margin: 1.8rem 0 0; text-align: center; } .switch a { color: #ffbd52; } .notice { margin: 0 0 1.25rem; padding: .8rem 1rem; border: 1px solid #a95152; border-radius: .65rem; color: #ffd2d2; background: #43222a; }
+.footnote { text-align: center; font-size: .8rem; margin: 1.5rem 0 0; }
+.dashboard { width: min(100% - 3rem, 72rem); margin: auto; padding: 2rem 0; } nav { display: flex; justify-content: space-between; align-items: center; } .quiet { width: auto; min-height: 2.4rem; padding: 0 1rem; background: transparent; border-color: #536075; color: #dbe2ed; font-size: .85rem; } .danger { color: #ffd2d2; border-color: #8b4d54; } .dashboard section { margin-top: 12vh; max-width: 44rem; } .dashboard-card { margin-top: 2rem; padding: 1.35rem; border: 1px solid #374252; border-radius: 1rem; background: #151d2a; display: grid; gap: .7rem; color: #b5c0d0; } .ssh-keys { margin-top: 1rem; } .key-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem 0; border-top: 1px solid #2d3748; } .key-row form { display: block; } .key-form { margin-top: .6rem; } .key-form button { justify-self: start; width: auto; padding: 0 1rem; } .notice.success { border-color: #4e9567; color: #cff5d8; background: #173526; } code { color: #ffcf82; overflow-wrap: anywhere; }
+@media (max-width: 36rem) { .auth-shell { width: min(100% - 1.25rem, 31rem); } .auth-shell > .brand { top: 1.3rem; left: 1.3rem; } .auth-card { padding: 2rem 1.4rem; } .dashboard { width: min(100% - 2rem, 72rem); } }

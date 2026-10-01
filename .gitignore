@@ -224,14 +224,28 @@ diff.*
 .DS_Store
 
 
-### zig ###
-# Zig programming language
+### Erlang ###
+.eunit
+*.o
+*.beam
+*.plt
+erl_crash.dump
+.concrete/DEV_MODE
 
-.zig-cache/
-zig-out/
-build/
-build-*/
-docgen_tmp/
+# rebar 2.x
+.rebar
+rel/example_project
+ebin/*.beam
+
+deps
+
+# rebar 3
+.rebar3
+_build/
+_checkouts/
+
+### Erlang Patch ###
+rebar3.crashdump
 
 config/*.bt
 **/_version.py

@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Check out source repository
         uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -56,6 +58,8 @@ jobs:
     steps:
       - name: Check out source repository
         uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v6

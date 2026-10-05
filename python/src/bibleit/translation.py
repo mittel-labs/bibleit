@@ -27,14 +27,14 @@ from bibleit._ffi import (
 TIMEOUTS = (3, 10)
 TRANSLATIONS_DIR = Path.home() / ".bibleit"
 TRANSLATION_LANGUAGES_CONFIG_FILE_URI = (
-    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/languages.json"
+    "https://raw.githubusercontent.com/mittel-labs/libbibleit/refs/tags/v0.0.1/config/languages.json"
 )
 TRANSLATION_BOOKS_CONFIG_FILE_URI = (
-    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/translations_books.json"
+    "https://raw.githubusercontent.com/mittel-labs/libbibleit/refs/tags/v0.0.1/config/translations_books.json"
 )
 TRANSLATION_URIS = [
     "https://bolls.life/static/translations/{translation}.json",
-    "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/{translation}.json",
+    "https://raw.githubusercontent.com/mittel-labs/libbibleit/refs/tags/v0.0.1/config/{translation}.json",
 ]
 TRANSLATION_LINE = "{book} {chapter}:{verse} {text}\n"
 TRANSLATION_FILE = "{name}.bt"
@@ -44,7 +44,7 @@ TRANSLATION_CONFIG_FILE = "{name}.json"
 
 TRANSLATIONS_DIR.mkdir(parents=True, exist_ok=True)
 
-DICTIONARIES_URI = "https://raw.githubusercontent.com/mittel-labs/bibleit/refs/heads/main/config/dictionaries.json"
+DICTIONARIES_URI = "https://raw.githubusercontent.com/mittel-labs/libbibleit/refs/tags/v0.0.1/config/dictionaries.json"
 DICTIONARY_URI = "https://bolls.life/static/dictionaries/{name}.json"
 DICTIONARY_FILE = "{name}.dictionary.json"
 

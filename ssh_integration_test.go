@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	bibleit "github.com/mittel-labs/bibleit-cli/clients/go"
+	bibleit "github.com/mittel-labs/bibleit/clients/go"
 )
 
 // The harness supplies only temporary keys, a temporary known_hosts file, and

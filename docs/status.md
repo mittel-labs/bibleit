@@ -310,3 +310,12 @@ run on push. GitHub SSH returned `Repository not found` for the configured
 establish whether the repository is absent or inaccessible to the current SSH
 identity. The user selected a different repository; its URL and authenticated access are
 required before publication and native Windows execution.
+
+
+The replacement destination is `mittel-labs/bibleit`. Its existing main branch
+contains the Python TUI, website and native-library submodule. The publication
+branch preserves those files and merges their history with the prepared CLI;
+only README/gitignore overlap, and both projects' contents are retained. The Go
+module/import path is now `github.com/mittel-labs/bibleit`. Publishing a feature
+branch triggers native CI and does not merge into main. SSH remote access works;
+GitHub CLI authentication remains required for inspecting private Actions runs.

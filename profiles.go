@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	bibleit "github.com/mittel-labs/bibleit-cli/clients/go"
+	bibleit "github.com/mittel-labs/bibleit/clients/go"
 	"net"
 	"net/url"
 	"os"

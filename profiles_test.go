@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
-	bibleit "github.com/mittel-labs/bibleit-cli/clients/go"
+	bibleit "github.com/mittel-labs/bibleit/clients/go"
 	"io"
 	"net/http"
 	"os"

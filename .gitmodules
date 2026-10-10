@@ -1,0 +1,3 @@
+[submodule "libbibleit"]
+	path = libbibleit
+	url = https://github.com/mittel-labs/libbibleit.git

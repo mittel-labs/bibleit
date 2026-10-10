@@ -1,0 +1,1630 @@
+from __future__ import annotations
+
+import unittest
+import re
+from unittest.mock import patch
+from tempfile import TemporaryDirectory
+import asyncio
+
+from textual.widgets import Button, Input, Label, ListItem, ListView, Switch
+
+try:
+    from bibleit import translation
+    from bibleit.config import config_value, load_config, save_config, theme_is_dark, theme_value
+    from bibleit.app import (
+        BibleView,
+        Bibleit,
+        ConfigScreen,
+        HistoryEntry,
+        HistoryScreen,
+        LivePublisher,
+        NavigationState,
+        RowRef,
+        SessionHistory,
+        ShortcutsScreen,
+        StatusBar,
+        View,
+        WelcomeScreen,
+        running_in_browser,
+    )
+    from bibleit.navigation import (
+        complete_navigation_value,
+        navigation_completion_candidates,
+        navigation_suggestion_value,
+        next_chapter_ref,
+        parse_navigation_ref,
+        previous_chapter_ref,
+        select_navigation_completion,
+    )
+    from bibleit.panes import PaneRegistry
+    from bibleit.text_find import (
+        TextFindIndex,
+        cached_find_index,
+        clean_verse_text,
+        clear_find_index_cache,
+        find_translation_text,
+    )
+except ModuleNotFoundError:
+    raise
+
+
+class FakeBtView:
+    def __init__(self, value: str):
+        self.value = value
+
+    def memoryview(self):
+        return memoryview(self.value.encode("utf-8"))
+
+
+class FakeCursor:
+    def __init__(self, values, index: int = 0):
+        self.values = values
+        self.index = index
+
+    def next(self):
+        if self.index >= len(self.values):
+            return None
+
+        value = self.values[self.index]
+        self.index += 1
+        return FakeBtView(value)
+
+    def previous(self):
+        if self.index <= 0:
+            return None
+
+        self.index -= 1
+        return FakeBtView(self.values[self.index])
+
+
+class FakeTranslation:
+    slug = "TEST"
+
+    def __init__(self):
+        self.header = translation.TranslationHeader(
+            name="Test",
+            slug=self.slug,
+            chapters={
+                "Genesis": translation.TranslationChapter(1, 1, "Genesis", 1, 50),
+                "Daniel": translation.TranslationChapter(27, 27, "Daniel", 27, 12),
+                "Deuteronomy": translation.TranslationChapter(5, 5, "Deuteronomy", 5, 34),
+                "First Letter of Paul to the Corinthians": translation.TranslationChapter(
+                    46,
+                    46,
+                    "First Letter of Paul to the Corinthians",
+                    46,
+                    16,
+                ),
+                "Primeira Carta de João": translation.TranslationChapter(
+                    62,
+                    62,
+                    "Primeira Carta de João",
+                    62,
+                    5,
+                ),
+                "Matthew": translation.TranslationChapter(40, 40, "Matthew", 40, 28),
+            },
+        )
+        self.strongs = {
+            "H7225": translation.StrongEntry(
+                code="H7225",
+                lemma="reshith",
+                definition="beginning",
+            )
+        }
+        self.rows_by_book = {
+            1: [
+                "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                "Genesis 1:2 The earth was formless and empty.",
+            ],
+            46: [
+                "First Letter of Paul to the Corinthians 13:4 Love is patient, love is kind.",
+                "First Letter of Paul to the Corinthians 13:5 It does not dishonor others.",
+            ],
+        }
+        self.read_calls = 0
+
+    def resolve_bookid(self, book_name: str):
+        return self.header.resolve_bookid(book_name)
+
+    def read(self, ref: translation.TranslationRef):
+        self.read_calls += 1
+        return FakeCursor(self.rows_by_book.get(ref.bookid, []))
+
+    def cursor_from(self, ref: translation.TranslationRef):
+        return FakeCursor(self.rows_by_book.get(ref.bookid, []))
+
+
+class RefAwareFakeTranslation(FakeTranslation):
+    def __init__(self, rows_by_book):
+        super().__init__()
+        self.rows_by_book = rows_by_book
+
+    def cursor_from(self, ref: translation.TranslationRef):
+        rows = self.rows_by_book.get(ref.bookid, [])
+        target = RowRef(ref.bookid, ref.chapter or 1, ref.verse_start or 1)
+
+        for index, row in enumerate(rows):
+            row_ref = self._row_ref(row)
+
+            if row_ref == target:
+                return FakeCursor(rows, index)
+
+            if row_ref and (row_ref.chapter, row_ref.verse) > (target.chapter, target.verse):
+                return FakeCursor(rows, index)
+
+        return FakeCursor(rows, len(rows))
+
+    def _row_ref(self, row: str) -> RowRef | None:
+        match = re.match(r"^(?P<book>.+)\s+(?P<chapter>\d+):(?P<verse>\d+)\s+", row)
+
+        if not match:
+            return None
+
+        bookid = self.resolve_bookid(match.group("book"))
+        if bookid is None:
+            return None
+
+        return RowRef(bookid, int(match.group("chapter")), int(match.group("verse")))
+
+
+class AmbiguousFakeTranslation(FakeTranslation):
+    def __init__(self):
+        super().__init__()
+        self.header = translation.TranslationHeader(
+            name="Test",
+            slug=self.slug,
+            chapters={
+                "Daniel": translation.TranslationChapter(27, 27, "Daniel", 27, 12),
+                "Darius": translation.TranslationChapter(80, 80, "Darius", 80, 1),
+            },
+        )
+
+    def resolve_bookid(self, book_name: str):
+        normalized = book_name.lower()
+        matches = {
+            chapter.name.lower(): chapter.bookid
+            for chapter in self.header.chapters.values()
+            if chapter.name.lower().startswith(normalized)
+        }
+        return next(iter(matches.values())) if len(matches) == 1 else None
+
+
+class FakeLive:
+    def __init__(self):
+        self.values = []
+
+    async def set_live(self, live: bool):
+        self.values.append(live)
+
+    def set_live_blocking(self, live: bool):
+        self.values.append(live)
+
+
+class FakeView:
+    def __init__(self):
+        self.live = FakeLive()
+
+
+class RestoringBibleView(BibleView):
+    def __init__(self):
+        super().__init__()
+        self.published = 0
+
+    def publish_live_state(self):
+        self.published += 1
+
+
+class FakeClickEvent:
+    def __init__(self, item):
+        self.item = item
+        self.stopped = False
+
+    def stop(self):
+        self.stopped = True
+
+
+class FakeStopEvent:
+    def __init__(self):
+        self.stopped = False
+
+    def stop(self):
+        self.stopped = True
+
+
+class FakeInputEvent:
+    def __init__(self, input_id: str, value: str):
+        self.input = type("FakeInput", (), {"id": input_id})()
+        self.value = value
+        self.stopped = False
+
+    def stop(self):
+        self.stopped = True
+
+
+class BibleViewRowTests(unittest.TestCase):
+    def make_view(self):
+        return View(NavigationState(), FakeTranslation())
+
+    def test_row_ref_parses_rendered_verse(self):
+        view = self.make_view()
+        row = view._make_row("Genesis 1:3 Let there be light")
+
+        self.assertEqual(view._row_ref(row), RowRef(bookid=1, chapter=1, verse=3))
+
+    def test_strongs_are_hidden_when_disabled(self):
+        view = self.make_view()
+
+        self.assertEqual(
+            view._style_row("Genesis 1:1 Beginning<S>7225</S>"),
+            "[bold]Genesis 1:1 [/] Beginning",
+        )
+
+    def test_strongs_are_clickable_when_enabled(self):
+        view = self.make_view()
+        view.show_strongs = True
+
+        styled = view._style_row("Genesis 1:1 Beginning<S>7225</S>")
+
+        self.assertIn("@click=app.open_strong('H7225')", styled)
+        self.assertIn("ᴴ7225", styled)
+
+    def test_valid_index_clamps_stale_index(self):
+        view = View(NavigationState(), FakeTranslation())
+        view._nodes._append(ListItem())
+        view._nodes._append(ListItem())
+        view.index = 24
+
+        self.assertEqual(view._valid_index(), 1)
+        self.assertEqual(view.index, 1)
+
+    def test_restore_visible_selection_clamps_and_preserves_highlight(self):
+        view = View(NavigationState(), FakeTranslation())
+        rows = [ListItem() for _ in range(2)]
+        for row in rows:
+            view._nodes._append(row)
+        view.index = 24
+
+        view.restore_visible_selection()
+
+        self.assertEqual(view.index, 1)
+        self.assertFalse(rows[0].highlighted)
+        self.assertTrue(rows[1].highlighted)
+
+    def test_stale_row_click_is_ignored(self):
+        view = View(NavigationState(), FakeTranslation(), ListItem())
+        event = FakeClickEvent(ListItem())
+
+        with patch("bibleit.ui.view.running_in_browser", return_value=True):
+            view._on_list_item__child_clicked(event)
+
+        self.assertTrue(event.stopped)
+        self.assertIsNone(view.index)
+
+    def test_mouse_scroll_events_are_consumed_without_cursor_movement(self):
+        async def run():
+            view = self.make_view()
+            for _ in range(5):
+                view._nodes._append(ListItem())
+            view.index = 3
+
+            down = FakeStopEvent()
+            await view.on_mouse_scroll_down(down)
+            self.assertTrue(down.stopped)
+            self.assertEqual(view.index, 3)
+
+            up = FakeStopEvent()
+            await view.on_mouse_scroll_up(up)
+            self.assertTrue(up.stopped)
+            self.assertEqual(view.index, 3)
+
+        asyncio.run(run())
+
+    def test_value_for_ref_requires_exact_verse_match(self):
+        view = View(
+            NavigationState(),
+            RefAwareFakeTranslation(
+                {
+                    1: [
+                        "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                        "Genesis 1:3 Let there be light.",
+                    ],
+                }
+            ),
+        )
+
+        self.assertIsNone(view.value_for_ref(translation.TranslationRef(1, 1, 2)))
+        self.assertEqual(
+            view.value_for_ref(translation.TranslationRef(1, 1, 3)),
+            "Genesis 1:3 Let there be light.",
+        )
+
+
+class PaneRegistryTests(unittest.TestCase):
+    def test_removing_active_view_selects_next_view(self):
+        first = object()
+        second = object()
+        third = object()
+        panes = PaneRegistry()
+        panes.views.extend([first, second, third])
+        panes.active_view = second
+
+        self.assertIs(panes.remove(second), third)
+        self.assertIs(panes.active_view, third)
+        self.assertEqual(panes.views, [first, third])
+
+    def test_restoring_maximized_keeps_previous_view_active(self):
+        first = object()
+        second = object()
+        panes = PaneRegistry()
+        panes.views.extend([first, second])
+
+        panes.set_maximized(second)
+        self.assertIs(panes.active_view, second)
+
+        panes.set_maximized(None)
+        self.assertIs(panes.active_view, second)
+
+    def test_cycle_uses_focused_view_before_active_view(self):
+        first = object()
+        second = object()
+        panes = PaneRegistry()
+        panes.views.extend([first, second])
+        panes.active_view = first
+
+        self.assertIs(panes.cycle(1, focused_view=second), first)
+
+
+class SessionHistoryTests(unittest.TestCase):
+    def test_record_moves_existing_entry_to_front(self):
+        history = SessionHistory()
+        history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+        history.record(HistoryEntry(40, 5, 3, "Matthew 5:3"))
+        history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+
+        self.assertEqual(
+            [entry.label for entry in history.entries()],
+            ["Genesis 1:1", "Matthew 5:3"],
+        )
+
+    def test_entries_filters_with_fuzzy_query(self):
+        history = SessionHistory()
+        history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+        history.record(HistoryEntry(19, 23, 1, "Psalms 23:1"))
+        history.record(HistoryEntry(43, 3, 16, "John 3:16"))
+
+        filtered = history.entries("john 3:16")
+
+        self.assertEqual([entry.label for entry in filtered], ["John 3:16"])
+
+    def test_entries_filters_from_first_letter(self):
+        history = SessionHistory()
+        history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+        history.record(HistoryEntry(19, 23, 1, "Psalms 23:1"))
+        history.record(HistoryEntry(43, 3, 16, "John 3:16"))
+
+        filtered = history.entries("j")
+
+        self.assertEqual([entry.label for entry in filtered], ["John 3:16"])
+
+    def test_entries_filters_from_second_letter(self):
+        history = SessionHistory()
+        history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+        history.record(HistoryEntry(19, 23, 1, "Psalms 23:1"))
+        history.record(HistoryEntry(43, 3, 16, "John 3:16"))
+
+        filtered = history.entries("jo")
+
+        self.assertEqual([entry.label for entry in filtered], ["John 3:16"])
+
+
+class TextFindTests(unittest.TestCase):
+    def setUp(self):
+        clear_find_index_cache()
+        self.translation = FakeTranslation()
+
+    def test_clean_verse_text_removes_rendered_markup(self):
+        self.assertEqual(
+            clean_verse_text("Genesis 1:1 <b>Love</b><S>25</S><br>is patient"),
+            "Genesis 1:1 Love is patient",
+        )
+
+    def test_find_translation_finds_phrase_in_verse_text(self):
+        results = find_translation_text(self.translation, "love is patient")
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].label, "First Letter of Paul to the Corinthians 13:4")
+        self.assertEqual(results[0].ref, translation.TranslationRef(46, 13, 4))
+
+    def test_find_translation_checks_rendered_text_not_only_labels(self):
+        results = find_translation_text(self.translation, "formless")
+
+        self.assertEqual([result.label for result in results], ["Genesis 1:2"])
+
+    def test_find_index_builds_once_and_reuses_results(self):
+        index = TextFindIndex.build(self.translation)
+        read_calls = self.translation.read_calls
+
+        self.assertEqual(
+            [result.label for result in index.find("love")],
+            ["First Letter of Paul to the Corinthians 13:4"],
+        )
+        self.assertEqual([result.label for result in index.find("formless")], ["Genesis 1:2"])
+        self.assertEqual(self.translation.read_calls, read_calls)
+
+    def test_find_index_cache_reuses_translation_index(self):
+        cached_find_index(self.translation)
+        read_calls = self.translation.read_calls
+
+        cached_find_index(self.translation)
+
+        self.assertEqual(self.translation.read_calls, read_calls)
+
+    def test_find_index_cache_evicts_oldest_index(self):
+        class OtherTranslation(FakeTranslation):
+            slug = "OTHER"
+
+        with patch.dict("os.environ", {"BIBLEIT_FIND_INDEX_CACHE_SIZE": "1"}):
+            cached_find_index(self.translation)
+            other = OtherTranslation()
+            cached_find_index(other)
+            read_calls = self.translation.read_calls
+
+            cached_find_index(self.translation)
+
+        self.assertGreater(self.translation.read_calls, read_calls)
+
+
+class NavigationCommandTests(unittest.TestCase):
+    def setUp(self):
+        self.translation = FakeTranslation()
+        self.state = NavigationState(bookid=1, chapter=3, verse=4)
+
+    def test_bare_number_is_verse_in_current_chapter(self):
+        self.assertEqual(
+            parse_navigation_ref(":10", self.translation, self.state),
+            translation.TranslationRef(1, 3, 10),
+        )
+
+    def test_chapter_and_verse_use_current_book(self):
+        self.assertEqual(
+            parse_navigation_ref(":9.2", self.translation, self.state),
+            translation.TranslationRef(1, 9, 2),
+        )
+
+    def test_book_prefix_chapter_and_verse(self):
+        self.assertEqual(
+            parse_navigation_ref(":Mat 5:3", self.translation, self.state),
+            translation.TranslationRef(40, 5, 3),
+        )
+
+    def test_fuzzy_book_chapter_and_verse(self):
+        self.assertEqual(
+            parse_navigation_ref("cor 13:4", self.translation, self.state),
+            translation.TranslationRef(46, 13, 4),
+        )
+
+    def test_explicit_chapter_and_verse_forms(self):
+        self.assertEqual(
+            parse_navigation_ref(":c9", self.translation, self.state),
+            translation.TranslationRef(1, 9, 1),
+        )
+        self.assertEqual(
+            parse_navigation_ref(":v10", self.translation, self.state),
+            translation.TranslationRef(1, 3, 10),
+        )
+
+    def test_next_chapter_uses_current_book(self):
+        self.assertEqual(
+            next_chapter_ref(self.translation, self.state),
+            translation.TranslationRef(1, 4, 1),
+        )
+
+    def test_next_chapter_crosses_to_next_book(self):
+        state = NavigationState(bookid=1, chapter=50, verse=1)
+
+        self.assertEqual(
+            next_chapter_ref(self.translation, state),
+            translation.TranslationRef(5, 1, 1),
+        )
+
+    def test_previous_chapter_uses_current_book(self):
+        self.assertEqual(
+            previous_chapter_ref(self.translation, self.state),
+            translation.TranslationRef(1, 2, 1),
+        )
+
+    def test_previous_chapter_crosses_to_previous_book(self):
+        state = NavigationState(bookid=27, chapter=1, verse=1)
+
+        self.assertEqual(
+            previous_chapter_ref(self.translation, state),
+            translation.TranslationRef(5, 34, 1),
+        )
+
+    def test_book_completion_fills_single_match(self):
+        completed, matches, changed = complete_navigation_value("Da", self.translation)
+
+        self.assertTrue(changed)
+        self.assertEqual(completed, "Daniel ")
+        self.assertEqual(matches, ["Daniel"])
+
+    def test_book_completion_preserves_chapter_and_verse_tail(self):
+        completed, matches, changed = complete_navigation_value("Da 9:2", self.translation)
+
+        self.assertTrue(changed)
+        self.assertEqual(completed, "Daniel 9:2")
+        self.assertEqual(matches, ["Daniel"])
+
+    def test_book_completion_shows_multiple_matches_without_guessing(self):
+        ambiguous = AmbiguousFakeTranslation()
+
+        completed, matches, changed = complete_navigation_value("Da", ambiguous)
+
+        self.assertFalse(changed)
+        self.assertEqual(completed, "Da")
+        self.assertEqual(matches, ["Daniel", "Darius"])
+
+    def test_book_completion_selection_preserves_tail(self):
+        self.assertEqual(
+            select_navigation_completion("Da 9:2", "Daniel"),
+            "Daniel 9:2",
+        )
+
+    def test_book_completion_selection_adds_separator_without_tail(self):
+        self.assertEqual(
+            select_navigation_completion("Da", "Daniel"),
+            "Daniel ",
+        )
+
+    def test_book_completion_ignores_numeric_commands(self):
+        self.assertEqual(
+            navigation_completion_candidates(":9.2", self.translation),
+            [],
+        )
+
+    def test_book_completion_finds_contains_match(self):
+        completed, matches, changed = complete_navigation_value("cor", self.translation)
+
+        self.assertTrue(changed)
+        self.assertEqual(completed, "First Letter of Paul to the Corinthians ")
+        self.assertEqual(matches, ["First Letter of Paul to the Corinthians"])
+
+    def test_book_suggestion_uses_first_match(self):
+        self.assertEqual(
+            navigation_suggestion_value("da", self.translation),
+            "daniel ",
+        )
+
+    def test_book_suggestion_does_not_shift_unfinished_tail(self):
+        self.assertIsNone(
+            navigation_suggestion_value("dani 2:3", self.translation),
+        )
+
+    def test_book_suggestion_skips_contains_match_with_unfinished_tail(self):
+        self.assertIsNone(
+            navigation_suggestion_value("cor 13:4", self.translation),
+        )
+
+    def test_book_suggestion_is_accent_insensitive(self):
+        self.assertEqual(
+            navigation_suggestion_value("joao", self.translation),
+            "Primeira Carta de João ",
+        )
+
+
+class BrowserModeTests(unittest.TestCase):
+    def test_running_in_browser_detects_textual_serve_driver(self):
+        with patch.dict(
+            "os.environ",
+            {"TEXTUAL_DRIVER": "textual.drivers.web_driver:WebDriver"},
+        ):
+            self.assertTrue(running_in_browser())
+
+    def test_running_in_browser_is_false_without_web_driver(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertFalse(running_in_browser())
+
+
+class ConfigTests(unittest.TestCase):
+    def setUp(self):
+        self.config_dir = TemporaryDirectory()
+        self.config_patcher = patch.dict(
+            "os.environ",
+            {"BIBLEIT_CONFIG_FILE": f"{self.config_dir.name}/config"},
+        )
+        self.config_patcher.start()
+
+    def tearDown(self):
+        self.config_patcher.stop()
+        self.config_dir.cleanup()
+
+    def test_save_config_creates_toml_file(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config(
+                    {
+                        "LIVE_URL": "https://live.example",
+                        "LIVE_TOKEN": "secret",
+                    }
+                )
+
+                self.assertEqual(
+                    load_config(),
+                    {
+                        "LIVE_URL": "https://live.example",
+                        "LIVE_TOKEN": "secret",
+                    },
+                )
+
+    def test_save_config_skips_empty_values(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config(
+                    {
+                        "LIVE_URL": "https://live.example",
+                        "LIVE_TOKEN": "",
+                    }
+                )
+
+                self.assertEqual(load_config(), {"LIVE_URL": "https://live.example"})
+
+                with open(path, encoding="utf-8") as file:
+                    self.assertNotIn("LIVE_TOKEN", file.read())
+
+    def test_save_config_removes_existing_value_when_empty(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_TOKEN": "secret", "LIVE_URL": "https://live.example"})
+                save_config({"LIVE_TOKEN": ""})
+
+                self.assertEqual(load_config(), {"LIVE_URL": "https://live.example"})
+
+    def test_environment_value_takes_precedence_over_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_URL": "https://config.example"})
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_CONFIG_FILE": path,
+                    "BIBLEIT_LIVE_URL": "https://env.example",
+                },
+                clear=True,
+            ):
+                self.assertEqual(config_value("LIVE_URL"), "https://env.example")
+
+    def test_config_screen_uses_select_for_default_translation(self):
+        with patch.object(translation, "get_installed", return_value={"TEST": FakeTranslation().header}):
+            screen = ConfigScreen()
+
+            options = screen._translation_options()
+
+        self.assertEqual(options, [("TEST - Test", "TEST")])
+
+    def test_config_screen_saves_live_url_with_default_translation_select(self):
+        async def run():
+            with TemporaryDirectory() as temp:
+                path = f"{temp}/config"
+                with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                    with patch.object(translation, "get_installed", return_value={"NVIPT": FakeTranslation().header}):
+                        app = Bibleit()
+
+                        async with app.run_test() as pilot:
+                            app.push_screen(ConfigScreen())
+                            await pilot.pause()
+                            app.screen.query_one("#config-live-url", Input).value = "https://live.bibleit.app"
+                            await pilot.press("ctrl+s")
+                            await pilot.pause()
+
+                    self.assertEqual(load_config().get("LIVE_URL"), "https://live.bibleit.app")
+
+        asyncio.run(run())
+
+    def test_theme_is_loaded_from_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"THEME": "dark"})
+
+                self.assertEqual(theme_value(), "dark")
+                self.assertTrue(theme_is_dark())
+
+    def test_theme_env_takes_precedence_over_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"THEME": "light"})
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_CONFIG_FILE": path,
+                    "BIBLEIT_THEME": "dark",
+                },
+                clear=True,
+            ):
+                self.assertTrue(theme_is_dark())
+
+    def test_invalid_theme_falls_back_to_light(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"THEME": "sepia"})
+
+                self.assertEqual(theme_value(), "light")
+
+    def test_config_save_then_escape_keeps_saved_theme(self):
+        async def run():
+            with TemporaryDirectory() as temp:
+                path = f"{temp}/config"
+                with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                    save_config({"THEME": "light"})
+                    app = Bibleit()
+
+                    async with app.run_test() as pilot:
+                        app.push_screen(ConfigScreen())
+                        await pilot.pause()
+                        app.screen.query_one("#config-theme-dark", Switch).value = True
+                        await pilot.press("ctrl+s")
+                        await pilot.pause()
+
+                        self.assertTrue(app.dark_theme)
+                        self.assertTrue(app.has_class("dark"))
+                        self.assertEqual(app.theme, "textual-dark")
+                        self.assertNotIsInstance(app.screen, ConfigScreen)
+
+        asyncio.run(run())
+
+    def test_shortcuts_screen_mounts_with_open_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                bible_view = app.query_exactly_one(BibleView)
+                view = View(NavigationState(), FakeTranslation())
+                view.show_strongs = True
+                bible_view.views.append(view)
+
+                app.push_screen(ShortcutsScreen())
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, ShortcutsScreen)
+
+        asyncio.run(run())
+
+    def test_welcome_forwards_shortcut(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, WelcomeScreen)
+
+                await pilot.press("?")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, ShortcutsScreen)
+
+        asyncio.run(run())
+
+    def test_uppercase_g_opens_go_to_command(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), FakeTranslation()))
+                bible_view.focus()
+                await pilot.pause()
+
+                await pilot.press("G")
+                await pilot.pause()
+
+                self.assertTrue(app.query_exactly_one(StatusBar).command_mode)
+
+        asyncio.run(run())
+
+    def test_at_opens_go_to_command(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), FakeTranslation()))
+                bible_view.focus()
+                await pilot.pause()
+
+                await pilot.press("@")
+                await pilot.pause()
+
+                self.assertTrue(app.query_exactly_one(StatusBar).command_mode)
+
+        asyncio.run(run())
+
+    def test_tab_keeps_focus_on_active_list_view(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                view = View(NavigationState(), FakeTranslation())
+                bible_view.views.append(view)
+                await bible_view.mount(view)
+                await pilot.pause()
+
+                view.focus()
+                await pilot.pause()
+
+                await pilot.press("tab")
+                await pilot.pause()
+
+                self.assertIs(app.focused, view)
+
+        asyncio.run(run())
+
+    def test_tab_switches_between_open_translations(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                bible_view.set_active_view(first)
+                first.focus()
+                await pilot.press("tab")
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertIs(bible_view.active_view, second)
+                self.assertIs(app.focused, second)
+                self.assertEqual(status.active_translation, "TWO")
+
+                await pilot.press("shift+tab")
+                await pilot.pause()
+
+                self.assertIs(bible_view.active_view, first)
+                self.assertIs(app.focused, first)
+                self.assertEqual(status.active_translation, "ONE")
+
+        asyncio.run(run())
+
+    def test_status_bar_marks_focused_translation_active(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                second.focus()
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertEqual(status.translations, ["ONE", "TWO"])
+                self.assertEqual(status.active_translation, "TWO")
+
+        asyncio.run(run())
+
+    def test_terminal_status_bar_does_not_compact_on_narrow_resize(self):
+        status = StatusBar()
+        event = type("FakeResize", (), {"size": type("FakeSize", (), {"width": 40})()})()
+
+        with patch("bibleit.ui.status.running_in_browser", return_value=False):
+            status.on_resize(event)
+
+        self.assertFalse(status.compact)
+
+    def test_browser_status_bar_compacts_on_narrow_resize(self):
+        status = StatusBar()
+        event = type("FakeResize", (), {"size": type("FakeSize", (), {"width": 40})()})()
+
+        with patch("bibleit.ui.status.running_in_browser", return_value=True):
+            status.on_resize(event)
+
+        self.assertTrue(status.compact)
+
+    def test_opening_new_translation_keeps_existing_focus(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+
+                await bible_view.add_translation(first_translation)
+                await pilot.pause()
+                first = bible_view.views[0]
+                first.focus()
+                bible_view.set_active_view(first)
+
+                await bible_view.add_translation(second_translation)
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertIs(bible_view.active_view, first)
+                self.assertIs(app.focused, first)
+                self.assertEqual(status.translations, ["ONE", "TWO"])
+                self.assertEqual(status.active_translation, "ONE")
+
+        asyncio.run(run())
+
+    def test_missing_verse_in_secondary_translation_does_not_move_shared_state(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:2 The earth was formless and empty.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                first_translation.slug = "ONE"
+                second_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                bible_view.set_active_view(first)
+
+                bible_view.go_to_ref(translation.TranslationRef(1, 1, 1))
+                await pilot.pause()
+                await pilot.pause()
+
+                self.assertEqual(first._row_ref(first.children[first.index]), RowRef(1, 1, 1))
+                self.assertEqual(second._row_ref(second.children[second.index]), RowRef(1, 1, 1))
+
+                bible_view.go_to_ref(translation.TranslationRef(1, 1, 2))
+                await pilot.pause()
+                await pilot.pause()
+
+                self.assertEqual(
+                    (bible_view.state.bookid, bible_view.state.chapter, bible_view.state.verse),
+                    (1, 1, 2),
+                )
+                self.assertEqual(first._row_ref(first.children[first.index]), RowRef(1, 1, 2))
+                self.assertEqual(second._row_ref(second.children[second.index]), RowRef(1, 1, 1))
+
+        asyncio.run(run())
+
+    def test_go_to_uses_other_open_translation_when_active_translation_misses_verse(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                for existing in list(bible_view.views):
+                    await existing.remove()
+                bible_view.panes = PaneRegistry()
+                missing_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                missing_translation.slug = "MISSING"
+                complete_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:2 The earth was formless and empty.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                complete_translation.slug = "COMPLETE"
+                missing = View(bible_view.state, missing_translation)
+                complete = View(bible_view.state, complete_translation)
+                bible_view.panes.add(missing)
+                bible_view.panes.add(complete)
+                await bible_view.mount(missing, complete)
+                bible_view.set_active_view(missing)
+
+                self.assertTrue(bible_view.go_to_command("2"))
+                await pilot.pause()
+                await pilot.pause()
+
+                self.assertIs(bible_view.active_view, complete)
+                self.assertEqual(
+                    (bible_view.state.bookid, bible_view.state.chapter, bible_view.state.verse),
+                    (1, 1, 2),
+                )
+                self.assertEqual(complete._row_ref(complete.children[complete.index]), RowRef(1, 1, 2))
+                self.assertIsNone(missing.index)
+
+        asyncio.run(run())
+
+    def test_live_publishes_other_translation_when_active_translation_misses_verse(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                for existing in list(bible_view.views):
+                    await existing.remove()
+                bible_view.panes = PaneRegistry()
+                missing_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                missing_translation.slug = "MISSING"
+                complete_translation = RefAwareFakeTranslation(
+                    {
+                        1: [
+                            "Genesis 1:1 In the beginning God created the heavens and the earth.",
+                            "Genesis 1:2 The earth was formless and empty.",
+                            "Genesis 1:3 Let there be light.",
+                        ],
+                    }
+                )
+                complete_translation.slug = "COMPLETE"
+                missing = View(bible_view.state, missing_translation)
+                complete = View(bible_view.state, complete_translation)
+                published = []
+                missing._publish_payload = published.append
+                bible_view.panes.add(missing)
+                bible_view.panes.add(complete)
+                await bible_view.mount(missing, complete)
+                bible_view.set_active_view(missing)
+                bible_view.state.live = True
+
+                self.assertTrue(bible_view.go_to_command("2"))
+                await pilot.pause()
+
+                self.assertTrue(published)
+                self.assertEqual(published[-1]["reference"], "Genesis 1:2")
+                self.assertEqual(
+                    [verse["translation"] for verse in published[-1]["translations"]],
+                    ["COMPLETE"],
+                )
+
+        asyncio.run(run())
+
+    def test_ctrl_m_toggles_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                first.focus()
+                await pilot.press("ctrl+m")
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertIs(bible_view.maximized_view, first)
+                self.assertTrue(first.display)
+                self.assertFalse(second.display)
+                self.assertEqual(status.translations, ["ONE", "TWO"])
+                self.assertEqual(status.active_translation, "ONE")
+                self.assertEqual(status.maximized_translation, "ONE")
+
+                await pilot.press("ctrl+m")
+                await pilot.pause()
+
+                self.assertIsNone(bible_view.maximized_view)
+                self.assertTrue(first.display)
+                self.assertTrue(second.display)
+                self.assertIs(bible_view.active_view, first)
+                self.assertIs(app.focused, first)
+                self.assertEqual(status.active_translation, "ONE")
+                self.assertEqual(status.maximized_translation, "")
+
+        asyncio.run(run())
+
+    def test_go_to_uses_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test():
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+
+                bible_view._set_maximized_view(second)
+                status = app.query_exactly_one(StatusBar)
+                status.open_command()
+
+                self.assertIs(status._active_translation(), second_translation)
+
+        asyncio.run(run())
+
+    def test_escape_restores_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first = View(bible_view.state, FakeTranslation())
+                second = View(bible_view.state, FakeTranslation())
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                first.focus()
+                await pilot.press("ctrl+m")
+                await pilot.pause()
+                await pilot.press("escape")
+                await pilot.pause()
+
+                self.assertIsNone(bible_view.maximized_view)
+                self.assertTrue(first.display)
+                self.assertTrue(second.display)
+                self.assertEqual(app.query_exactly_one(StatusBar).maximized_translation, "")
+
+        asyncio.run(run())
+
+    def test_ctrl_tab_rotates_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                bible_view._set_maximized_view(first)
+                bible_view.action_next_maximized_translation()
+                await pilot.pause()
+
+                status = app.query_exactly_one(StatusBar)
+                self.assertIs(bible_view.maximized_view, second)
+                self.assertFalse(first.display)
+                self.assertTrue(second.display)
+                self.assertEqual(status.translations, ["ONE", "TWO"])
+                self.assertEqual(status.maximized_translation, "TWO")
+
+        asyncio.run(run())
+
+    def test_ctrl_number_selects_maximized_translation(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                first_translation = FakeTranslation()
+                first_translation.slug = "ONE"
+                second_translation = FakeTranslation()
+                second_translation.slug = "TWO"
+                first = View(bible_view.state, first_translation)
+                second = View(bible_view.state, second_translation)
+                bible_view.views.extend([first, second])
+                await bible_view.mount(first, second)
+                await pilot.pause()
+
+                bible_view._set_maximized_view(first)
+                bible_view.action_maximize_translation(2)
+                await pilot.pause()
+
+                self.assertIs(bible_view.maximized_view, second)
+                self.assertFalse(first.display)
+                self.assertTrue(second.display)
+                self.assertEqual(app.query_exactly_one(StatusBar).maximized_translation, "TWO")
+
+        asyncio.run(run())
+
+    def test_default_translation_opens_on_start(self):
+        async def run():
+            default_translation = FakeTranslation()
+            default_translation.slug = "ONE"
+            app = Bibleit()
+
+            with (
+                patch("bibleit.app.config_value", return_value="ONE"),
+                patch("bibleit.app.translation.open", return_value=default_translation),
+            ):
+                async with app.run_test():
+                    bible_view = app.query_exactly_one(BibleView)
+
+                    self.assertEqual([view.translation.slug for view in bible_view.views], ["ONE"])
+                    self.assertEqual(app.query_exactly_one(StatusBar).active_translation, "ONE")
+
+        asyncio.run(run())
+
+    def test_ctrl_h_toggles_history_screen(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.focus()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, HistoryScreen)
+
+                await pilot.press("ctrl+h")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, HistoryScreen)
+
+                await pilot.press("ctrl+h")
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, HistoryScreen)
+
+        asyncio.run(run())
+
+    def test_history_status_button_opens_history_screen(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, HistoryScreen)
+
+                status = app.query_exactly_one(StatusBar)
+                button = status.query_one("#action-history", Button)
+                await status.on_button_pressed(Button.Pressed(button))
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, HistoryScreen)
+                self.assertIsNotNone(app.screen.query_one("#history-title", Label))
+
+        asyncio.run(run())
+
+    def test_history_entries_are_wrapped(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                app.history.record(
+                    HistoryEntry(
+                        46,
+                        1,
+                        1,
+                        "Carta de Paulo aos Coríntios 1:1",
+                    )
+                )
+                app.push_screen(HistoryScreen())
+                await pilot.pause()
+
+                history = app.screen
+                row = history.query_one("#history-list", ListView).children[0]
+                label = row.query_one(Label)
+
+                self.assertEqual(str(row.styles.height), "auto")
+                self.assertEqual(str(row.styles.margin.bottom), "0")
+                self.assertEqual(str(label.styles.height), "auto")
+                self.assertEqual(label.styles.text_overflow, "fold")
+
+        asyncio.run(run())
+
+    def test_history_down_from_filter_focuses_first_entry(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                app.history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+                app.push_screen(HistoryScreen())
+                await pilot.pause()
+
+                history = app.screen
+                history.action_focus_filter()
+                await pilot.pause()
+                await pilot.press("down")
+                await pilot.pause()
+
+                list_view = history.query_one("#history-list", ListView)
+                self.assertIs(app.focused, list_view)
+                self.assertEqual(list_view.index, 0)
+
+        asyncio.run(run())
+
+    def test_history_up_from_first_entry_focuses_filter(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                app.history.record(HistoryEntry(1, 1, 1, "Genesis 1:1"))
+                app.push_screen(HistoryScreen())
+                await pilot.pause()
+
+                history = app.screen
+                await pilot.press("up")
+                await pilot.pause()
+
+                self.assertIs(app.focused, history.query_one("#history-filter"))
+
+        asyncio.run(run())
+
+    def test_go_to_completion_arrows_cycle_matches(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test() as pilot:
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), AmbiguousFakeTranslation()))
+                status = app.query_exactly_one(StatusBar)
+                status.open_command()
+                status._set_command_value("Da")
+                await pilot.pause()
+
+                status._show_completions(["Daniel", "Darius"])
+
+                self.assertEqual(status._completion_matches, ["Daniel", "Darius"])
+                self.assertEqual(status._completion_index, 0)
+
+                await pilot.press("right")
+                await pilot.pause()
+                self.assertEqual(status._completion_index, 1)
+
+                await pilot.press("left")
+                await pilot.pause()
+                self.assertEqual(status._completion_index, 0)
+
+        asyncio.run(run())
+
+    def test_go_to_submit_uses_active_completion(self):
+        async def run():
+            app = Bibleit()
+            submitted = []
+
+            async with app.run_test():
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), AmbiguousFakeTranslation()))
+                bible_view.go_to_command = submitted.append
+                status = app.query_exactly_one(StatusBar)
+                status.open_command()
+                status._set_command_value("Da")
+                status._show_completions(["Daniel", "Darius"], 1)
+
+                status.on_input_submitted(FakeInputEvent("status-command", "Da"))
+
+                self.assertEqual(submitted, ["Darius "])
+
+        asyncio.run(run())
+
+    def test_go_to_typing_shows_completion_matches(self):
+        async def run():
+            app = Bibleit()
+
+            async with app.run_test():
+                app.pop_screen()
+                bible_view = app.query_exactly_one(BibleView)
+                bible_view.views.append(View(NavigationState(), FakeTranslation()))
+                status = app.query_exactly_one(StatusBar)
+                status.open_command()
+                status._set_command_value("joao")
+
+                status.on_input_changed(FakeInputEvent("status-command", "joao"))
+
+                self.assertEqual(status._completion_matches, ["Primeira Carta de João"])
+                self.assertEqual(status._completion_index, 0)
+
+        asyncio.run(run())
+
+    def test_browser_theme_toggle_does_not_save_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_CONFIG_FILE": path,
+                    "TEXTUAL_DRIVER": "textual.drivers.web_driver:WebDriver",
+                },
+                clear=True,
+            ):
+                save_config({"THEME": "light"})
+                app = Bibleit()
+
+                app.action_toggle_theme()
+
+                self.assertTrue(app.dark_theme)
+                self.assertEqual(load_config(), {"THEME": "light"})
+
+
+class LivePublisherTests(unittest.TestCase):
+    def test_live_url_controls_remote_server(self):
+        with patch.dict(
+            "os.environ",
+            {"BIBLEIT_LIVE_URL": "https://live.bibleit.app/"},
+            clear=True,
+        ):
+            self.assertEqual(LivePublisher().url, "https://live.bibleit.app")
+
+    def test_live_url_takes_precedence_over_host_and_port(self):
+        with patch.dict(
+            "os.environ",
+            {
+                "BIBLEIT_LIVE_URL": "https://live.example",
+                "BIBLEIT_LIVE_HOST": "127.0.0.1",
+                "BIBLEIT_LIVE_PORT": "9000",
+            },
+            clear=True,
+        ):
+            self.assertEqual(LivePublisher().url, "https://live.example")
+
+    def test_live_url_uses_config_before_host_and_port(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_URL": "https://config-live.example"})
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "BIBLEIT_CONFIG_FILE": path,
+                    "BIBLEIT_LIVE_HOST": "127.0.0.1",
+                    "BIBLEIT_LIVE_PORT": "9000",
+                },
+                clear=True,
+            ):
+                self.assertEqual(LivePublisher().url, "https://config-live.example")
+
+    def test_live_token_is_sent_as_bearer_header(self):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_TOKEN": "secret"}, clear=True):
+            publisher = LivePublisher()
+
+            self.assertEqual(
+                publisher._headers()["Authorization"],
+                "Bearer secret",
+            )
+
+    def test_live_token_uses_config(self):
+        with TemporaryDirectory() as temp:
+            path = f"{temp}/config"
+            with patch.dict("os.environ", {"BIBLEIT_CONFIG_FILE": path}, clear=True):
+                save_config({"LIVE_TOKEN": "secret"})
+                publisher = LivePublisher()
+
+            self.assertEqual(
+                publisher._headers()["Authorization"],
+                "Bearer secret",
+            )
+
+    def test_live_status_websocket_uses_monitor_role(self):
+        with patch.dict("os.environ", {"BIBLEIT_LIVE_URL": "https://live.example/base/"}, clear=True):
+            publisher = LivePublisher()
+
+            self.assertEqual(
+                publisher._websocket_url(role="monitor"),
+                "wss://live.example/base/ws?role=monitor",
+            )
+
+    def test_verse_payload_adds_increasing_sequence(self):
+        publisher = LivePublisher()
+
+        first = publisher.verse_payload("Genesis 1:1 First", "KJV")
+        second = publisher.verse_payload("Genesis 1:2 Second", "KJV")
+
+        self.assertEqual(first["sequence"], 1)
+        self.assertEqual(second["sequence"], 2)
+        self.assertEqual(first["publisher_id"], second["publisher_id"])
+        self.assertEqual(first["translations"][0]["translation"], "KJV")
+
+    def test_bundle_payload_includes_multiple_translations(self):
+        publisher = LivePublisher()
+
+        payload = publisher.bundle_payload(
+            [
+                ("KJV", "Psalms 119:25 My soul cleaveth unto the dust."),
+                ("NVIPT", "Salmos 119:25 Agora estou prostrado no pó."),
+            ]
+        )
+
+        self.assertEqual(payload["reference"], "Psalms 119:25")
+        self.assertEqual([v["translation"] for v in payload["translations"]], ["KJV", "NVIPT"])
+        self.assertEqual(payload["sequence"], 1)
+
+    def test_verse_payload_returns_none_for_invalid_row(self):
+        publisher = LivePublisher()
+
+        self.assertIsNone(publisher.verse_payload("not a verse", "KJV"))
+
+    def test_disable_live_now_turns_off_remote_live_mode(self):
+        bible_view = BibleView()
+        view = FakeView()
+        bible_view.state.live = True
+        bible_view.views.append(view)
+
+        bible_view.disable_live_now()
+
+        self.assertFalse(bible_view.state.live)
+        self.assertEqual(view.live.values, [False])
+
+    def test_restore_remote_live_state_republishes_after_reconnect(self):
+        async def run():
+            bible_view = RestoringBibleView()
+            view = FakeView()
+            bible_view.state.live = True
+            bible_view.views.append(view)
+
+            await bible_view._restore_remote_live_state()
+
+            self.assertEqual(view.live.values, [True])
+            self.assertEqual(bible_view.published, 1)
+
+        asyncio.run(run())
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	bibleit "github.com/mittel-labs/bibleit-cli/clients/go"
+	bibleit "github.com/mittel-labs/bibleit/clients/go"
 )
 
 func TestCommandForAllowsOnlyTypedCommands(t *testing.T) {

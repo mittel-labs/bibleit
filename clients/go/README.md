@@ -3,7 +3,7 @@
 A dependency-free Go client for Bibleit Server protocol v1. Import it as:
 
 ```go
-import bibleit "github.com/mittel-labs/bibleit-cli/clients/go"
+import bibleit "github.com/mittel-labs/bibleit/clients/go"
 ```
 
 This first increment shares the CLI's Go module. The package can be imported

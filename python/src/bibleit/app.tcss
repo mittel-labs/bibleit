@@ -1,0 +1,933 @@
+Screen {
+  layout: vertical;
+  background: #f3f1ed;
+}
+
+#workspace {
+  width: 100%;
+  height: 1fr;
+  background: #f3f1ed;
+}
+
+Tree {
+  background: #f3f1ed;
+  color: #2a2a2a;
+  scrollbar-size: 0 0;
+
+  &:focus {
+    & > .tree--cursor {
+      background: #d8c3a5;
+      color: #1f1f1f;
+      text-style: bold;
+    }
+  }
+}
+
+ListView {
+  height: 1fr;
+  background: #f3f1ed;
+  scrollbar-size: 0 0;
+}
+
+ListItem {
+  height: auto;
+  background: #f3f1ed;
+  color: #2a2a2a;
+
+  &.-highlight {
+    background: #e7c878;
+    color: #1f1f1f;
+    text-style: italic bold;
+  }
+
+  & > Label {
+    width: 100%;
+    height: auto;
+    background: transparent;
+    padding: 1 2;
+    text-wrap: wrap;
+    text-overflow: fold;
+  }
+}
+
+Footer {
+  background: #ece8e1;
+  color: #2a2a2a;
+  text-style: bold;
+}
+
+FooterKey {
+  background: transparent;
+
+  .footer-key--description {
+    color: #444444;
+  }
+}
+
+Find {
+  layer: overlay;
+  align: center top;
+  background: #00000055;
+}
+
+#find-panel {
+  width: 76;
+  max-width: 90%;
+  height: 80%;
+  margin-top: 2;
+  padding: 1 2;
+  background: #181818;
+  border: round #c89b5d;
+  color: #f3f0ea;
+}
+
+#find-title {
+  width: 100%;
+  height: 1;
+  color: #ffb347;
+  text-style: bold;
+}
+
+#find-caption {
+  width: 100%;
+  height: 1;
+  color: #a9a29a;
+}
+
+#find-translations {
+  width: 100%;
+  height: 3;
+  margin-top: 1;
+}
+
+#find-translations Button {
+  width: auto;
+  min-width: 8;
+  height: 3;
+  margin-right: 1;
+  padding: 0 1;
+  background: #202020;
+  color: #d8d0c7;
+  border: round #4d4740;
+  text-style: none;
+}
+
+#find-translations Button:hover,
+#find-translations Button:focus {
+  color: #f8f5ef;
+  border: round #d7b46a;
+}
+
+#find-translations Button.active {
+  background: #d7b46a;
+  color: #161616;
+  border: round #d7b46a;
+  text-style: bold;
+}
+
+Find Input {
+  width: 100%;
+  height: 3;
+  margin: 1 0 0 0;
+  background: #202020;
+  color: #f3f0ea;
+  border: tall #6b655d;
+  padding: 0 1;
+}
+
+Find Input:focus {
+  border: tall #d97706;
+}
+
+#find-summary {
+  width: 100%;
+  height: 2;
+  color: #a9a29a;
+}
+
+#text-find-results {
+  width: 100%;
+  height: 1fr;
+  background: transparent;
+  scrollbar-size: 0 0;
+}
+
+#text-find-results ListItem {
+  background: transparent;
+  color: #f3f0ea;
+}
+
+#text-find-results ListItem.-highlight {
+  background: #2e2e2e;
+  color: #f8f5ef;
+  text-style: none;
+}
+
+#text-find-results ListItem > Label {
+  padding: 0 1;
+}
+
+#text-find-results:focus ListItem.-highlight {
+  background: #d7b46a;
+  color: #161616;
+}
+
+StrongScreen,
+ConfigScreen {
+  layer: overlay;
+  align: center middle;
+  background: #00000099;
+}
+
+Translations {
+  layer: overlay;
+  align: center middle;
+  background: #00000066;
+}
+
+ShortcutsScreen,
+WelcomeScreen {
+  layer: overlay;
+  align: center middle;
+  background: transparent;
+}
+
+StrongScreen > Container,
+ShortcutsScreen > Container,
+WelcomeScreen > Container,
+ConfigScreen > Container {
+  width: 72;
+  max-width: 80%;
+  height: auto;
+  max-height: 80%;
+  background: #181818;
+  border: round #c89b5d;
+  padding: 1 2;
+  color: #f3f0ea;
+}
+
+#translations-panel {
+  width: 74;
+  max-width: 88%;
+  height: 82%;
+  max-height: 86%;
+  layout: vertical;
+  background: #ece8e1;
+  border: round #c89b5d;
+  padding: 1 2;
+  color: #2a2a2a;
+}
+
+#translations-title {
+  width: 100%;
+  height: 2;
+  color: #d97706;
+  text-style: bold;
+}
+
+#translations-caption {
+  width: 100%;
+  height: 1;
+  margin-bottom: 1;
+  color: #7c7468;
+}
+
+#translations-tree {
+  width: 100%;
+  height: 1fr;
+  background: transparent;
+  color: #2a2a2a;
+  scrollbar-size: 0 0;
+}
+
+#translations-tree:focus > .tree--cursor {
+  background: #e7c878;
+  color: #1f1f1f;
+  text-style: bold;
+}
+
+StrongScreen Label,
+ShortcutsScreen Label,
+WelcomeScreen Label,
+ConfigScreen Label {
+  width: 100%;
+  height: auto;
+  background: transparent;
+  color: #f3f0ea;
+  text-wrap: wrap;
+  text-overflow: fold;
+}
+
+#welcome-title {
+  width: 100%;
+  height: 3;
+  color: #ffb347;
+  text-style: bold;
+  content-align: center middle;
+}
+
+#welcome-subtitle {
+  width: 100%;
+  height: 2;
+  color: #f3f0ea;
+  content-align: center middle;
+}
+
+#welcome-description {
+  width: 100%;
+  height: auto;
+  margin-bottom: 1;
+  color: #a9a29a;
+  content-align: center middle;
+}
+
+.welcome-row {
+  width: 100%;
+  height: auto;
+}
+
+.welcome-key {
+  width: 14;
+  min-width: 14;
+  color: #ffb347;
+  text-style: bold;
+  content-align: right middle;
+}
+
+.welcome-row-description {
+  width: 1fr;
+  color: #f3f0ea;
+  padding-left: 1;
+}
+
+#shortcuts-title {
+  width: 100%;
+  height: 2;
+  margin-bottom: 1;
+  color: #ffb347;
+  text-style: bold;
+  content-align: center middle;
+}
+
+#config-title {
+  width: 100%;
+  height: 2;
+  margin-bottom: 1;
+  color: #ffb347;
+  text-style: bold;
+  content-align: center middle;
+}
+
+#config-path {
+  color: #a9a29a;
+  margin-bottom: 1;
+}
+
+.config-label {
+  color: #ffb347;
+  text-style: bold;
+  margin-top: 1;
+}
+
+.config-note {
+  color: #a9a29a;
+}
+
+#config-theme-row {
+  width: 100%;
+  height: 3;
+  align: left middle;
+}
+
+#config-theme-label {
+  width: 1fr;
+  height: 3;
+  content-align: left middle;
+  color: #f3f0ea;
+}
+
+#config-theme-dark {
+  width: 12;
+  height: 3;
+}
+
+ConfigScreen Input {
+  width: 100%;
+  height: 3;
+  background: #202020;
+  color: #f3f0ea;
+  border: tall #6b655d;
+  padding: 0 1;
+}
+
+ConfigScreen Input:focus {
+  border: tall #d97706;
+}
+
+ConfigScreen Select {
+  width: 100%;
+  height: 3;
+  background: transparent;
+  color: #f3f0ea;
+  border: none;
+}
+
+ConfigScreen Select > SelectCurrent {
+  width: 100%;
+  height: 3;
+  background: #202020;
+  color: #f3f0ea;
+  border: tall #6b655d;
+  padding: 0 1;
+}
+
+ConfigScreen Select > SelectCurrent Static#label {
+  color: #a9a29a;
+  height: 1;
+  content-align: left middle;
+}
+
+ConfigScreen Select > SelectCurrent.-has-value Static#label {
+  color: #f3f0ea;
+}
+
+ConfigScreen Select > SelectCurrent .arrow {
+  color: #ffb347;
+}
+
+ConfigScreen Select:focus > SelectCurrent {
+  border: tall #d97706;
+}
+
+ConfigScreen Select > SelectOverlay {
+  width: 100%;
+  max-height: 10;
+  background: #202020;
+  color: #f3f0ea;
+  border: tall #6b655d;
+}
+
+ConfigScreen Select > SelectOverlay:focus {
+  border: tall #d97706;
+}
+
+ConfigScreen Select > SelectOverlay > .option-list--option {
+  height: 1;
+  padding: 0 1;
+}
+
+ConfigScreen Select > SelectOverlay > .option-list--option-highlighted {
+  background: #d97706;
+  color: #111111;
+  text-style: bold;
+}
+
+#config-actions {
+  width: 100%;
+  height: 3;
+  margin-top: 1;
+}
+
+#config-actions Button {
+  margin-right: 1;
+}
+
+.shortcut-row {
+  width: 100%;
+  height: auto;
+}
+
+.shortcut-key {
+  width: 14;
+  min-width: 14;
+  color: #ffb347;
+  text-style: bold;
+}
+
+.shortcut-description {
+  width: 1fr;
+  color: #f3f0ea;
+}
+
+.strong-link {
+  color: #d9a441;
+  text-style: bold underline;
+}
+
+.strong-ref {
+  color: #e7c878;
+  text-style: underline;
+}
+
+.sup-note {
+  color: #7c7468;
+  text-style: italic;
+}
+
+StatusBar {
+  dock: bottom;
+  height: 2;
+  background: #ece8e1;
+  border-top: solid #d6cfc5;
+  padding: 0 1;
+}
+
+#action-menu {
+  display: none;
+}
+
+#status-left {
+  width: 1fr;
+  height: 1;
+  color: #2a2a2a;
+  overflow: hidden hidden;
+  text-overflow: ellipsis;
+  content-align: left middle;
+}
+
+#status-command {
+  display: none;
+  width: 1fr;
+  height: 1;
+  padding: 0;
+  background: transparent;
+  color: #2a2a2a;
+  border: none;
+}
+
+#status-command-completions {
+  display: none;
+  width: 100%;
+  height: 5;
+  padding: 0 0 0 1;
+  background: #f3f1ed;
+  color: #2a2a2a;
+  text-wrap: wrap;
+  text-overflow: fold;
+}
+
+StatusBar.command-mode #action-menu,
+StatusBar.command-mode #status-left,
+StatusBar.command-mode #status-help,
+StatusBar.command-mode #status-actions {
+  display: none;
+}
+
+StatusBar.command-mode #status-command {
+  display: block;
+}
+
+StatusBar.command-mode {
+  layout: vertical;
+}
+
+StatusBar.command-mode.completions-open {
+  height: 7;
+}
+
+StatusBar.command-mode.completions-open #status-command-completions {
+  display: block;
+}
+
+#status-actions {
+  display: none;
+  width: auto;
+  height: 1;
+  layout: horizontal;
+  align: right middle;
+}
+
+#status-help {
+  width: auto;
+  height: 1;
+  margin-left: 1;
+  color: #8d8478;
+  content-align: right middle;
+}
+
+#status-actions Button {
+  min-width: 9;
+  height: 1;
+  margin: 0 0 0 1;
+  padding: 0 1;
+  background: transparent;
+  color: #6b655d;
+  border: none;
+  text-style: none;
+}
+
+#status-actions Button:hover,
+#status-actions Button:focus {
+  color: #1f1f1f;
+  background: #e2d8cb;
+}
+
+#status-actions Button.active {
+  color: #d97706;
+  text-style: bold;
+}
+
+#status-actions Button:disabled {
+  color: #b8b0a6;
+}
+
+StatusBar.compact {
+  dock: top;
+  height: 2;
+  border-top: none;
+  border-bottom: solid #d6cfc5;
+  padding: 0 1;
+}
+
+StatusBar.compact #action-menu {
+  display: block;
+  min-width: 5;
+  height: 1;
+  margin: 0;
+  padding: 0 1;
+  background: transparent;
+  color: #2a2a2a;
+  border: none;
+  text-style: bold;
+}
+
+StatusBar.compact #status-left,
+StatusBar.compact #status-help,
+StatusBar.compact #status-actions {
+  display: none;
+}
+
+StatusBar.compact.open {
+  height: 6;
+}
+
+StatusBar.compact.open #status-actions {
+  display: block;
+  width: 1fr;
+  height: 5;
+  layout: vertical;
+  margin-left: 1;
+}
+
+StatusBar.compact.open #status-actions Button {
+  display: block;
+  width: 100%;
+  min-width: 12;
+  height: 1;
+  margin: 0;
+  padding: 0 1;
+  content-align: left middle;
+}
+
+StatusBar.browser.compact {
+  dock: bottom;
+  height: 2;
+  border-top: solid #d6cfc5;
+  border-bottom: none;
+}
+
+StatusBar.browser.compact #action-menu,
+StatusBar.browser.compact #status-actions {
+  display: none;
+}
+
+StatusBar.browser.compact #status-left {
+  display: block;
+}
+
+StatusBar.browser.compact.open {
+  height: 2;
+}
+
+#workspace {
+  width: 100%;
+  height: 1fr;
+}
+
+BibleView {
+  width: 1fr;
+  height: 100%;
+  background: #f3f1ed;
+}
+
+HistoryScreen {
+  layer: overlay;
+  align: center middle;
+  background: #00000066;
+}
+
+#history-panel {
+  width: 54;
+  max-width: 86%;
+  height: 70%;
+  max-height: 80%;
+  layout: vertical;
+  background: #ece8e1;
+  border: round #c89b5d;
+  padding: 1 2;
+}
+
+#history-title {
+  width: 100%;
+  height: 2;
+  color: #d97706;
+  text-style: bold;
+}
+
+#history-filter {
+  width: 100%;
+  height: 1;
+  margin: 0 0 1 0;
+  background: #f8f5ef;
+  color: #202020;
+  border: none;
+  padding: 0 1;
+}
+
+#history-filter:focus {
+  background: #f8f5ef;
+  color: #202020;
+}
+
+#history-list {
+  height: 1fr;
+  background: transparent;
+  scrollbar-size: 0 0;
+}
+
+#history-list > ListItem {
+  height: auto;
+  background: transparent;
+  color: #2a2a2a;
+  margin-bottom: 0;
+}
+
+#history-list > ListItem.-highlight {
+  background: #e7c878;
+  color: #1f1f1f;
+  border-left: thick #d97706;
+  text-style: italic bold;
+}
+
+#history-list > ListItem > Label {
+  width: 100%;
+  height: auto;
+  padding: 0 1 0 1;
+  text-wrap: wrap;
+  text-overflow: fold;
+}
+
+BibleView.vertical {
+  layout: vertical;
+}
+
+.verse-nav {
+  display: none;
+}
+
+View {
+  width: 1fr;
+  height: 100%;
+  background: #f3f1ed;
+  border-right: solid #ddd4c8;
+  overflow: hidden auto;
+  scrollbar-size: 0 0;
+}
+
+BibleView.vertical View {
+  width: 100%;
+  height: 1fr;
+  border-right: none;
+  border-bottom: solid #ddd4c8;
+}
+
+View:last-child {
+  border-right: none;
+}
+
+BibleView.vertical View:last-child {
+  border-bottom: none;
+}
+
+BibleView.maximized View {
+  width: 1fr;
+  height: 100%;
+  border-right: none;
+  border-bottom: none;
+}
+
+Bibleit.dark Screen {
+  background: #101112;
+}
+
+Bibleit.dark #workspace,
+Bibleit.dark BibleView,
+Bibleit.dark View,
+Bibleit.dark ListView,
+Bibleit.dark ListItem,
+Bibleit.dark Tree {
+  background: #101112;
+  color: #e8e2d9;
+}
+
+Bibleit.dark ListItem.-highlight,
+Bibleit.dark Tree:focus > .tree--cursor {
+  background: #c4933e;
+  color: #15120e;
+  text-style: italic bold;
+}
+
+Bibleit.dark View {
+  border-right: solid #2a2724;
+}
+
+Bibleit.dark BibleView.vertical View {
+  border-bottom: solid #2a2724;
+}
+
+Bibleit.dark #history-panel {
+  background: #141414;
+  color: #f1ede6;
+}
+
+Bibleit.dark #history-filter,
+Bibleit.dark Find Input,
+Bibleit.dark ConfigScreen Input {
+  background: #202020;
+  color: #f1ede6;
+  border: tall #5f564d;
+}
+
+Bibleit.dark #history-filter:focus {
+  background: #202020;
+  color: #f1ede6;
+  border: none;
+}
+
+Bibleit.dark #history-list,
+Bibleit.dark #history-list > ListItem {
+  background: #171717;
+  color: #d8d0c7;
+}
+
+Bibleit.dark #history-list > ListItem.-highlight {
+  background: #c4933e;
+  color: #15120e;
+  border-left: thick #d97706;
+  text-style: italic bold;
+}
+
+Bibleit.dark #history-list > ListItem.-highlight > Label {
+  color: #15120e;
+}
+
+Bibleit.dark Footer,
+Bibleit.dark StatusBar {
+  background: #171717;
+  color: #e8e2d9;
+}
+
+Bibleit.dark StatusBar {
+  border-top: solid #2c2926;
+}
+
+Bibleit.dark StatusBar.compact {
+  border-bottom: solid #2c2926;
+}
+
+Bibleit.dark StatusBar.browser.compact {
+  border-top: solid #2c2926;
+}
+
+Bibleit.dark #status-left,
+Bibleit.dark #status-command,
+Bibleit.dark StatusBar.compact #action-menu {
+  color: #e8e2d9;
+}
+
+Bibleit.dark #status-command-completions {
+  background: #101112;
+  color: #e8e2d9;
+}
+
+Bibleit.dark #status-help,
+Bibleit.dark #status-actions Button {
+  color: #a9a198;
+}
+
+Bibleit.dark #status-actions Button:hover,
+Bibleit.dark #status-actions Button:focus {
+  background: #282521;
+  color: #f6efe6;
+}
+
+Bibleit.dark #status-actions Button:disabled {
+  color: #5f5850;
+}
+
+Bibleit.dark Find {
+  background: #000000aa;
+}
+
+Bibleit.dark #find-translations Button {
+  background: #202020;
+  color: #d8d0c7;
+  border: round #5f564d;
+}
+
+Bibleit.dark #find-translations Button:hover,
+Bibleit.dark #find-translations Button:focus {
+  color: #f8f5ef;
+  border: round #c4933e;
+}
+
+Bibleit.dark #find-translations Button.active {
+  background: #c4933e;
+  color: #15120e;
+  border: round #c4933e;
+}
+
+Bibleit.dark #find-panel,
+Bibleit.dark StrongScreen > Container,
+Bibleit.dark ShortcutsScreen > Container,
+Bibleit.dark WelcomeScreen > Container,
+Bibleit.dark ConfigScreen > Container {
+  background: #141414;
+  color: #f1ede6;
+}
+
+Bibleit.dark #translations-panel {
+  background: #141414;
+  color: #f1ede6;
+}
+
+Bibleit.dark #translations-caption {
+  color: #a9a198;
+}
+
+Bibleit.dark #translations-tree {
+  background: transparent;
+  color: #f1ede6;
+}
+
+Bibleit.dark #translations-tree:focus > .tree--cursor {
+  background: #c4933e;
+  color: #15120e;
+  text-style: bold;
+}
+
+Bibleit.dark #text-find-results,
+Bibleit.dark #text-find-results ListItem {
+  background: transparent;
+  color: #f1ede6;
+}
+
+Bibleit.dark #text-find-results ListItem.-highlight {
+  background: #2e2a25;
+  color: #f1ede6;
+}
+
+Bibleit.dark #text-find-results:focus ListItem.-highlight {
+  background: #c4933e;
+  color: #15120e;
+}

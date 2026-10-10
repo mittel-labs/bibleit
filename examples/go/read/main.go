@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/signal"
 
-	bibleit "github.com/mittel-labs/bibleit-cli/clients/go"
+	bibleit "github.com/mittel-labs/bibleit/clients/go"
 )
 
 func main() {

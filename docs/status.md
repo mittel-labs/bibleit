@@ -329,3 +329,10 @@ the reader now accepts UTF-16LE without a BOM and UTF-8. Actual user-only DACL
 verification remains strict. A native Windows rerun is required before closing
 the platform gate. Public status/annotations are readable without CLI login;
 failed Go test output is now included in safely escaped CI annotations.
+
+
+The Windows rerun revealed explicit SYSTEM/Administrators grants surviving
+inheritance removal. Config saving now replaces the whole file DACL through
+Windows security APIs with a protected current-user-only grant. The ACL test
+also recognizes equivalent well-known SID aliases emitted by icacls; it still
+requires exactly one grant. Native rerun remains required.

@@ -45,7 +45,22 @@ func assertPrivateConfig(t *testing.T, path string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Count(sddl, "(A;") != 1 || !strings.Contains(sddl, "(A;;FA;;;"+current.Uid+")") {
+	sid := current.Uid
+	// icacls serializes well-known SIDs using SDDL aliases, including the
+	// machine-relative Administrator/Guest accounts used by some runners.
+	switch {
+	case sid == "S-1-5-18":
+		sid = "SY"
+	case sid == "S-1-5-19":
+		sid = "LS"
+	case sid == "S-1-5-20":
+		sid = "NS"
+	case strings.HasPrefix(sid, "S-1-5-21-") && strings.HasSuffix(sid, "-500"):
+		sid = "LA"
+	case strings.HasPrefix(sid, "S-1-5-21-") && strings.HasSuffix(sid, "-501"):
+		sid = "LG"
+	}
+	if strings.Count(sddl, "(") != 1 || !strings.Contains(sddl, "D:P") || !strings.Contains(sddl, "(A;;FA;;;"+sid+")") {
 		t.Fatalf("config must grant full access only to current user; ACL: %s", sddl)
 	}
 }

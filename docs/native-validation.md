@@ -65,14 +65,18 @@ still a manual check beyond the console-handle test.
 ## Windows credential storage
 
 Unix config files retain mode `0600`. Windows mode bits cannot supply the same
-privacy guarantee: the CLI applies `icacls.exe` to the new empty temporary file,
-removes inherited access and grants the current user's SID full access before
-writing token data. ACL failures abort saving; no credential is written to that
+privacy guarantee: the CLI replaces the entire DACL on the new empty temporary
+file with a protected DACL granting the current user's SID full access before
+writing token data. This removes both inherited and explicit grants from the
+creation environment. ACL failures abort saving; no credential is written to that
 file. Replacement keeps the protected file's ACL. Existing configuration is
 hardened on its next successful write. This requires an ACL-capable Windows file
-system and the standard icacls tool; administrators retain OS-level authority.
+system; administrators retain OS-level authority. The Windows test uses icacls
+to inspect the resulting DACL.
 
-The implementation follows Microsoft's [icacls documentation](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls).
+The implementation uses Microsoft's [SetNamedSecurityInfoW](https://learn.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-setnamedsecurityinfow)
+and [SDDL conversion](https://learn.microsoft.com/en-us/windows/win32/api/sddl/nf-sddl-convertstringsecuritydescriptortosecuritydescriptorw).
+DACL inspection follows the [icacls documentation](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/icacls).
 Console tests use [AllocConsole](https://learn.microsoft.com/en-us/windows/console/allocconsole)
 and [GetConsoleMode](https://learn.microsoft.com/en-us/windows/console/getconsolemode).
 Go installation in CI uses [actions/setup-go](https://github.com/actions/setup-go)

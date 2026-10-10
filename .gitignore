@@ -223,6 +223,9 @@ versions
 diff.*
 .DS_Store
 
+# Keep repository validation scripts; virtualenv Scripts directories stay ignored.
+!/scripts/
+
 
 ### zig ###
 # Zig programming language

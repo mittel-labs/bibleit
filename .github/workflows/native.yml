@@ -49,7 +49,7 @@ jobs:
       - name: Native race tests
         env:
           CGO_ENABLED: '1'
-        run: go test -race -count=1 ./...
+        run: python scripts/check_native_tests.py
       - name: Vet
         run: go vet ./...
       - name: Build native binary

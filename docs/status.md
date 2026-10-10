@@ -304,7 +304,7 @@ execution, and its read-only source snapshot excludes Git/config/developer data.
 ## Publication preparation
 
 The user selected GitHub Actions after publishing this checkout. The initial
-commit is prepared on `codex/native-validation`; the native workflow will
+commit is prepared on `native-validation`; the native workflow will
 run on push. GitHub SSH returned `Repository not found` for the configured
 `mittel-labs/bibleit-cli` remote, and GitHub CLI is unauthenticated. This does not
 establish whether the repository is absent or inaccessible to the current SSH
@@ -319,3 +319,13 @@ only README/gitignore overlap, and both projects' contents are retained. The Go
 module/import path is now `github.com/mittel-labs/bibleit`. Publishing a feature
 branch triggers native CI and does not merge into main. SSH remote access works;
 GitHub CLI authentication remains required for inspecting private Actions runs.
+
+
+The branch is published as `native-validation`; the user requested no codex
+prefix, and the earlier prefixed remote reference was removed after the new
+branch push succeeded. Hosted Ubuntu (including Fish) and macOS checks passed.
+The first Windows run exposed a test assumption about icacls ACL-file encoding;
+the reader now accepts UTF-16LE without a BOM and UTF-8. Actual user-only DACL
+verification remains strict. A native Windows rerun is required before closing
+the platform gate. Public status/annotations are readable without CLI login;
+failed Go test output is now included in safely escaped CI annotations.

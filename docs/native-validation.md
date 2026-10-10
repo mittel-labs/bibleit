@@ -6,10 +6,12 @@ race tests, vet, a CGO-free executable build and the process smoke harness.
 Linux also installs and runs Bash, Zsh and Fish completion checks. Push, pull
 request and manual dispatch events trigger the workflow once it is published.
 
-A configured workflow is not evidence of a passing hosted run. The current
-local checkout is uncommitted and GitHub CLI is unauthenticated. Native Windows
-execution remains pending; compiling its tests on macOS does not close that gate.
-The hosted matrix targets runner-default architectures, not all six build targets.
+The hosted workflow passed all three native jobs on 2026-10-10 at code commit
+`08e4a31d0ff468b07e01408788f8b94a42995dc0`:
+[verified run](https://github.com/mittel-labs/bibleit/actions/runs/38081432573).
+The published staging branch is `native-validation` in `mittel-labs/bibleit`;
+main has not been changed. The hosted matrix targets runner-default architectures,
+not all six build targets. Repository placement is still under discussion.
 
 ## Current evidence
 
@@ -17,8 +19,9 @@ The hosted matrix targets runner-default architectures, not all six build target
 | --- | --- | --- |
 | macOS/arm64, Go 1.27.1 | Pass | Race/vet/build; native process/HTTP fixture; actual terminal confirmation; Bash/Zsh completion |
 | Linux/arm64 in Docker VM, Go 1.27.1 | Pass | Race/vet/build; native process/HTTP fixture; actual PTY confirmation; Bash/Zsh/Fish 3.6.0 completion |
-| Windows/amd64 and arm64 | Cross-build only | Executables compile; amd64 Windows-only test binary compiles; native execution pending |
-| Hosted Ubuntu/Windows/macOS jobs | Ready, not executed | Requires publication and a GitHub runner; results must be recorded after execution |
+| Windows Server 2025 hosted runner | Pass | Race/vet/build; actual saved DACL before/after replacement; console handles/CRLF; native process/HTTP fixture and redirected confirmation guards |
+| Windows/arm64 | Cross-build only | Native arm64 execution is outside the current hosted matrix |
+| Hosted Ubuntu/Windows/macOS jobs | Pass | All jobs succeeded in the linked run; Ubuntu also executes Bash/Zsh/Fish completion |
 
 Linux runs execute Linux binaries on the Linux VM's arm64 CPU. They do not prove
 native Linux/amd64 behavior or Windows behavior. The latest checks use a local

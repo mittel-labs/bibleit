@@ -350,6 +350,7 @@ secret; use guarded rotation to replace one.
 The [native CI workflow](.github/workflows/native.yml) pins Go 1.27.1 and runs
 race tests, vet, builds and executable smoke checks on Ubuntu, Windows and macOS.
 Linux also runs actual Bash/Zsh/Fish completion. See
-[native validation](docs/native-validation.md) for commands, coverage and pending
-hosted/Windows execution. Native macOS/arm64 and Linux/arm64 checks pass locally;
-Windows cross-builds pass, but native Windows execution has not yet been run.
+[native validation](docs/native-validation.md) for commands, coverage and verification evidence. Native macOS/arm64 and Linux/arm64 checks
+pass locally; hosted Ubuntu, Windows Server 2025 and macOS jobs all pass. Windows
+checks include the persisted credential DACL and console handles. See the
+[verified native run](https://github.com/mittel-labs/bibleit/actions/runs/38081432573).

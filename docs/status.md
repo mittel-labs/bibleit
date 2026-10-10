@@ -29,7 +29,7 @@ assessment or future workspace/event APIs.
 | Milestone | Status | Progress |
 | --- | --- | --- |
 | 2. Complete verified Go client surface | Complete for tracked core | 5/5 acceptance items and complete HTTP/SSH integration pass; future API expansion remains separate |
-| 3. Customer CLI profiles/auth/output | In progress | 4/5 tracked items complete: profiles, credentials, output and completion/destructive UX; native Windows execution remains |
+| 3. Customer CLI profiles/auth/output | Complete for tracked scope | 5/5: profiles, credentials, output, completion/destructive UX and representative native platform validation |
 | 4. Workspace and event integration APIs | Pending server contract | Existing browser endpoints are not bearer-token client APIs |
 | 5. Python, Ruby, Rust clients | Not started | Wait for verified core contract |
 | 6. Independent publication | Not started | Stable package paths and monorepo/TUI migration decision required |
@@ -239,7 +239,7 @@ remains **6/7**. Milestone 3 is **3/5 tracked acceptance items complete**:
 | Browser/SSH authentication and automation credentials | Complete for current server surface | Library transport, cached revocation semantics, scopes/expiry/quota and SSH validation checked |
 | Stable table/raw/JSON/NDJSON output and errors | Complete for documented version 1 | See output.md; JSON is typed protocol records, not Go domain struct serialization |
 | Release UX, shell completion and destructive-command behavior | In progress | Add completion and finalize destructive-command UX; subscriptions already support Ctrl-C and explicit reconnect |
-| Native supported-platform validation | Partial | Native macOS/arm64 and Linux/arm64 race/vet/process checks pass; Fish runtime passes; Windows native and hosted runs pending |
+| Native supported-platform validation | Complete for representative gate | Hosted Windows/Ubuntu/macOS pass; local macOS/arm64 and Linux/arm64 pass; Fish runtime passes; native Windows/arm64 is outside the matrix |
 
 The expanded harness tests CLI JSON on real HTTP account/discovery/translation/
 reading/Live replies, verifies HTTP/SSH Ping envelopes match, and renders actual
@@ -278,7 +278,7 @@ Next: native platform CI (including Fish runtime validation), then independent
 publication and package-path decisions.
 
 
-## Latest increment: native validation and Fish runtime
+## Previous increment: native validation and Fish runtime
 
 | Item | Status | Evidence / remaining work |
 | --- | --- | --- |
@@ -336,3 +336,33 @@ inheritance removal. Config saving now replaces the whole file DACL through
 Windows security APIs with a protected current-user-only grant. The ACL test
 also recognizes equivalent well-known SID aliases emitted by icacls; it still
 requires exactly one grant. Native rerun remains required.
+
+
+## Latest verification: published native platform gate
+
+| Item | Status | Evidence |
+| --- | --- | --- |
+| Publication staging | Complete | `mittel-labs/bibleit` branch `native-validation`; existing Python/TUI/native-library/website content and main preserved; earlier codex-prefixed branch removed at user's request |
+| Hosted native Linux/Ubuntu | Pass | Go 1.27.1 race/vet/build, process/loopback fixture, PTY confirmation; Bash/Zsh/Fish completion |
+| Hosted native Windows | Pass | Go 1.27.1 race/vet/build and native process fixture; real config DACL before/after replacement; console handles and CRLF |
+| Hosted native macOS | Pass | Go 1.27.1 race/vet/build, process fixture and PTY confirmation |
+| Verification records | Complete | Native validation documentation and plan updated; exact verified code SHA and run linked below |
+
+Requested native validation: **5/5 complete**. Milestone 3: **5/5 tracked
+acceptance items complete**. Milestones 1/2 remain **6/7** and **5/5**.
+[All native jobs passed](https://github.com/mittel-labs/bibleit/actions/runs/38081432573)
+at code commit `08e4a31d0ff468b07e01408788f8b94a42995dc0`.
+
+Windows validation first exposed ACL fixture encoding assumptions, then actual
+explicit SYSTEM/Administrators grants left by inheritance removal. The final
+implementation replaces the entire config DACL through Windows security APIs
+before writing credentials, and protects it from inheritance. Its test requires
+exactly one current-user grant, including equivalent SDDL SID aliases. The
+corrected native race suite and subsequent process checks pass.
+
+The staging branch is not merged. After reviewing the existing Bibleit repository,
+the recommendation is a separate repository for server clients and CLI, with
+shared contracts and independent package releases. That migration/repository
+creation has not been authorized or performed; the current feature branch keeps
+validated work available for either destination. Publication of packages remains
+milestone 6, distinct from publishing this validation branch.

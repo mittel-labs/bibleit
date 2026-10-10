@@ -97,8 +97,9 @@ and pass the server integration suite without personal/workspace authority leaks
 Named endpoint-bound profiles, explicit HTTP/SSH transport selection, stable
 output, shell completion and destructive-command confirmation are implemented;
 see `status.md` for progress and `output.md` for the stable contract. Native
-Windows execution and hosted CI evidence remain before publication; native
-Linux/arm64 and Fish runtime checks now pass.
+Windows, Ubuntu and macOS hosted checks now pass, alongside local Linux/arm64
+and Fish runtime checks. Repository placement and package publication remain
+separate decisions.
 Support automation tokens without exposing token values in command-line arguments.
 Handle username onboarding, separate CLI credential quotas, expired/revoked
 credentials, and revocation failures accurately. Align explicit SSH key validation

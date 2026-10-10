@@ -1,0 +1,444 @@
+[
+  {
+    "name": "single",
+    "wire": "OK pong=true future=\"kept\"\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "pong": "true",
+          "future": "kept"
+        }
+      }
+    ],
+    "server_response_term": "{ok,[{pong,true},{future,<<\"kept\">>}]}"
+  },
+  {
+    "name": "unicode-and-escapes",
+    "wire": "OK text=\"João \\\"amor\\\" \\\\ caminho\" empty=\"\"\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "text": "João \"amor\" \\ caminho",
+          "empty": ""
+        }
+      }
+    ],
+    "server_response_term": "{ok,[{text,<<74,111,195,163,111,32,34,97,109,111,114,34,32,92,32,99,97,109,105,110,104,111>>},{empty,<<>>}]}"
+  },
+  {
+    "name": "chapter",
+    "wire": "OK translation=\"web\" verses=1\nVERSE text=\"John 3:16\"\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "translation": "web",
+          "verses": "1"
+        }
+      },
+      {
+        "type": "verse",
+        "fields": {
+          "text": "John 3:16"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{verses,[{translation,<<\"web\">>},{verses,1}],[<<\"John 3:16\">>]}}"
+  },
+  {
+    "name": "empty-list",
+    "wire": "OK count=0\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "count": "0"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{lives,[]}}"
+  },
+  {
+    "name": "live-stats",
+    "wire": "OK connections=1 connections=1 future=true\nCONNECTION id=\"c1\"\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "connections": "1",
+          "future": "true"
+        }
+      },
+      {
+        "type": "connection",
+        "fields": {
+          "id": "c1"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{live_stats,#{subscribers=>[#{id=><<\"c1\">>}],connections=>1,future=>true}}}"
+  },
+  {
+    "name": "live-push",
+    "wire": "OK event=verse translations=1\nVERSE translation=\"web\" reference=\"\" text=\"John 3:16\"\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "event": "verse",
+          "translations": "1"
+        }
+      },
+      {
+        "type": "verse",
+        "fields": {
+          "translation": "web",
+          "text": "John 3:16",
+          "reference": ""
+        }
+      }
+    ],
+    "server_response_term": "{ok,{live_verse,#{translations=>[#{translation=><<\"web\">>,text=><<\"John 3:16\">>}]}}}"
+  },
+  {
+    "name": "rate-limit",
+    "wire": "ERR rate_limited retry_after_ms=250\n",
+    "error_code": "rate_limited",
+    "error_fields": {
+      "retry_after_ms": "250"
+    },
+    "server_response_term": "{error,rate_limited,250}"
+  },
+  {
+    "name": "future-error",
+    "wire": "ERR future_failure detail=\"retained\"\n",
+    "error_code": "future_failure",
+    "error_fields": {
+      "detail": "retained"
+    }
+  },
+  {
+    "name": "missing-end",
+    "wire": "OK count=1\nLIVE id=\"abc\"\n",
+    "invalid": true
+  },
+  {
+    "name": "missing-empty-end",
+    "wire": "OK count=0\n",
+    "invalid": true
+  },
+  {
+    "name": "missing-stats-end",
+    "wire": "OK connections=0\n",
+    "invalid": true
+  },
+  {
+    "name": "missing-push-end",
+    "wire": "OK event=verse translations=0\n",
+    "invalid": true
+  },
+  {
+    "name": "unterminated-quote",
+    "wire": "OK text=\"unfinished\n",
+    "invalid": true
+  },
+  {
+    "name": "missing-newline",
+    "wire": "OK pong=true",
+    "invalid": true
+  },
+  {
+    "name": "invalid-first-record",
+    "wire": "VERSE text=\"oops\"\n",
+    "invalid": true
+  },
+  {
+    "name": "interleaved-event",
+    "wire": "OK count=1\nEVENT paused\nEND\n",
+    "invalid": true
+  },
+  {
+    "name": "trailing-record",
+    "wire": "OK count=0\nEND\nOK pong=true\n",
+    "invalid": true
+  },
+  {
+    "name": "duplicate-field",
+    "wire": "OK pong=true pong=false\n",
+    "invalid": true
+  },
+  {
+    "name": "missing-error-code",
+    "wire": "ERR\n",
+    "invalid": true
+  },
+  {
+    "name": "trailing-error-data",
+    "wire": "ERR forbidden\nOK pong=true\n",
+    "invalid": true
+  },
+  {
+    "name": "help-account",
+    "wire": "OK auth=true commands=1\nCOMMAND usage=\"account info\" summary=\"Account details\"\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "auth": "true",
+          "commands": "1"
+        }
+      },
+      {
+        "type": "command",
+        "fields": {
+          "usage": "account info",
+          "summary": "Account details"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{help,<<\"account\">>,true,[#{usage=><<\"account info\">>,auth=>none,summary=><<\"Account details\">>}]}}"
+  },
+  {
+    "name": "account-quotas",
+    "wire": "OK count=2\nQUOTA permission=\"live.create\" limit=0 used=0\nQUOTA permission=\"token.create\" limit=unlimited used=3\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "count": "2"
+        }
+      },
+      {
+        "type": "quota",
+        "fields": {
+          "permission": "live.create",
+          "limit": "0",
+          "used": "0"
+        }
+      },
+      {
+        "type": "quota",
+        "fields": {
+          "permission": "token.create",
+          "limit": "unlimited",
+          "used": "3"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{account_quotas,[{{live,create},0,0},{{token,create},unlimited,3}]}}"
+  },
+  {
+    "name": "account-opaque-preferences",
+    "wire": "OK actor=\"reader\" notifications=#{enabled => true}\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "actor": "reader",
+          "notifications": "#{enabled => true}"
+        }
+      }
+    ],
+    "server_response_term": "{ok,[{actor,<<\"reader\">>},{notifications,#{enabled=>true}}]}"
+  },
+  {
+    "name": "translation-catalog-sparse",
+    "wire": "OK translation=\"web\" books=1\nBOOK book=19 name=\"Psalms\" chapters=2\nCHAPTER book=19 chapter=1 verses=1\nCHAPTER book=19 chapter=23 verses=2\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "translation": "web",
+          "books": "1"
+        }
+      },
+      {
+        "type": "book",
+        "fields": {
+          "book": "19",
+          "name": "Psalms",
+          "chapters": "2"
+        }
+      },
+      {
+        "type": "chapter",
+        "fields": {
+          "book": "19",
+          "chapter": "1",
+          "verses": "1"
+        }
+      },
+      {
+        "type": "chapter",
+        "fields": {
+          "book": "19",
+          "chapter": "23",
+          "verses": "2"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{books,<<\"web\">>,[#{book=>19,name=><<\"Psalms\">>,chapters=>[#{chapter=>1,verses=>1},#{chapter=>23,verses=>2}]}]}}"
+  },
+  {
+    "name": "translation-metadata-fields",
+    "wire": "OK short_name=\"WEB\" full_name=\"World English Bible\" rights_status=\"public_domain\" attribution=\"Publisher credit\" future=\"kept\"\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "short_name": "WEB",
+          "full_name": "World English Bible",
+          "rights_status": "public_domain",
+          "attribution": "Publisher credit",
+          "future": "kept"
+        }
+      }
+    ],
+    "server_response_term": "{ok,[{short_name,<<\"WEB\">>},{full_name,<<\"World English Bible\">>},{<<\"rights_status\">>,<<\"public_domain\">>},{<<\"attribution\">>,<<\"Publisher credit\">>},{<<\"future\">>,<<\"kept\">>}]}"
+  },
+  {
+    "name": "typed-identity",
+    "wire": "OK actor=\"member\" auth=true roles=\"member\" permissions=\"translation.read,live.get\" auth_provider=\"email\"\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "actor": "member",
+          "auth": "true",
+          "roles": "member",
+          "permissions": "translation.read,live.get",
+          "auth_provider": "email"
+        }
+      }
+    ],
+    "server_response_term": "{ok,[{actor,<<\"member\">>},{auth,true},{roles,<<\"member\">>},{permissions,<<\"translation.read,live.get\">>},{auth_provider,<<\"email\">>}]}"
+  },
+  {
+    "name": "typed-single-verse",
+    "wire": "OK translation=\"web\" book=19 chapter=23 verse=1 text=\"Fixture verse\"\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "translation": "web",
+          "book": "19",
+          "chapter": "23",
+          "verse": "1",
+          "text": "Fixture verse"
+        }
+      }
+    ],
+    "server_response_term": "{ok,[{translation,<<\"web\">>},{book,19},{chapter,23},{verse,1},{text,<<\"Fixture verse\">>}]}"
+  },
+  {
+    "name": "typed-live-stack",
+    "wire": "OK id=\"live\" count=1\nSTACK position=1 translation=\"web\" reference=\"Psalms 23:1\" text=\"Fixture verse\"\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "id": "live",
+          "count": "1"
+        }
+      },
+      {
+        "type": "stack",
+        "fields": {
+          "position": "1",
+          "translation": "web",
+          "reference": "Psalms 23:1",
+          "text": "Fixture verse"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{live_stack,<<\"live\">>,[#{translation=><<\"web\">>,reference=><<\"Psalms 23:1\">>,text=><<\"Fixture verse\">>}]}}"
+  },
+  {
+    "name": "token-empty",
+    "wire": "OK actor=\"user\" count=0\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "actor": "user",
+          "count": "0"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{tokens,<<\"user\">>,[]}}"
+  },
+  {
+    "name": "control-escapes",
+    "wire": "OK label=\"first\\nsecond\\r\\t\\u0001\\u007F\"\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "label": "first\nsecond\r\t\u0001"
+        }
+      }
+    ],
+    "server_response_term": "{ok,[{label,<<\"first\",10,\"second\",13,9,1,127>>}]}"
+  },
+  {
+    "name": "token-metadata-client-contract",
+    "wire": "OK actor=user count=2\nTOKEN id=one source=manual issued_at=100 scopes=\"\" retiring=false\nTOKEN id=two source=cli issued_at=101 issued_by=user label=\"Scoped\\nlabel\" scopes=\"token.get,future.read\" last_used_at=102 expires_at=200 retiring=true future=kept\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "actor": "user",
+          "count": "2"
+        }
+      },
+      {
+        "type": "token",
+        "fields": {
+          "id": "one",
+          "source": "manual",
+          "issued_at": "100",
+          "scopes": "",
+          "retiring": "false"
+        }
+      },
+      {
+        "type": "token",
+        "fields": {
+          "id": "two",
+          "source": "cli",
+          "issued_at": "101",
+          "issued_by": "user",
+          "label": "Scoped\nlabel",
+          "scopes": "token.get,future.read",
+          "last_used_at": "102",
+          "expires_at": "200",
+          "retiring": "true",
+          "future": "kept"
+        }
+      }
+    ]
+  },
+  {
+    "name": "token-scopes-encoder",
+    "wire": "OK actor=\"user\" count=1\nTOKEN id=\"test\" scopes=\"token.get,live.get\"\nEND\n",
+    "records": [
+      {
+        "type": "ok",
+        "fields": {
+          "actor": "user",
+          "count": "1"
+        }
+      },
+      {
+        "type": "token",
+        "fields": {
+          "id": "test",
+          "scopes": "token.get,live.get"
+        }
+      }
+    ],
+    "server_response_term": "{ok,{tokens,<<\"user\">>,[#{id=><<\"test\">>,scopes=>[{token,get},{live,get}]}]}}"
+  }
+]

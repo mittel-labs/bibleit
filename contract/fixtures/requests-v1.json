@@ -1,0 +1,137 @@
+[
+  {
+    "name": "ping",
+    "wire": "PING",
+    "server_term": "{ok,ping}"
+  },
+  {
+    "name": "server-info",
+    "wire": "SERVER INFO",
+    "server_term": "{ok,server_info}"
+  },
+  {
+    "name": "account-info",
+    "wire": "ACCOUNT INFO",
+    "server_term": "{ok,account_info}"
+  },
+  {
+    "name": "account-quotas",
+    "wire": "ACCOUNT QUOTA LIST",
+    "server_term": "{ok,account_quotas}"
+  },
+  {
+    "name": "translations",
+    "wire": "ACCOUNT TRANSLATION LIST",
+    "server_term": "{ok,account_list_translations}"
+  },
+  {
+    "name": "read-multiword",
+    "wire": "READ web \"Song of Songs\" 2 1",
+    "server_term": "{ok,{read_named,<<\"web\">>,<<\"Song of Songs\">>,2,1}}"
+  },
+  {
+    "name": "read-compact",
+    "wire": "READ web 43 3:16",
+    "server_term": "{ok,{read,<<\"web\">>,43,3,16}}"
+  },
+  {
+    "name": "search-backslash",
+    "wire": "SEARCH web \"love \\ peace\"",
+    "server_term": "{ok,{search,<<\"web\">>,<<\"love \\\\ peace\">>}}"
+  },
+  {
+    "name": "live-name",
+    "wire": "LIVE CREATE \"Sunday Service\"",
+    "server_term": "{ok,{create_live,<<\"Sunday Service\">>}}"
+  },
+  {
+    "name": "secret-authenticate",
+    "wire": "LIVE abc SECRET audience-secret",
+    "server_term": "{ok,{authenticate_live_secret,<<\"abc\">>,<<\"audience-secret\">>}}"
+  },
+  {
+    "name": "secret-create",
+    "wire": "LIVE abc SECRET CREATE",
+    "server_term": "{ok,{create_live_secret,<<\"abc\">>}}"
+  },
+  {
+    "name": "secret-set-unsupported",
+    "wire": "LIVE abc SECRET SET audience-secret",
+    "server_term": "{error,bad_command}"
+  },
+  {
+    "name": "secret-rotate",
+    "wire": "LIVE abc SECRET ROTATE",
+    "server_term": "{ok,{rotate_live_secret,<<\"abc\">>}}"
+  },
+  {
+    "name": "stack-negative-pop",
+    "wire": "LIVE abc STACK POP -1",
+    "server_term": "{ok,{pop_live,<<\"abc\">>,-1}}"
+  },
+  {
+    "name": "stack-zero-pop",
+    "wire": "LIVE abc STACK POP 0",
+    "server_term": "{error,bad_command}"
+  },
+  {
+    "name": "subscription",
+    "wire": "LIVE abc SUBSCRIBE",
+    "server_term": "{ok,{subscribe_live,<<\"abc\">>}}"
+  },
+  {
+    "name": "unterminated-request-quote",
+    "wire": "SEARCH web \"unfinished",
+    "server_term": "{error,bad_command}"
+  },
+  {
+    "name": "help-root",
+    "wire": "HELP",
+    "server_term": "{ok,{help,<<\"root\">>}}"
+  },
+  {
+    "name": "help-account",
+    "wire": "HELP ACCOUNT",
+    "server_term": "{ok,{help,<<\"ACCOUNT\">>}}"
+  },
+  {
+    "name": "translation-info",
+    "wire": "TRANSLATION INFO web",
+    "server_term": "{ok,{translation_info,<<\"web\">>}}"
+  },
+  {
+    "name": "translation-catalog",
+    "wire": "TRANSLATION CATALOG web",
+    "server_term": "{ok,{translation_catalog,<<\"web\">>}}"
+  },
+  {
+    "name": "identity-info",
+    "wire": "AUTH INFO",
+    "server_term": "{ok,auth_info}"
+  },
+  {
+    "name": "read-chapter",
+    "wire": "READ web 19 23",
+    "server_term": "{ok,{read,<<\"web\">>,19,23}}"
+  },
+  {
+    "name": "live-info",
+    "wire": "LIVE live INFO",
+    "server_term": "{ok,{get_live,<<\"live\">>}}"
+  },
+  {
+    "name": "live-statistics",
+    "wire": "LIVE live STATS",
+    "server_term": "{ok,{live_stats,<<\"live\">>}}"
+  },
+  {
+    "name": "live-stack-info",
+    "wire": "LIVE live STACK INFO",
+    "server_term": "{ok,{live_stack_info,<<\"live\">>}}"
+  },
+  {
+    "name": "account-tokens",
+    "wire": "ACCOUNT TOKEN LIST",
+    "server_term": "{ok,account_list_tokens}"
+  }
+]

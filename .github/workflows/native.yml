@@ -1,0 +1,63 @@
+name: Native CLI validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Prepare Linux shell runtimes
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fish zsh openssh-client
+      - name: Prepare Windows race-test compiler and OpenSSH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command gcc -ErrorAction SilentlyContinue)) {
+            $compilerDir = @('C:\mingw64\bin', 'C:\msys64\ucrt64\bin', 'C:\msys64\mingw64\bin') |
+              Where-Object { Test-Path (Join-Path $_ 'gcc.exe') } | Select-Object -First 1
+            if (-not $compilerDir) { throw 'Native Go race tests require MinGW GCC' }
+            $compilerDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+          "$env:WINDIR\System32\OpenSSH" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Toolchain evidence
+        run: |
+          go version
+          go env GOOS GOARCH
+      - name: Native race tests
+        env:
+          CGO_ENABLED: '1'
+        run: go test -race -count=1 ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build native binary
+        env:
+          CGO_ENABLED: '0'
+        run: go build -o build/bibleit${{ runner.os == 'Windows' && '.exe' || '' }} .
+      - name: Native process smoke tests
+        run: python scripts/check_cli_runtime.py --binary build/bibleit${{ runner.os == 'Windows' && '.exe' || '' }}
+      - name: Fish, Bash and Zsh runtime checks
+        if: runner.os == 'Linux'
+        run: python scripts/check_cli_runtime.py --binary build/bibleit --shells bash zsh fish

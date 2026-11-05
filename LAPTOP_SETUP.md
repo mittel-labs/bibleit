@@ -1,6 +1,6 @@
 # Set up Bibleit on a new laptop
 
-These steps install the terminal operator, import the NVI, NIV, and LUT files in this repository, and run a local browser viewer. Internet access is needed for the initial clone and installation; the imported translations can then be read offline.
+These steps install the terminal operator, import the NVI, NIV, LUT, ACF, and ARA files in this repository, and run a local browser viewer. Internet access is needed for the initial clone and installation; the imported translations can then be read offline.
 
 ## 1. Install prerequisites
 
@@ -34,10 +34,14 @@ Run these commands from the repository root with the environment activated:
 bibleit --import-translation translations/nvi --slug LOCALNVI --name NVI
 bibleit --import-translation translations/niv --slug LOCALNIV --name NIV
 bibleit --import-translation translations/lut --slug LOCALLUT --name LUT
+bibleit --import-translation translations/acf --slug LOCALACF --name ACF
+bibleit --import-translation translations/ara --slug LOCALARA --name ARA
 bibleit --list-translations
 bibleit -t LOCALNVI 'João 3:16'
 bibleit -t LOCALNIV 'John 3:16'
 bibleit -t LOCALLUT 'Johannes 3:16'
+bibleit -t LOCALACF 'João 3:16'
+bibleit -t LOCALARA 'João 3:16'
 ```
 
 Imports copy the files and their indexes into `~/.bibleit`. You only need to import them once per user account. To read in the terminal interface, run `bibleit`, press **Ctrl+T**, and open the translations from **Installed**. The files must contain books in canonical order; the importer does not verify the names or order of those books.
@@ -66,9 +70,11 @@ Open a translation and press **Ctrl+L** to publish to the viewer. Stop the relay
 From the repository root, compare the included files using NVI as the reference:
 
 ```bash
-python tools/align_translations.py translations/nvi translations/niv translations/lut
+python tools/align_translations.py translations/nvi translations/niv translations/lut translations/acf translations/ara
 ```
 
 To create aligned copies, add `--output-dir aligned` (the output directory must not already exist). The script keeps every original verse, retains extra references, and inserts `[Verse not present in source translation]` for missing verse numbers. Import the copies instead of the originals using the commands above, replacing `translations/` with `aligned/`. If a slug is already installed, uninstall it in the translations screen before importing its replacement.
 
 This checks reference numbers only. It assumes each file has the same 66 books in canonical order and cannot tell whether differently numbered verses contain equivalent text. Review versification differences manually before relying on alignment. The original files are never changed.
+
+The supplied ARA file has a placeholder at Luke 9:61: its source labeled Luke 9:62 as 9:61 and did not include the text of 9:61.

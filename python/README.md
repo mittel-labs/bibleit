@@ -253,3 +253,16 @@ Then open:
 ```text
 http://localhost:8000
 ```
+
+## Import a local translation
+
+Import a UTF-8 text file with one verse per line, such as `Genesis 1:1 In the beginning...`:
+
+```bash
+bibleit --import-translation /path/to/niv --slug LOCALNIV --name "Local NIV"
+bibleit -t LOCALNIV 'John 3:16'
+```
+
+The import copies the file and creates an index in `~/.bibleit`. Supply all 66 books in canonical order; book names may be localized. Imported translations work offline and appear in the TUI's installed translations. Importing does not change the original file. Uninstall the translation before importing a replacement with the same slug.
+
+For a local live viewer, start `bibleit --live 127.0.0.1 8000`, open `http://127.0.0.1:8000` in a browser, and start the TUI with `BIBLEIT_LIVE_URL=http://127.0.0.1:8000 bibleit`. Press Ctrl+L to publish. Use the computer's network address instead of `127.0.0.1` when viewers connect from other devices, and bind the server to an appropriate interface.

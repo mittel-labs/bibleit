@@ -28,6 +28,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     namespace = parser.parse_args(args)
 
+    if namespace.import_translation:
+        if not namespace.slug:
+            parser.error("--import-translation requires --slug")
+        from pathlib import Path
+        try:
+            translation.import_local(Path(namespace.import_translation), namespace.slug, namespace.name)
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"bibleit: {exc}", file=sys.stderr)
+            return 1
+        return 0
+
     if namespace.tui:
         return _run_tui()
 
@@ -82,6 +93,9 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="List installed translations and exit.",
     )
+    parser.add_argument("--import-translation", metavar="PATH", help="Import a local verse-per-line translation.")
+    parser.add_argument("--slug", help="Unique slug for a local import.")
+    parser.add_argument("--name", help="Display name for a local import.")
     parser.add_argument(
         "--tui",
         action="store_true",

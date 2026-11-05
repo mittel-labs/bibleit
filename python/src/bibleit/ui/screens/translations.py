@@ -53,7 +53,12 @@ class Translations(Screen):
                 active_node = node
         installed.expand_all()
 
-        for lang in translation.get_languages_available():
+        try:
+            languages = translation.get_languages_available()
+        except Exception as exc:
+            languages = []
+            self.notify(f"Online catalog unavailable: {exc}", severity="warning")
+        for lang in languages:
             language = available.add(lang.name)
             for t in lang.translations:
                 if not translation.is_installed(t.slug):

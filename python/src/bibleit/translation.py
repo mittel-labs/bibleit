@@ -1,6 +1,9 @@
 from __future__ import annotations
 import requests
 import json
+import re
+import shutil
+import tempfile
 from pathlib import Path
 from operator import attrgetter
 from dataclasses import dataclass
@@ -170,6 +173,12 @@ def install_dictionary(name: str) -> Path:
 
 @cache
 def get_translation_available(slug: str):
+    local = TRANSLATIONS_DIR / f"{slug}.local.json"
+    if local.exists():
+        data = json.loads(local.read_text(encoding="utf-8"))
+        return TranslationHeader(name=data["name"], slug=slug, chapters={
+            unidecode(b["name"]): TranslationChapter(**b) for b in data["chapters"]
+        })
     for language in get_languages_config():
         for translation in language["translations"]:
             if translation["short_name"] == slug:
@@ -239,7 +248,60 @@ def install(slug: str) -> Path:
     return translation
 
 
+def import_local(source: Path, slug: str, name: str | None = None) -> Path:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", slug):
+        raise ValueError("slug must contain only letters, digits, hyphens or underscores")
+    if any(p.stem.casefold() == slug.casefold() for p in TRANSLATIONS_DIR.glob("*.bt")):
+        raise ValueError(f"translation already installed: {slug}")
+    books = []
+    seen = set()
+    previous = (0, 0)
+    pattern = re.compile(r"^(.+?) (\d+):(\d+) (.+)$")
+    with source.open(encoding="utf-8") as stream:
+        for number, line in enumerate(stream, 1):
+            match = pattern.fullmatch(line.rstrip("\r\n"))
+            if not match:
+                raise ValueError(f"invalid verse at line {number}")
+            book, chapter, verse, _ = match.groups()
+            chapter, verse = int(chapter), int(verse)
+            if not books or books[-1]["name"] != book:
+                if book in seen or chapter != 1 or verse != 1:
+                    raise ValueError(f"invalid book sequence at line {number}")
+                seen.add(book)
+                books.append(dict(bookid=len(books) + 1, original_bookid=len(books) + 1,
+                                  name=book, chronorder=len(books) + 1, chapters=0))
+                previous = (0, 0)
+            if chapter < 1 or verse < 1 or (chapter, verse) <= previous:
+                raise ValueError(f"invalid verse order at line {number}")
+            previous = chapter, verse
+            books[-1]["chapters"] = max(books[-1]["chapters"], chapter)
+    if len(books) != 66:
+        raise ValueError(f"expected 66 books, found {len(books)}")
+    target = TRANSLATIONS_DIR / f"{slug}.bt"
+    index = TRANSLATIONS_DIR / f"{slug}.bidx"
+    metadata = TRANSLATIONS_DIR / f"{slug}.local.json"
+    with tempfile.TemporaryDirectory(dir=TRANSLATIONS_DIR) as temporary:
+        tmp = Path(temporary)
+        shutil.copyfile(source, tmp / "source.bt")
+        rc = libbibleit.bidx_create(str(tmp / "index.bidx").encode(), str(tmp / "source.bt").encode())
+        if rc != 0:
+            raise RuntimeError(f"failed to create index: {rc}")
+        try:
+            (tmp / "source.bt").replace(target)
+            (tmp / "index.bidx").replace(index)
+            metadata.write_text(json.dumps({"name": name or slug, "chapters": books}, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            target.unlink(missing_ok=True)
+            index.unlink(missing_ok=True)
+            metadata.unlink(missing_ok=True)
+            raise
+    get_translation_available.cache_clear()
+    return target
+
+
 def uninstall(slug: str):
+    (TRANSLATIONS_DIR / f"{slug}.local.json").unlink(missing_ok=True)
+    get_translation_available.cache_clear()
     index = TRANSLATIONS_DIR / TRANSLATION_INDEX_FILE.format(name=slug)
     if index.exists():
         index.unlink()

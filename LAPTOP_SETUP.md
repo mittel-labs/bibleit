@@ -60,3 +60,15 @@ BIBLEIT_LIVE_URL=http://127.0.0.1:8000 bibleit
 ```
 
 Open a translation and press **Ctrl+L** to publish to the viewer. Stop the relay with Ctrl+C in its terminal. For viewers on other devices, bind the relay to an appropriate network interface and open the laptop's reachable network address on port 8000; `127.0.0.1` is accessible only on the laptop itself.
+
+## Check or align verse references
+
+From the repository root, compare the included files using NVI as the reference:
+
+```bash
+python tools/align_translations.py translations/nvi translations/niv translations/lut
+```
+
+To create aligned copies, add `--output-dir aligned` (the output directory must not already exist). The script keeps every original verse, retains extra references, and inserts `[Verse not present in source translation]` for missing verse numbers. Import the copies instead of the originals using the commands above, replacing `translations/` with `aligned/`. If a slug is already installed, uninstall it in the translations screen before importing its replacement.
+
+This checks reference numbers only. It assumes each file has the same 66 books in canonical order and cannot tell whether differently numbered verses contain equivalent text. Review versification differences manually before relying on alignment. The original files are never changed.

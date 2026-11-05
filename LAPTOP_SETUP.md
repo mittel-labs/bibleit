@@ -1,6 +1,6 @@
 # Set up Bibleit on a new laptop
 
-These steps install the terminal operator, import the NVI and NIV files in this repository, and run a local browser viewer. Internet access is needed for the initial clone and installation; the imported translations can then be read offline.
+These steps install the terminal operator, import the NVI, NIV, and LUT files in this repository, and run a local browser viewer. Internet access is needed for the initial clone and installation; the imported translations can then be read offline.
 
 ## 1. Install prerequisites
 
@@ -33,12 +33,14 @@ Run these commands from the repository root with the environment activated:
 ```bash
 bibleit --import-translation translations/nvi --slug LOCALNVI --name NVI
 bibleit --import-translation translations/niv --slug LOCALNIV --name NIV
+bibleit --import-translation translations/lut --slug LOCALLUT --name LUT
 bibleit --list-translations
 bibleit -t LOCALNVI 'João 3:16'
 bibleit -t LOCALNIV 'John 3:16'
+bibleit -t LOCALLUT 'Johannes 3:16'
 ```
 
-Imports copy the files and their indexes into `~/.bibleit`. You only need to import them once per user account. To read in the terminal interface, run `bibleit`, press **Ctrl+T**, and open each translation from **Installed**. The files must contain books in canonical order; the importer does not verify the names or order of those books.
+Imports copy the files and their indexes into `~/.bibleit`. You only need to import them once per user account. To read in the terminal interface, run `bibleit`, press **Ctrl+T**, and open the translations from **Installed**. The files must contain books in canonical order; the importer does not verify the names or order of those books.
 
 ## 4. Run the local live viewer
 
